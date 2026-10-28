@@ -9,13 +9,12 @@ import { TOKENS, makeShadow } from '../constants/tokens';
 import { NotificationService } from '../services/notificationService';
 import { computeNightTimes } from '../services/prayerCalculation';
 import { cityNow } from '../services/cityTime';
+import { usePalette } from '../theme/palette';
 
 export const PrayerTimesScreen: React.FC = () => {
   const {
     goBack,
     navigate,
-    theme,
-    themeMode,
     t,
     currentCity,
     setCurrentCity,
@@ -34,7 +33,7 @@ export const PrayerTimesScreen: React.FC = () => {
   const [citySearch, setCitySearch] = useState('');
   const [calcModalVisible, setCalcModalVisible] = useState(false);
 
-  const c = theme;
+  const p = usePalette();
 
   const prayers = [
     { key: 'fajr' as const, nameAr: 'الفجر', nameEn: 'Fajr', time: prayerTimes.fajr.timeStr, icon: 'sunrise' as const, note: 'وقت الامتناع عن المفطرات' },
@@ -60,7 +59,7 @@ export const PrayerTimesScreen: React.FC = () => {
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('مواقيت الصلاة والأذان', 'Prayer Times & Adhan')}
         subtitle={`${currentCity.nameAr} • ${currentCity.countryAr}`}
@@ -78,19 +77,19 @@ export const PrayerTimesScreen: React.FC = () => {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: c.surface,
+            backgroundColor: p.surface,
             borderRadius: 16,
             padding: 14,
             marginBottom: 16,
             borderWidth: 1,
-            borderColor: c.border
+            borderColor: p.border
           }}
         >
           <View style={{ flex: 1 }}>
-            <TextUI variant="caption" color={c.textSecondary}>
+            <TextUI variant="caption" color={p.muted}>
               {t('المدينة الحالية', 'Current City')}
             </TextUI>
-            <TextUI variant="h3" color={c.textPrimary}>
+            <TextUI variant="h3" color={p.ink}>
               {currentCity.nameAr}
             </TextUI>
           </View>
@@ -102,10 +101,10 @@ export const PrayerTimesScreen: React.FC = () => {
               style={{
                 padding: 10,
                 borderRadius: TOKENS.radius.pill,
-                backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20'
+                backgroundColor: p.soft
               }}
             >
-              <Feather name="navigation" size={16} color={TOKENS.colors.primary} />
+              <Feather name="navigation" size={16} color={p.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -118,11 +117,11 @@ export const PrayerTimesScreen: React.FC = () => {
                 paddingHorizontal: 14,
                 paddingVertical: 8,
                 borderRadius: TOKENS.radius.pill,
-                backgroundColor: TOKENS.colors.primary
+                backgroundColor: p.primary
               }}
             >
-              <Feather name="globe" size={14} color="#FFFFFF" />
-              <TextUI variant="captionBold" color="#FFFFFF">
+              <Feather name="globe" size={14} color={p.onPrimary} />
+              <TextUI variant="captionBold" color={p.onPrimary}>
                 {t('تغيير المدينة', 'Change')}
               </TextUI>
             </TouchableOpacity>
@@ -131,20 +130,20 @@ export const PrayerTimesScreen: React.FC = () => {
 
         {/* 6 Prayer Times Cards */}
         <View style={{ gap: 10, marginBottom: 20 }}>
-          {prayers.map((p) => {
-            const hasBell = p.key !== 'sunrise' ? prayerBells[p.key] : false;
+          {prayers.map((pr) => {
+            const hasBell = pr.key !== 'sunrise' ? prayerBells[pr.key] : false;
             return (
               <View
-                key={p.key}
+                key={pr.key}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   borderRadius: 16,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 2)
                 }}
               >
@@ -154,43 +153,43 @@ export const PrayerTimesScreen: React.FC = () => {
                       width: 44,
                       height: 44,
                       borderRadius: 22,
-                      backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
+                      backgroundColor: p.soft,
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}
                   >
-                    <Feather name={p.icon as any} size={20} color={TOKENS.colors.primary} />
+                    <Feather name={pr.icon as any} size={20} color={p.primary} />
                   </View>
 
                   <View>
-                    <TextUI cairo size={13} weight="bold" color={c.textPrimary}>
-                      {p.nameAr}
+                    <TextUI cairo size={13} weight="bold" color={p.ink}>
+                      {pr.nameAr}
                     </TextUI>
-                    <TextUI variant="caption" color={c.textSecondary}>
-                      {p.note}
+                    <TextUI variant="caption" color={p.muted}>
+                      {pr.note}
                     </TextUI>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <TextUI variant="h2" color={TOKENS.colors.primaryDark}>
-                    {p.time}
+                  <TextUI variant="h2" color={p.primaryInk}>
+                    {pr.time}
                   </TextUI>
 
-                  {p.key !== 'sunrise' && (
+                  {pr.key !== 'sunrise' && (
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      onPress={() => togglePrayerBell(p.key)}
+                      onPress={() => togglePrayerBell(pr.key)}
                       style={{
                         padding: 8,
                         borderRadius: 20,
-                        backgroundColor: hasBell ? (themeMode === 'light' ? '#FFF5EA' : '#382A20') : 'transparent'
+                        backgroundColor: hasBell ? p.soft : 'transparent'
                       }}
                     >
                       <Feather
                         name={hasBell ? 'bell' : 'bell-off'}
                         size={18}
-                        color={hasBell ? TOKENS.colors.secondary : c.textSecondary}
+                        color={hasBell ? p.accentInk : p.muted}
                       />
                     </TouchableOpacity>
                   )}
@@ -209,9 +208,9 @@ export const PrayerTimesScreen: React.FC = () => {
                 { label: t('منتصف الليل', 'Midnight'), value: night.midnight },
                 { label: t('الثلث الأخير', 'Last third'), value: night.lastThird }
               ].map((item) => (
-                <View key={item.label} style={{ flex: 1, backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border }}>
-                  <TextUI variant="caption" color={c.textSecondary}>{item.label}</TextUI>
-                  <TextUI variant="h3" color={c.textPrimary}>{item.value}</TextUI>
+                <View key={item.label} style={{ flex: 1, backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border }}>
+                  <TextUI variant="caption" color={p.muted}>{item.label}</TextUI>
+                  <TextUI variant="h3" color={p.ink}>{item.value}</TextUI>
                 </View>
               ))}
             </View>
@@ -219,7 +218,7 @@ export const PrayerTimesScreen: React.FC = () => {
         })()}
 
         {/* Shortcuts: monthly table, alerts, qibla */}
-        <View style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.border, marginBottom: 20, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: p.surface, borderRadius: 18, borderWidth: 1, borderColor: p.border, marginBottom: 20, overflow: 'hidden' }}>
           {[
             { key: 'prayer_month', label: t('مواقيت الشهر', 'Monthly times'), icon: 'calendar' as const },
             { key: 'adhan_settings', label: t('الأذان والإقامة', 'Adhan & iqama alerts'), icon: 'bell' as const },
@@ -230,11 +229,11 @@ export const PrayerTimesScreen: React.FC = () => {
               activeOpacity={0.8}
               accessibilityRole="button"
               onPress={() => navigate(item.key)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: c.border }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
             >
-              <Feather name={item.icon} size={18} color={TOKENS.colors.primary} />
-              <TextUI size={15} weight="medium" color={c.textPrimary} style={{ flex: 1 }}>{item.label}</TextUI>
-              <Feather name="chevron-left" size={18} color={c.textSecondary} />
+              <Feather name={item.icon} size={18} color={p.primary} />
+              <TextUI size={15} weight="medium" color={p.ink} style={{ flex: 1 }}>{item.label}</TextUI>
+              <Feather name="chevron-left" size={18} color={p.muted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -242,16 +241,16 @@ export const PrayerTimesScreen: React.FC = () => {
         {/* Settings & Calculation Method Selectors */}
         <View
           style={{
-            backgroundColor: c.surface,
+            backgroundColor: p.surface,
             borderRadius: 18,
             padding: 16,
             borderWidth: 1,
-            borderColor: c.border,
+            borderColor: p.border,
             gap: 14,
             marginBottom: 20
           }}
         >
-          <TextUI size={15} weight="bold" color={c.textPrimary}>
+          <TextUI size={15} weight="bold" color={p.ink}>
             {t('طريقة الحساب الفلكي والمذهب', 'Calculation Method & Fiqh')}
           </TextUI>
 
@@ -264,26 +263,26 @@ export const PrayerTimesScreen: React.FC = () => {
               alignItems: 'center',
               paddingVertical: 10,
               borderBottomWidth: 1,
-              borderColor: c.border
+              borderColor: p.border
             }}
           >
             <View>
-              <TextUI size={12} color={c.textSecondary}>
+              <TextUI size={12} color={p.muted}>
                 {t('طريقة حساب المواقيت', 'Authority')}
               </TextUI>
-              <TextUI size={14} weight="bold" color={TOKENS.colors.primary}>
+              <TextUI size={14} weight="bold" color={p.primary}>
                 {calcMethods.find((m) => m.id === calculationMethod)?.titleAr}
               </TextUI>
             </View>
-            <Feather name="chevron-left" size={18} color={c.textSecondary} />
+            <Feather name="chevron-left" size={18} color={p.muted} />
           </TouchableOpacity>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
-              <TextUI size={12} color={c.textSecondary}>
+              <TextUI size={12} color={p.muted}>
                 {t('مذهب حساب صلاة العصر', 'Asr Juristic Method')}
               </TextUI>
-              <TextUI size={14} weight="bold" color={c.textPrimary}>
+              <TextUI size={14} weight="bold" color={p.ink}>
                 {asrMethod === 'standard' ? 'جمهور الفقهاء (الشافعي والمالكي وأحمد)' : 'المذهب الحنفي (مصير الظل مثليه)'}
               </TextUI>
             </View>
@@ -295,13 +294,13 @@ export const PrayerTimesScreen: React.FC = () => {
                 setAsrMethod(asrMethod === 'standard' ? 'hanafi' : 'standard');
               }}
               style={{
-                backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20',
+                backgroundColor: p.soft,
                 paddingHorizontal: 12,
                 paddingVertical: 6,
                 borderRadius: TOKENS.radius.pill
               }}
             >
-              <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>
+              <TextUI size={12} weight="bold" color={p.primary}>
                 {t('تبديل', 'Toggle')}
               </TextUI>
             </TouchableOpacity>
@@ -320,15 +319,15 @@ export const PrayerTimesScreen: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
-            backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
+            backgroundColor: p.soft,
             paddingVertical: 14,
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: TOKENS.colors.secondary
+            borderColor: p.accent
           }}
         >
-          <Feather name="bell" size={16} color={TOKENS.colors.primaryDark} />
-          <TextUI size={14} weight="bold" color={TOKENS.colors.primaryDark}>
+          <Feather name="bell" size={16} color={p.primaryInk} />
+          <TextUI size={14} weight="bold" color={p.primaryInk}>
             {t('تجربة صوت الأذان والتنبيه', 'Test Adhan Notification')}
           </TextUI>
         </TouchableOpacity>
@@ -340,33 +339,33 @@ export const PrayerTimesScreen: React.FC = () => {
           <View
             style={{
               height: '75%',
-              backgroundColor: c.bg,
+              backgroundColor: p.bg,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               padding: 20
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <TextUI size={18} weight="bold" color={c.textPrimary}>
+              <TextUI size={18} weight="bold" color={p.ink}>
                 {t('اختر المدينة', 'Select City')}
               </TextUI>
               <TouchableOpacity onPress={() => setCityModalVisible(false)}>
-                <Feather name="x" size={22} color={c.textPrimary} />
+                <Feather name="x" size={22} color={p.ink} />
               </TouchableOpacity>
             </View>
 
             <TextInput
               placeholder={t('ابحث عن دولة أو مدينة...', 'Search city or country...')}
-              placeholderTextColor={c.textSecondary}
+              placeholderTextColor={p.muted}
               value={citySearch}
               onChangeText={setCitySearch}
               style={{
-                backgroundColor: c.surface,
+                backgroundColor: p.surface,
                 borderRadius: 12,
                 padding: 12,
-                color: c.textPrimary,
+                color: p.ink,
                 borderWidth: 1,
-                borderColor: c.border,
+                borderColor: p.border,
                 marginBottom: 14,
                 textAlign: 'right'
               }}
@@ -389,19 +388,19 @@ export const PrayerTimesScreen: React.FC = () => {
                     alignItems: 'center',
                     paddingVertical: 14,
                     borderBottomWidth: 1,
-                    borderColor: c.border
+                    borderColor: p.border
                   }}
                 >
                   <View>
-                    <TextUI size={15} weight="bold" color={c.textPrimary}>
+                    <TextUI size={15} weight="bold" color={p.ink}>
                       {item.nameAr}
                     </TextUI>
-                    <TextUI size={12} color={c.textSecondary}>
+                    <TextUI size={12} color={p.muted}>
                       {item.country}
                     </TextUI>
                   </View>
                   {item.id === currentCity.id && (
-                    <Feather name="check" size={18} color={TOKENS.colors.primary} />
+                    <Feather name="check" size={18} color={p.primary} />
                   )}
                 </TouchableOpacity>
               )}
@@ -413,13 +412,13 @@ export const PrayerTimesScreen: React.FC = () => {
       {/* Calculation Method Modal */}
       <Modal visible={calcModalVisible} animationType="fade" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: c.bg, borderRadius: 20, padding: 20, maxHeight: '80%' }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20, maxHeight: '80%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <TextUI size={18} weight="bold" color={c.textPrimary}>
+              <TextUI size={18} weight="bold" color={p.ink}>
                 {t('طريقة الحساب الفلكي', 'Calculation Method')}
               </TextUI>
               <TouchableOpacity onPress={() => setCalcModalVisible(false)}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
@@ -435,20 +434,20 @@ export const PrayerTimesScreen: React.FC = () => {
                 style={{
                   paddingVertical: 14,
                   borderBottomWidth: 1,
-                  borderColor: c.border
+                  borderColor: p.border
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
-                    <TextUI size={14} weight="bold" color={m.id === calculationMethod ? TOKENS.colors.primary : c.textPrimary}>
+                    <TextUI size={14} weight="bold" color={m.id === calculationMethod ? p.primary : p.ink}>
                       {m.titleAr}
                     </TextUI>
-                    <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                    <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                       {m.note}
                     </TextUI>
                   </View>
                   {m.id === calculationMethod && (
-                    <Feather name="check" size={18} color={TOKENS.colors.primary} />
+                    <Feather name="check" size={18} color={p.primary} />
                   )}
                 </View>
               </TouchableOpacity>

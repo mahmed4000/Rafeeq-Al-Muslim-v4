@@ -6,10 +6,11 @@ import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
+import { usePalette } from '../theme/palette';
 
 export const ZakatScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, triggerHaptic } = useApp();
-  const c = theme;
+  const { goBack, t, triggerHaptic } = useApp();
+  const p = usePalette();
 
   const [activeTab, setActiveTab] = useState<'calculator' | 'fitr'>('calculator');
   const [nisabStandard, setNisabStandard] = useState<'gold' | 'silver'>('gold');
@@ -51,7 +52,7 @@ export const ZakatScreen: React.FC = () => {
   const totalFitrDue = familyMembers * fitrRate;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('حاسبة الزكاة الشرعية الذكية', 'Smart Zakat Calculator')}
         subtitle={t('زكاة المال والذهب والأسهم والفطر', 'Cash, Gold, Stocks & Zakat al-Fitr')}
@@ -65,11 +66,11 @@ export const ZakatScreen: React.FC = () => {
           marginHorizontal: 18,
           marginTop: 12,
           marginBottom: 16,
-          backgroundColor: c.surface,
+          backgroundColor: p.surface,
           borderRadius: TOKENS.radius.pill,
           padding: 4,
           borderWidth: 1,
-          borderColor: c.border
+          borderColor: p.border
         }}
       >
         <TouchableOpacity
@@ -83,10 +84,10 @@ export const ZakatScreen: React.FC = () => {
             paddingVertical: 9,
             borderRadius: TOKENS.radius.pill,
             alignItems: 'center',
-            backgroundColor: activeTab === 'calculator' ? TOKENS.colors.primary : 'transparent'
+            backgroundColor: activeTab === 'calculator' ? p.primary : 'transparent'
           }}
         >
-          <TextUI variant="captionBold" color={activeTab === 'calculator' ? '#FFFFFF' : c.textPrimary}>
+          <TextUI variant="captionBold" color={activeTab === 'calculator' ? p.onPrimary : p.ink}>
             💰 زكاة الأموال والذهب
           </TextUI>
         </TouchableOpacity>
@@ -102,10 +103,10 @@ export const ZakatScreen: React.FC = () => {
             paddingVertical: 9,
             borderRadius: TOKENS.radius.pill,
             alignItems: 'center',
-            backgroundColor: activeTab === 'fitr' ? TOKENS.colors.primary : 'transparent'
+            backgroundColor: activeTab === 'fitr' ? p.primary : 'transparent'
           }}
         >
-          <TextUI variant="captionBold" color={activeTab === 'fitr' ? '#FFFFFF' : c.textPrimary}>
+          <TextUI variant="captionBold" color={activeTab === 'fitr' ? p.onPrimary : p.ink}>
             🌾 زكاة الفطر
           </TextUI>
         </TouchableOpacity>
@@ -121,27 +122,27 @@ export const ZakatScreen: React.FC = () => {
             {/* Summary Due Card */}
             <View
               style={{
-                backgroundColor: reachesNisab ? TOKENS.colors.primaryDark : c.surface,
+                backgroundColor: reachesNisab ? p.hero : p.surface,
                 borderRadius: 20,
                 padding: 18,
                 marginBottom: 20,
                 borderWidth: 1,
-                borderColor: reachesNisab ? TOKENS.colors.primaryDark : c.border,
+                borderColor: reachesNisab ? p.hero : p.border,
                 ...makeShadow('0 8px 24px rgba(0,0,0,0.06)', '#000', 0.06, 6)
               }}
             >
-              <TextUI variant="caption" color={reachesNisab ? TOKENS.colors.secondaryLight : c.textSecondary}>
+              <TextUI variant="caption" color={reachesNisab ? p.onHeroMuted : p.muted}>
                 {t('مقدار الزكاة الواجبة شرعاً (٢.٥٪)', 'Total Zakat Due (2.5%)')}
               </TextUI>
-              <TextUI variant="h1" size={26} color={reachesNisab ? '#FFFFFF' : TOKENS.colors.primaryDark} style={{ marginVertical: 6 }}>
+              <TextUI variant="h1" size={26} color={reachesNisab ? p.onHero : p.primaryInk} style={{ marginVertical: 6 }}>
                 {toArabicNumber(zakatDue.toLocaleString('en-US', { maximumFractionDigits: 2 }))}
               </TextUI>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderColor: reachesNisab ? 'rgba(255,255,255,0.15)' : c.border }}>
-                <TextUI variant="caption" color={reachesNisab ? TOKENS.colors.secondaryLight : c.textSecondary}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderColor: reachesNisab ? 'rgba(255,255,255,0.15)' : p.border }}>
+                <TextUI variant="caption" color={reachesNisab ? p.onHeroMuted : p.muted}>
                   {reachesNisab ? '✅ بلغ النصاب وحال عليه الحول' : '⚠️ لم يبلغ النصاب الشرعي'}
                 </TextUI>
-                <TextUI variant="caption" color={reachesNisab ? TOKENS.colors.secondaryLight : c.textSecondary}>
+                <TextUI variant="caption" color={reachesNisab ? p.onHeroMuted : p.muted}>
                   النصاب: {toArabicNumber(Math.round(nisabValue))}
                 </TextUI>
               </View>
@@ -150,15 +151,15 @@ export const ZakatScreen: React.FC = () => {
             {/* Nisab Standard Selector */}
             <View
               style={{
-                backgroundColor: c.surface,
+                backgroundColor: p.surface,
                 borderRadius: 16,
                 padding: 14,
                 marginBottom: 16,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <TextUI size={13} weight="bold" color={c.textPrimary} style={{ marginBottom: 8 }}>
+              <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 8 }}>
                 {t('معيار احتساب النصاب الشرعي:', 'Nisab Standard:')}
               </TextUI>
 
@@ -171,12 +172,12 @@ export const ZakatScreen: React.FC = () => {
                     paddingVertical: 8,
                     borderRadius: 10,
                     alignItems: 'center',
-                    backgroundColor: nisabStandard === 'gold' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20') : c.bgSecondary,
+                    backgroundColor: nisabStandard === 'gold' ? p.soft : p.bgAlt,
                     borderWidth: 1,
-                    borderColor: nisabStandard === 'gold' ? TOKENS.colors.primary : c.border
+                    borderColor: nisabStandard === 'gold' ? p.primary : p.border
                   }}
                 >
-                  <TextUI size={12} weight="bold" color={nisabStandard === 'gold' ? TOKENS.colors.primaryDark : c.textPrimary}>
+                  <TextUI size={12} weight="bold" color={nisabStandard === 'gold' ? p.primaryInk : p.ink}>
                     نصاب الذهب (٨٥ غرام)
                   </TextUI>
                 </TouchableOpacity>
@@ -189,12 +190,12 @@ export const ZakatScreen: React.FC = () => {
                     paddingVertical: 8,
                     borderRadius: 10,
                     alignItems: 'center',
-                    backgroundColor: nisabStandard === 'silver' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20') : c.bgSecondary,
+                    backgroundColor: nisabStandard === 'silver' ? p.soft : p.bgAlt,
                     borderWidth: 1,
-                    borderColor: nisabStandard === 'silver' ? TOKENS.colors.primary : c.border
+                    borderColor: nisabStandard === 'silver' ? p.primary : p.border
                   }}
                 >
-                  <TextUI size={12} weight="bold" color={nisabStandard === 'silver' ? TOKENS.colors.primaryDark : c.textPrimary}>
+                  <TextUI size={12} weight="bold" color={nisabStandard === 'silver' ? p.primaryInk : p.ink}>
                     نصاب الفضة (٥٩٥ غرام)
                   </TextUI>
                 </TouchableOpacity>
@@ -204,72 +205,72 @@ export const ZakatScreen: React.FC = () => {
             {/* Assets Inputs */}
             <View style={{ gap: 12 }}>
               {/* Cash */}
-              <View style={{ backgroundColor: c.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: c.border }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary} style={{ marginBottom: 6 }}>
+              <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
+                <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
                   💵 الأموال النقدية والمدخرات البنكية
                 </TextUI>
                 <TextInput
                   placeholder="٠"
-                  placeholderTextColor={c.textSecondary}
+                  placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={cash}
                   onChangeText={setCash}
-                  style={{ backgroundColor: c.bgSecondary, borderRadius: 10, padding: 10, color: c.textPrimary, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
                 />
               </View>
 
               {/* Gold Grams */}
-              <View style={{ backgroundColor: c.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: c.border }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary} style={{ marginBottom: 6 }}>
+              <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
+                <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
                   🥇 الذهب المدخر (عيار ٢٤ أو ٢١ أو ١٨)
                 </TextUI>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput
                     placeholder="عيار ٢٤ (غرام)"
-                    placeholderTextColor={c.textSecondary}
+                    placeholderTextColor={p.muted}
                     keyboardType="numeric"
                     value={gold24}
                     onChangeText={setGold24}
-                    style={{ flex: 1, backgroundColor: c.bgSecondary, borderRadius: 10, padding: 10, color: c.textPrimary, textAlign: 'right', fontSize: 12 }}
+                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right', fontSize: 12 }}
                   />
                   <TextInput
                     placeholder="عيار ٢١ (غرام)"
-                    placeholderTextColor={c.textSecondary}
+                    placeholderTextColor={p.muted}
                     keyboardType="numeric"
                     value={gold21}
                     onChangeText={setGold21}
-                    style={{ flex: 1, backgroundColor: c.bgSecondary, borderRadius: 10, padding: 10, color: c.textPrimary, textAlign: 'right', fontSize: 12 }}
+                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right', fontSize: 12 }}
                   />
                 </View>
               </View>
 
               {/* Stocks / Trade goods */}
-              <View style={{ backgroundColor: c.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: c.border }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary} style={{ marginBottom: 6 }}>
+              <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
+                <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
                   📈 الأسهم وعروض التجارة المعدة للبيع
                 </TextUI>
                 <TextInput
                   placeholder="القيمة السوقية الحالية"
-                  placeholderTextColor={c.textSecondary}
+                  placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={stocks}
                   onChangeText={setStocks}
-                  style={{ backgroundColor: c.bgSecondary, borderRadius: 10, padding: 10, color: c.textPrimary, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
                 />
               </View>
 
               {/* Debts deduction */}
-              <View style={{ backgroundColor: c.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: c.border }}>
-                <TextUI size={13} weight="bold" color="#B34743" style={{ marginBottom: 6 }}>
+              <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
+                <TextUI size={13} weight="bold" color={p.danger} style={{ marginBottom: 6 }}>
                   📉 الديون الحالّة والالتزامات المالية الواجبة (خصم)
                 </TextUI>
                 <TextInput
                   placeholder="المبلغ الواجب سداده فوراً"
-                  placeholderTextColor={c.textSecondary}
+                  placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={debts}
                   onChangeText={setDebts}
-                  style={{ backgroundColor: c.bgSecondary, borderRadius: 10, padding: 10, color: c.textPrimary, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
                 />
               </View>
             </View>
@@ -279,25 +280,25 @@ export const ZakatScreen: React.FC = () => {
           <View style={{ gap: 14 }}>
             <View
               style={{
-                backgroundColor: TOKENS.colors.primaryDark,
+                backgroundColor: p.hero,
                 borderRadius: 20,
                 padding: 20,
                 alignItems: 'center'
               }}
             >
-              <TextUI size={14} color={TOKENS.colors.secondaryLight}>
+              <TextUI size={14} color={p.onHeroMuted}>
                 إجمالي زكاة الفطر الواجب إخراجها
               </TextUI>
-              <TextUI size={36} weight="bold" color="#FFFFFF" style={{ marginVertical: 8 }}>
+              <TextUI size={36} weight="bold" color={p.onHero} style={{ marginVertical: 8 }}>
                 {toArabicNumber(totalFitrDue)}
               </TextUI>
-              <TextUI size={12} color={TOKENS.colors.secondaryLight}>
+              <TextUI size={12} color={p.onHeroMuted}>
                 صاع نبوي من قوت البلد (أو القيمة التقديرية)
               </TextUI>
             </View>
 
-            <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: c.border }}>
-              <TextUI size={14} weight="bold" color={c.textPrimary} style={{ marginBottom: 12 }}>
+            <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: p.border }}>
+              <TextUI size={14} weight="bold" color={p.ink} style={{ marginBottom: 12 }}>
                 عدد أفراد الأسرة (عنك وعمن تلزمك نفقته):
               </TextUI>
 
@@ -305,21 +306,21 @@ export const ZakatScreen: React.FC = () => {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setFamilyMembers((m) => Math.max(1, m - 1))}
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Feather name="minus" size={20} color={c.textPrimary} />
+                  <Feather name="minus" size={20} color={p.ink} />
                 </TouchableOpacity>
 
-                <TextUI size={26} weight="bold" color={TOKENS.colors.primaryDark}>
+                <TextUI size={26} weight="bold" color={p.primaryInk}>
                   {toArabicNumber(familyMembers)}
                 </TextUI>
 
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setFamilyMembers((m) => m + 1)}
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: TOKENS.colors.primary, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.primary, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Feather name="plus" size={20} color="#FFFFFF" />
+                  <Feather name="plus" size={20} color={p.onPrimary} />
                 </TouchableOpacity>
               </View>
             </View>

@@ -9,11 +9,12 @@ import { useScreenParams } from '../navigation/routes';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { StorageService } from '../services/storage';
+import { usePalette } from '../theme/palette';
 
 export const AzkarSessionScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, triggerHaptic, isRTL } = useApp();
+  const { goBack, t, triggerHaptic, isRTL } = useApp();
   const screenParams = useScreenParams();
-  const c = theme;
+  const p = usePalette();
 
   const category: any = AZKAR_CATEGORIES.find((cat) => cat.id === screenParams?.categoryId) ||
     { id: 'morning', titleAr: 'أذكار الصباح' };
@@ -167,7 +168,7 @@ export const AzkarSessionScreen: React.FC = () => {
 
   return (
     <View
-      style={{ flex: 1, backgroundColor: c.bg }}
+      style={{ flex: 1, backgroundColor: p.bg }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -182,23 +183,23 @@ export const AzkarSessionScreen: React.FC = () => {
             style={{
               padding: 8,
               borderRadius: TOKENS.radius.pill,
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               borderWidth: 1,
-              borderColor: c.border
+              borderColor: p.border
             }}
           >
-            <Feather name="share-2" size={16} color={TOKENS.colors.primary} />
+            <Feather name="share-2" size={16} color={p.primary} />
           </TouchableOpacity>
         }
       />
 
       {/* Linear Progress Bar */}
-      <View style={{ height: 4, width: '100%', backgroundColor: c.border }}>
+      <View style={{ height: 4, width: '100%', backgroundColor: p.border }}>
         <View
           style={{
             height: '100%',
             width: `${((currentIndex + 1) / azkarList.length) * 100}%`,
-            backgroundColor: TOKENS.colors.primary
+            backgroundColor: p.primary
           }}
         />
       </View>
@@ -212,8 +213,8 @@ export const AzkarSessionScreen: React.FC = () => {
           paddingHorizontal: 16,
           paddingVertical: 10,
           borderBottomWidth: 1,
-          borderColor: c.border,
-          backgroundColor: c.surface
+          borderColor: p.border,
+          backgroundColor: p.surface
         }}
       >
         {/* Auto-Advance Toggle Pill */}
@@ -227,22 +228,20 @@ export const AzkarSessionScreen: React.FC = () => {
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 20,
-            backgroundColor: autoAdvance
-              ? themeMode === 'light' ? '#E8F5E9' : '#1B3820'
-              : themeMode === 'light' ? '#F5F5F5' : '#2D2D2D',
+            backgroundColor: autoAdvance ? p.successBg : p.bgAlt,
             borderWidth: 1,
-            borderColor: autoAdvance ? '#4CAF50' : c.border
+            borderColor: autoAdvance ? p.success : p.border
           }}
         >
           <Feather
             name={autoAdvance ? 'zap' : 'zap-off'}
             size={13}
-            color={autoAdvance ? '#2E7D32' : c.textSecondary}
+            color={autoAdvance ? p.successInk : p.muted}
           />
           <TextUI
             size={11}
             weight="bold"
-            color={autoAdvance ? '#2E7D32' : c.textSecondary}
+            color={autoAdvance ? p.successInk : p.muted}
           >
             {autoAdvance ? t('انتقال تلقائي: مفعّل', 'Auto-Advance: ON') : t('انتقال تلقائي: معطّل', 'Auto-Advance: OFF')}
           </TextUI>
@@ -257,13 +256,13 @@ export const AzkarSessionScreen: React.FC = () => {
               paddingHorizontal: 8,
               paddingVertical: 4,
               borderRadius: 8,
-              backgroundColor: themeMode === 'light' ? '#F0EAE1' : '#332A24'
+              backgroundColor: p.soft
             }}
           >
-            <Feather name="rotate-ccw" size={14} color={TOKENS.colors.primary} />
+            <Feather name="rotate-ccw" size={14} color={p.primary} />
           </TouchableOpacity>
 
-          <View style={{ width: 1, height: 16, backgroundColor: c.border, marginHorizontal: 2 }} />
+          <View style={{ width: 1, height: 16, backgroundColor: p.border, marginHorizontal: 2 }} />
 
           <TouchableOpacity
             onPress={() => changeFontSize(-2)}
@@ -272,13 +271,13 @@ export const AzkarSessionScreen: React.FC = () => {
               paddingHorizontal: 9,
               paddingVertical: 4,
               borderRadius: 8,
-              backgroundColor: themeMode === 'light' ? '#F5F5F5' : '#2A2A2A',
+              backgroundColor: p.bgAlt,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               opacity: fontSize <= 16 ? 0.4 : 1
             }}
           >
-            <TextUI size={12} weight="bold" color={c.textPrimary}>A-</TextUI>
+            <TextUI size={12} weight="bold" color={p.ink}>A-</TextUI>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -288,13 +287,13 @@ export const AzkarSessionScreen: React.FC = () => {
               paddingHorizontal: 9,
               paddingVertical: 4,
               borderRadius: 8,
-              backgroundColor: themeMode === 'light' ? '#F5F5F5' : '#2A2A2A',
+              backgroundColor: p.bgAlt,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               opacity: fontSize >= 32 ? 0.4 : 1
             }}
           >
-            <TextUI size={12} weight="bold" color={c.textPrimary}>A+</TextUI>
+            <TextUI size={12} weight="bold" color={p.ink}>A+</TextUI>
           </TouchableOpacity>
         </View>
       </View>
@@ -309,14 +308,14 @@ export const AzkarSessionScreen: React.FC = () => {
           <View
             style={{
               width: '100%',
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               borderRadius: 24,
               padding: 26,
               alignItems: 'center',
               borderWidth: 1.5,
-              borderColor: '#4CAF50',
+              borderColor: p.success,
               marginTop: 20,
-              ...makeShadow('0 8px 24px rgba(76, 175, 80, 0.15)', '#4CAF50', 0.15, 8)
+              ...makeShadow('0 8px 24px rgba(78, 125, 91, 0.15)', p.success, 0.15, 8)
             }}
           >
             <View
@@ -324,22 +323,22 @@ export const AzkarSessionScreen: React.FC = () => {
                 width: 68,
                 height: 68,
                 borderRadius: 34,
-                backgroundColor: themeMode === 'light' ? '#E8F5E9' : '#1E3B24',
+                backgroundColor: p.successBg,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 16
               }}
             >
-              <Feather name="check-circle" size={38} color="#4CAF50" />
+              <Feather name="check-circle" size={38} color={p.success} />
             </View>
 
-            <TextUI variant="h3" color={c.textPrimary} style={{ textAlign: 'center', marginBottom: 8 }}>
+            <TextUI variant="h3" color={p.ink} style={{ textAlign: 'center', marginBottom: 8 }}>
               {t('تقبل الله طاعتكم', 'May Allah Accept Your Worship')}
             </TextUI>
 
             <TextUI
               variant="body"
-              color={c.textSecondary}
+              color={p.muted}
               style={{ textAlign: 'center', lineHeight: 24, marginBottom: 24 }}
             >
               {t('أتممت بحمد الله وتوفيقه جميع أذكار هذا الباب المبارك. جعلك الله من الذاكرين الله كثيراً والذاكرات.', 'You have completed all supplications in this category by the grace of Allah.')}
@@ -354,14 +353,14 @@ export const AzkarSessionScreen: React.FC = () => {
                   setShowCompletion(false);
                 }}
                 style={{
-                  backgroundColor: TOKENS.colors.primary,
+                  backgroundColor: p.primary,
                   paddingVertical: 14,
                   borderRadius: 14,
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}
               >
-                <TextUI size={14} weight="bold" color="#FFFFFF">
+                <TextUI size={14} weight="bold" color={p.onPrimary}>
                   {t('إعادة قراءة الأذكار من البداية', 'Read Again from Beginning')}
                 </TextUI>
               </TouchableOpacity>
@@ -369,16 +368,16 @@ export const AzkarSessionScreen: React.FC = () => {
               <TouchableOpacity
                 onPress={goBack}
                 style={{
-                  backgroundColor: c.bg,
+                  backgroundColor: p.bg,
                   paddingVertical: 13,
                   borderRadius: 14,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: c.border
+                  borderColor: p.border
                 }}
               >
-                <TextUI size={13} weight="bold" color={c.textPrimary}>
+                <TextUI size={13} weight="bold" color={p.ink}>
                   {t('العودة لقائمة الأذكار', 'Back to Categories')}
                 </TextUI>
               </TouchableOpacity>
@@ -390,11 +389,11 @@ export const AzkarSessionScreen: React.FC = () => {
             <View
               style={{
                 width: '100%',
-                backgroundColor: c.surface,
+                backgroundColor: p.surface,
                 borderRadius: 22,
                 padding: 22,
                 borderWidth: 1,
-                borderColor: isCompleted ? '#4CAF50' : c.border,
+                borderColor: isCompleted ? p.success : p.border,
                 marginBottom: 20,
                 ...makeShadow('0 4px 16px rgba(0,0,0,0.03)', '#000', 0.03, 4)
               }}
@@ -402,7 +401,7 @@ export const AzkarSessionScreen: React.FC = () => {
               <TextUI
                 variant="quranVerse"
                 size={fontSize}
-                color={c.textPrimary}
+                color={p.ink}
                 style={{
                   lineHeight: fontSize * 1.8,
                   textAlign: 'center',
@@ -416,17 +415,17 @@ export const AzkarSessionScreen: React.FC = () => {
               {currentItem?.virtue ? (
                 <View
                   style={{
-                    backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
+                    backgroundColor: p.soft,
                     borderRadius: 14,
                     padding: 12,
                     marginTop: 8,
                     borderWidth: 1,
-                    borderColor: TOKENS.colors.secondary
+                    borderColor: p.accent
                   }}
                 >
                   <TextUI
                     variant="caption"
-                    color={TOKENS.colors.primaryDark}
+                    color={p.primaryInk}
                     style={{ textAlign: 'center', lineHeight: 20 }}
                   >
                     ✨ {currentItem.virtue}
@@ -443,15 +442,15 @@ export const AzkarSessionScreen: React.FC = () => {
                 width: 136,
                 height: 136,
                 borderRadius: 68,
-                backgroundColor: isCompleted ? '#4CAF50' : TOKENS.colors.primary,
+                backgroundColor: isCompleted ? p.success : p.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderWidth: 4,
-                borderColor: '#FFFFFF',
+                borderColor: p.surface,
                 marginBottom: 24,
                 ...makeShadow(
-                  isCompleted ? '0 8px 24px rgba(76, 175, 80, 0.4)' : '0 8px 24px rgba(140, 94, 60, 0.4)',
-                  isCompleted ? '#4CAF50' : TOKENS.colors.primary,
+                  isCompleted ? '0 8px 24px rgba(78, 125, 91, 0.4)' : '0 8px 24px rgba(140, 94, 60, 0.4)',
+                  isCompleted ? p.success : p.primary,
                   0.4,
                   10
                 )
@@ -459,17 +458,17 @@ export const AzkarSessionScreen: React.FC = () => {
             >
               {isCompleted ? (
                 <View style={{ alignItems: 'center' }}>
-                  <Feather name="check" size={42} color="#FFFFFF" />
-                  <TextUI size={12} weight="bold" color="#FFFFFF" style={{ marginTop: 2 }}>
+                  <Feather name="check" size={42} color={p.onPrimary} />
+                  <TextUI size={12} weight="bold" color={p.onPrimary} style={{ marginTop: 2 }}>
                     {t('اكتمل', 'Done')}
                   </TextUI>
                 </View>
               ) : (
                 <View style={{ alignItems: 'center' }}>
-                  <TextUI size={34} weight="bold" color="#FFFFFF">
+                  <TextUI size={34} weight="bold" color={p.onPrimary}>
                     {toArabicNumber(counter)}
                   </TextUI>
-                  <TextUI size={12} color="rgba(255,255,255,0.88)">
+                  <TextUI size={12} color={p.onPrimary} style={{ opacity: 0.88 }}>
                     من {toArabicNumber(target)}
                   </TextUI>
                 </View>
@@ -480,14 +479,14 @@ export const AzkarSessionScreen: React.FC = () => {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <View
                 style={{
-                  backgroundColor: themeMode === 'light' ? '#EFEBE6' : '#2D2621',
+                  backgroundColor: p.bgAlt,
                   paddingHorizontal: 12,
                   paddingVertical: 5,
                   borderRadius: 14
                 }}
               >
-                <TextUI size={12} color={c.textSecondary}>
-                  {t('المطلوب:', 'Target:')} <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>{toArabicNumber(target)} {target > 1 ? 'مرات' : 'مرة'}</TextUI>
+                <TextUI size={12} color={p.muted}>
+                  {t('المطلوب:', 'Target:')} <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(target)} {target > 1 ? 'مرات' : 'مرة'}</TextUI>
                 </TextUI>
               </View>
 
@@ -501,13 +500,13 @@ export const AzkarSessionScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 5,
                     borderRadius: 14,
-                    backgroundColor: c.surface,
+                    backgroundColor: p.surface,
                     borderWidth: 1,
-                    borderColor: c.border
+                    borderColor: p.border
                   }}
                 >
-                  <Feather name="rotate-ccw" size={11} color={c.textSecondary} />
-                  <TextUI size={11} color={c.textSecondary}>
+                  <Feather name="rotate-ccw" size={11} color={p.muted} />
+                  <TextUI size={11} color={p.muted}>
                     {t('إعادة التصفير', 'Reset')}
                   </TextUI>
                 </TouchableOpacity>
@@ -526,16 +525,16 @@ export const AzkarSessionScreen: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   paddingVertical: 14,
                   borderRadius: 14,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   opacity: currentIndex === 0 ? 0.35 : 1
                 }}
               >
-                <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={16} color={c.textPrimary} />
-                <TextUI size={13} weight="bold" color={c.textPrimary}>
+                <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={16} color={p.ink} />
+                <TextUI size={13} weight="bold" color={p.ink}>
                   {t('السابق', 'Previous')}
                 </TextUI>
               </TouchableOpacity>
@@ -549,20 +548,20 @@ export const AzkarSessionScreen: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  backgroundColor: isCompleted ? TOKENS.colors.primary : c.surface,
+                  backgroundColor: isCompleted ? p.primary : p.surface,
                   paddingVertical: 14,
                   borderRadius: 14,
                   borderWidth: 1,
-                  borderColor: isCompleted ? TOKENS.colors.primary : c.border
+                  borderColor: isCompleted ? p.primary : p.border
                 }}
               >
-                <TextUI size={13} weight="bold" color={isCompleted ? '#FFFFFF' : c.textPrimary}>
+                <TextUI size={13} weight="bold" color={isCompleted ? p.onPrimary : p.ink}>
                   {currentIndex === azkarList.length - 1 ? t('إنهاء الأذكار', 'Finish') : t('التالي', 'Next')}
                 </TextUI>
                 <Feather
                   name={isRTL ? 'arrow-left' : 'arrow-right'}
                   size={16}
-                  color={isCompleted ? '#FFFFFF' : c.textPrimary}
+                  color={isCompleted ? p.onPrimary : p.ink}
                 />
               </TouchableOpacity>
             </View>

@@ -7,12 +7,13 @@ import { TextUI } from '../components/common/TextUI';
 import { AZKAR_CATEGORIES, AZKAR_DATABASE, AzkarCategory } from '../data/azkarData';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
+import { usePalette } from '../theme/palette';
 
 type FilterGroup = 'all' | 'daily' | 'prayer' | 'occasions';
 
 export const AzkarCategoriesScreen: React.FC = () => {
-  const { goBack, navigate, theme, themeMode, t, triggerHaptic, isRTL } = useApp();
-  const c = theme;
+  const { goBack, navigate, t, triggerHaptic, isRTL } = useApp();
+  const p = usePalette();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<FilterGroup>('all');
@@ -68,7 +69,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('حصن المسلم والأذكار', 'Azkar & Supplications')}
         subtitle={t(`${toArabicNumber(totalAzkarCount)} ذكراً مأثوراً في ${toArabicNumber(AZKAR_CATEGORIES.length)} أبواب مباركة`, `${totalAzkarCount} Azkar across ${AZKAR_CATEGORIES.length} Categories`)}
@@ -93,26 +94,26 @@ export const AzkarCategoriesScreen: React.FC = () => {
             paddingHorizontal: 14,
             marginBottom: 16,
             borderRadius: 14,
-            backgroundColor: c.surface,
+            backgroundColor: p.surface,
             borderWidth: 1,
-            borderColor: c.border
+            borderColor: p.border
           }}
         >
-          <Feather name="circle" size={18} color={TOKENS.colors.primary} />
-          <TextUI variant="bodyBold" color={c.textPrimary} style={{ flex: 1 }}>{t('السبحة الإلكترونية', 'Tasbih Counter')}</TextUI>
-          <Feather name="chevron-left" size={16} color={c.textSecondary} />
+          <Feather name="circle" size={18} color={p.primary} />
+          <TextUI variant="bodyBold" color={p.ink} style={{ flex: 1 }}>{t('السبحة الإلكترونية', 'Tasbih Counter')}</TextUI>
+          <Feather name="chevron-left" size={16} color={p.muted} />
         </TouchableOpacity>
 
         {/* Featured Section: Morning & Evening Azkar (الورد اليومي) */}
         <View style={{ marginBottom: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Feather name="sun" size={16} color={TOKENS.colors.primary} />
-              <TextUI variant="h4" color={c.textPrimary}>
+              <Feather name="sun" size={16} color={p.primary} />
+              <TextUI variant="h4" color={p.ink}>
                 {t('الورد اليومي (الصباح والمساء)', 'Daily Azkar: Morning & Evening')}
               </TextUI>
             </View>
-            <TextUI variant="caption" color={c.textSecondary}>
+            <TextUI variant="caption" color={p.muted}>
               {t('حصن المسلم اليومي', 'Daily Fortress')}
             </TextUI>
           </View>
@@ -131,11 +132,11 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   }}
                   style={{
                     flex: 1,
-                    backgroundColor: themeMode === 'light' ? '#FFF9F0' : '#2D2319',
+                    backgroundColor: p.surface,
                     borderRadius: 18,
                     padding: 14,
                     borderWidth: isMorningActive ? 1.5 : 1,
-                    borderColor: isMorningActive ? TOKENS.colors.primary : c.border,
+                    borderColor: isMorningActive ? p.primary : p.border,
                     ...makeShadow('0 3px 10px rgba(0,0,0,0.03)', '#000', 0.03, 3)
                   }}
                 >
@@ -145,33 +146,33 @@ export const AzkarCategoriesScreen: React.FC = () => {
                         width: 38,
                         height: 38,
                         borderRadius: 19,
-                        backgroundColor: themeMode === 'light' ? '#FEEFD8' : '#3E3020',
+                        backgroundColor: p.soft,
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}
                     >
-                      <Feather name="sun" size={18} color="#D97706" />
+                      <Feather name="sun" size={18} color={p.accentInk} />
                     </View>
                     {isMorningActive && (
                       <View
                         style={{
-                          backgroundColor: '#D97706',
+                          backgroundColor: p.primary,
                           paddingHorizontal: 7,
                           paddingVertical: 2,
                           borderRadius: 8
                         }}
                       >
-                        <TextUI size={10} weight="bold" color="#FFFFFF">
+                        <TextUI size={10} weight="bold" color={p.onPrimary}>
                           {t('الآن', 'Now')}
                         </TextUI>
                       </View>
                     )}
                   </View>
 
-                  <TextUI size={15} weight="bold" color={c.textPrimary} style={{ marginBottom: 2 }}>
+                  <TextUI size={15} weight="bold" color={p.ink} style={{ marginBottom: 2 }}>
                     {morningCat.titleAr}
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary} style={{ marginBottom: 10 }} numberOfLines={1}>
+                  <TextUI size={11} color={p.muted} style={{ marginBottom: 10 }} numberOfLines={1}>
                     {t('بعد الفجر حتى الشروق', 'Post-Fajr till Sunrise')}
                   </TextUI>
 
@@ -180,16 +181,16 @@ export const AzkarCategoriesScreen: React.FC = () => {
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: themeMode === 'light' ? '#F5E9D8' : '#3D2F22',
+                      backgroundColor: p.soft,
                       paddingHorizontal: 8,
                       paddingVertical: 4,
                       borderRadius: 10
                     }}
                   >
-                    <TextUI size={11} weight="bold" color={TOKENS.colors.primaryDark}>
+                    <TextUI size={11} weight="bold" color={p.primaryInk}>
                       {toArabicNumber(morningCat.count)} ذكر
                     </TextUI>
-                    <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={12} color={TOKENS.colors.primaryDark} />
+                    <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={12} color={p.primaryInk} />
                   </View>
                 </TouchableOpacity>
               );
@@ -208,11 +209,11 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   }}
                   style={{
                     flex: 1,
-                    backgroundColor: themeMode === 'light' ? '#F4F7FC' : '#1F2733',
+                    backgroundColor: p.surface,
                     borderRadius: 18,
                     padding: 14,
                     borderWidth: isEveningActive ? 1.5 : 1,
-                    borderColor: isEveningActive ? '#3B82F6' : c.border,
+                    borderColor: isEveningActive ? p.primary : p.border,
                     ...makeShadow('0 3px 10px rgba(0,0,0,0.03)', '#000', 0.03, 3)
                   }}
                 >
@@ -222,33 +223,33 @@ export const AzkarCategoriesScreen: React.FC = () => {
                         width: 38,
                         height: 38,
                         borderRadius: 19,
-                        backgroundColor: themeMode === 'light' ? '#E0EDFE' : '#28364A',
+                        backgroundColor: p.soft,
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}
                     >
-                      <Feather name="moon" size={18} color="#3B82F6" />
+                      <Feather name="moon" size={18} color={p.primaryInk} />
                     </View>
                     {isEveningActive && (
                       <View
                         style={{
-                          backgroundColor: '#3B82F6',
+                          backgroundColor: p.primary,
                           paddingHorizontal: 7,
                           paddingVertical: 2,
                           borderRadius: 8
                         }}
                       >
-                        <TextUI size={10} weight="bold" color="#FFFFFF">
+                        <TextUI size={10} weight="bold" color={p.onPrimary}>
                           {t('الآن', 'Now')}
                         </TextUI>
                       </View>
                     )}
                   </View>
 
-                  <TextUI size={15} weight="bold" color={c.textPrimary} style={{ marginBottom: 2 }}>
+                  <TextUI size={15} weight="bold" color={p.ink} style={{ marginBottom: 2 }}>
                     {eveningCat.titleAr}
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary} style={{ marginBottom: 10 }} numberOfLines={1}>
+                  <TextUI size={11} color={p.muted} style={{ marginBottom: 10 }} numberOfLines={1}>
                     {t('بعد العصر حتى الغروب', 'Post-Asr till Sunset')}
                   </TextUI>
 
@@ -257,16 +258,16 @@ export const AzkarCategoriesScreen: React.FC = () => {
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: themeMode === 'light' ? '#E2EDFA' : '#2A3A52',
+                      backgroundColor: p.soft,
                       paddingHorizontal: 8,
                       paddingVertical: 4,
                       borderRadius: 10
                     }}
                   >
-                    <TextUI size={11} weight="bold" color={themeMode === 'light' ? '#1D4ED8' : '#93C5FD'}>
+                    <TextUI size={11} weight="bold" color={p.primaryInk}>
                       {toArabicNumber(eveningCat.count)} ذكر
                     </TextUI>
-                    <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={12} color={themeMode === 'light' ? '#1D4ED8' : '#93C5FD'} />
+                    <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={12} color={p.primaryInk} />
                   </View>
                 </TouchableOpacity>
               );
@@ -279,27 +280,27 @@ export const AzkarCategoriesScreen: React.FC = () => {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: c.surface,
+            backgroundColor: p.surface,
             borderRadius: 16,
             paddingHorizontal: 14,
             paddingVertical: Platform.OS === 'ios' ? 12 : 8,
             borderWidth: 1,
-            borderColor: c.border,
+            borderColor: p.border,
             marginBottom: 14,
             ...makeShadow('0 2px 8px rgba(0,0,0,0.02)', '#000', 0.02, 2)
           }}
         >
-          <Feather name="search" size={18} color={c.textSecondary} style={{ marginRight: isRTL ? 0 : 10, marginLeft: isRTL ? 10 : 0 }} />
+          <Feather name="search" size={18} color={p.muted} style={{ marginRight: isRTL ? 0 : 10, marginLeft: isRTL ? 10 : 0 }} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder={t('ابحث في الأذكار، الأدعية، أو الفضائل...', 'Search azkar, duas, or virtues...')}
-            placeholderTextColor={c.textSecondary}
+            placeholderTextColor={p.muted}
             style={{
               flex: 1,
               fontFamily: 'Cairo-Regular',
               fontSize: 13,
-              color: c.textPrimary,
+              color: p.ink,
               textAlign: isRTL ? 'right' : 'left'
             }}
           />
@@ -308,7 +309,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
               onPress={() => setSearchQuery('')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Feather name="x-circle" size={16} color={c.textSecondary} />
+              <Feather name="x-circle" size={16} color={p.muted} />
             </TouchableOpacity>
           )}
         </View>
@@ -336,20 +337,20 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   paddingHorizontal: 14,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor: isSelected ? TOKENS.colors.primary : c.surface,
+                  backgroundColor: isSelected ? p.primary : p.surface,
                   borderWidth: 1,
-                  borderColor: isSelected ? TOKENS.colors.primary : c.border
+                  borderColor: isSelected ? p.primary : p.border
                 }}
               >
                 <Feather
                   name={grp.icon as any}
                   size={14}
-                  color={isSelected ? '#FFFFFF' : c.textSecondary}
+                  color={isSelected ? p.onPrimary :p.muted}
                 />
                 <TextUI
                   size={12}
                   weight={isSelected ? 'bold' : 'regular'}
-                  color={isSelected ? '#FFFFFF' : c.textPrimary}
+                  color={isSelected ? p.onPrimary :p.ink}
                 >
                   {grp.labelAr}
                 </TextUI>
@@ -365,18 +366,18 @@ export const AzkarCategoriesScreen: React.FC = () => {
               padding: 32,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               borderRadius: 20,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               marginTop: 10
             }}
           >
-            <Feather name="search" size={36} color={c.textSecondary} style={{ marginBottom: 12, opacity: 0.6 }} />
-            <TextUI variant="h4" color={c.textPrimary} style={{ marginBottom: 4 }}>
+            <Feather name="search" size={36} color={p.muted} style={{ marginBottom: 12, opacity: 0.6 }} />
+            <TextUI variant="h4" color={p.ink} style={{ marginBottom: 4 }}>
               {t('لا توجد نتائج مطابقة', 'No matching results')}
             </TextUI>
-            <TextUI variant="caption" color={c.textSecondary} style={{ textAlign: 'center', marginBottom: 16 }}>
+            <TextUI variant="caption" color={p.muted} style={{ textAlign: 'center', marginBottom: 16 }}>
               {t('لم نجد أذكاراً تطابق عبارة البحث الحالية', 'No azkar found matching your search')}
             </TextUI>
             <TouchableOpacity
@@ -385,13 +386,13 @@ export const AzkarCategoriesScreen: React.FC = () => {
                 setSelectedGroup('all');
               }}
               style={{
-                backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20',
+                backgroundColor: p.soft,
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 12
               }}
             >
-              <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>
+              <TextUI size={12} weight="bold" color={p.primary}>
                 {t('إعادة تعيين البحث', 'Reset Search')}
               </TextUI>
             </TouchableOpacity>
@@ -409,11 +410,11 @@ export const AzkarCategoriesScreen: React.FC = () => {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   borderRadius: 18,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
                 }}
               >
@@ -423,22 +424,22 @@ export const AzkarCategoriesScreen: React.FC = () => {
                     width: 48,
                     height: 48,
                     borderRadius: 24,
-                    backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
+                    backgroundColor: p.soft,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: isRTL ? 0 : 14,
                     marginLeft: isRTL ? 14 : 0
                   }}
                 >
-                  <Feather name={cat.icon as any} size={22} color={TOKENS.colors.primary} />
+                  <Feather name={cat.icon as any} size={22} color={p.primary} />
                 </View>
 
                 {/* Title & Subtitle */}
                 <View style={{ flex: 1 }}>
-                  <TextUI variant="h4" color={c.textPrimary}>
+                  <TextUI variant="h4" color={p.ink}>
                     {cat.titleAr}
                   </TextUI>
-                  <TextUI variant="caption" color={c.textSecondary} style={{ marginTop: 2 }}>
+                  <TextUI variant="caption" color={p.muted} style={{ marginTop: 2 }}>
                     {cat.subtitleAr}
                   </TextUI>
                 </View>
@@ -447,17 +448,17 @@ export const AzkarCategoriesScreen: React.FC = () => {
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
                   <View
                     style={{
-                      backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20',
+                      backgroundColor: p.soft,
                       paddingHorizontal: 9,
                       paddingVertical: 3,
                       borderRadius: TOKENS.radius.pill
                     }}
                   >
-                    <TextUI variant="captionBold" color={TOKENS.colors.primaryDark}>
+                    <TextUI variant="captionBold" color={p.primaryInk}>
                       {toArabicNumber(cat.count)} ذكر
                     </TextUI>
                   </View>
-                  <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={16} color={c.textSecondary} />
+                  <Feather name={isRTL ? "chevron-left" : "chevron-right"} size={16} color={p.muted} />
                 </View>
               </TouchableOpacity>
             ))}

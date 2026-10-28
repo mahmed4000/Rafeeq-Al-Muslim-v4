@@ -10,12 +10,13 @@ import { PROPHET_MOSQUE_COURSES, MAKKAH_MOSQUE_COURSES } from '../data/haramainD
 import { AudioService, DownloadedLessonRecord } from '../services/audioService';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
+import { usePalette } from '../theme/palette';
 
 const SCIENCE_ORDER = ['العقيدة', 'القرآن', 'التفسير', 'الحديث', 'الفقه', 'أصول الفقه', 'سيرة ورقائق'];
 
 export const HaramainLessonsScreen: React.FC = () => {
-  const { goBack, navigate, theme, themeMode, t, triggerHaptic } = useApp();
-  const c = theme;
+  const { goBack, navigate, t, triggerHaptic } = useApp();
+  const p = usePalette();
 
   const [activeMosqueTab, setActiveMosqueTab] = useState<'madinah' | 'makkah'>('madinah');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
@@ -210,12 +211,11 @@ export const HaramainLessonsScreen: React.FC = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('دروس وكراسي الحرمين الشريفين', 'Haramain Scholars Chairs')}
         subtitle={t('المسجد الحرام بمكة • المسجد النبوي بالمدينة', 'Makkah & Madinah Scholars')}
         onBack={goBack}
-        theme={c}
       />
 
       {/* Mosque Tabs (Madinah / Makkah) */}
@@ -225,11 +225,11 @@ export const HaramainLessonsScreen: React.FC = () => {
           marginHorizontal: 18,
           marginTop: 12,
           marginBottom: 16,
-          backgroundColor: c.surface,
+          backgroundColor: p.surface,
           borderRadius: TOKENS.radius.pill,
           padding: 4,
           borderWidth: 1,
-          borderColor: c.border
+          borderColor: p.border
         }}
       >
         <TouchableOpacity
@@ -245,13 +245,13 @@ export const HaramainLessonsScreen: React.FC = () => {
             paddingVertical: 10,
             borderRadius: TOKENS.radius.pill,
             alignItems: 'center',
-            backgroundColor: activeMosqueTab === 'madinah' ? TOKENS.colors.primary : 'transparent'
+            backgroundColor: activeMosqueTab === 'madinah' ? p.primary : 'transparent'
           }}
         >
           <TextUI
             size={14}
             weight="bold"
-            color={activeMosqueTab === 'madinah' ? '#FFFFFF' : c.textPrimary}
+            color={activeMosqueTab === 'madinah' ? p.onPrimary :p.ink}
           >
             🕌 المسجد النبوي الشريف
           </TextUI>
@@ -270,13 +270,13 @@ export const HaramainLessonsScreen: React.FC = () => {
             paddingVertical: 10,
             borderRadius: TOKENS.radius.pill,
             alignItems: 'center',
-            backgroundColor: activeMosqueTab === 'makkah' ? TOKENS.colors.primary : 'transparent'
+            backgroundColor: activeMosqueTab === 'makkah' ? p.primary : 'transparent'
           }}
         >
           <TextUI
             size={14}
             weight="bold"
-            color={activeMosqueTab === 'makkah' ? '#FFFFFF' : c.textPrimary}
+            color={activeMosqueTab === 'makkah' ? p.onPrimary :p.ink}
           >
             🕋 المسجد الحرام بمكة
           </TextUI>
@@ -289,40 +289,40 @@ export const HaramainLessonsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Course catalog */}
-        <TextUI size={16} weight="bold" color={c.textPrimary} style={{ marginBottom: 12 }}>
+        <TextUI size={16} weight="bold" color={p.ink} style={{ marginBottom: 12 }}>
           {t('السلاسل العلمية حسب العلم', 'Scientific series by subject')}
         </TextUI>
 
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={openOfficialCourseArchive}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeMode === 'light' ? '#F2F6F1' : '#242D27', borderRadius: 15, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: c.border }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: p.successBg, borderRadius: 15, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: p.border }}
         >
-          <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: TOKENS.colors.primary }}>
-            <Feather name="book-open" size={18} color="#FFFFFF" />
+          <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary }}>
+            <Feather name="book-open" size={18} color={p.onPrimary} />
           </View>
           <View style={{ flex: 1 }}>
-            <TextUI size={13} weight="bold" color={c.textPrimary}>المكتبة العلمية الكاملة للحرمين</TextUI>
-            <TextUI size={11} color={c.textSecondary} style={{ marginTop: 3 }}>تصفح الكتب والشروح وشغّل التسجيلات في نافذة التطبيق</TextUI>
+            <TextUI size={13} weight="bold" color={p.ink}>المكتبة العلمية الكاملة للحرمين</TextUI>
+            <TextUI size={11} color={p.muted} style={{ marginTop: 3 }}>تصفح الكتب والشروح وشغّل التسجيلات في نافذة التطبيق</TextUI>
           </View>
-          <Feather name="arrow-up-left" size={17} color={TOKENS.colors.primary} />
+          <Feather name="arrow-up-left" size={17} color={p.primary} />
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <TextUI size={16} weight="bold" color={c.textPrimary}>{t('السلاسل المصنفة داخل التطبيق', 'Curated in-app courses')}</TextUI>
-          <TextUI size={11} color={c.textSecondary}>{toArabicNumber(courses.length)} سلسلة • {toArabicNumber(lessonCount)} درس</TextUI>
+          <TextUI size={16} weight="bold" color={p.ink}>{t('السلاسل المصنفة داخل التطبيق', 'Curated in-app courses')}</TextUI>
+          <TextUI size={11} color={p.muted}>{toArabicNumber(courses.length)} سلسلة • {toArabicNumber(lessonCount)} درس</TextUI>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: c.border, gap: 8, marginBottom: 10 }}>
-          <Feather name="search" size={16} color={c.textSecondary} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: p.surface, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: p.border, gap: 8, marginBottom: 10 }}>
+          <Feather name="search" size={16} color={p.muted} />
           <TextInput
             placeholder="ابحث باسم السلسلة أو الشيخ أو الدرس..."
-            placeholderTextColor={c.textSecondary}
+            placeholderTextColor={p.muted}
             value={courseSearch}
             onChangeText={setCourseSearch}
-            style={{ flex: 1, color: c.textPrimary, textAlign: 'right', fontSize: 13 }}
+            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 13 }}
           />
-          {courseSearch ? <TouchableOpacity onPress={() => setCourseSearch('')}><Feather name="x" size={15} color={c.textSecondary} /></TouchableOpacity> : null}
+          {courseSearch ? <TouchableOpacity onPress={() => setCourseSearch('')}><Feather name="x" size={15} color={p.muted} /></TouchableOpacity> : null}
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
@@ -332,9 +332,9 @@ export const HaramainLessonsScreen: React.FC = () => {
               <TouchableOpacity
                 key={category}
                 onPress={() => setSelectedCategory(category)}
-                style={{ paddingHorizontal: 13, paddingVertical: 7, borderRadius: TOKENS.radius.pill, backgroundColor: isSelected ? TOKENS.colors.primary : c.surface, borderWidth: 1, borderColor: isSelected ? TOKENS.colors.primary : c.border }}
+                style={{ paddingHorizontal: 13, paddingVertical: 7, borderRadius: TOKENS.radius.pill, backgroundColor: isSelected ? p.primary : p.surface, borderWidth: 1, borderColor: isSelected ? p.primary : p.border }}
               >
-                <TextUI size={11} weight="bold" color={isSelected ? '#FFFFFF' : c.textSecondary}>{category}</TextUI>
+                <TextUI size={11} weight="bold" color={isSelected ? p.onPrimary :p.muted}>{category}</TextUI>
               </TouchableOpacity>
             );
           })}
@@ -342,10 +342,10 @@ export const HaramainLessonsScreen: React.FC = () => {
 
         {groupedCourses.map(({ category, items }: any) => (
           <View key={category}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderColor: c.border }}>
-              <Feather name="book-open" size={16} color={TOKENS.colors.primary} />
-              <TextUI size={15} weight="bold" color={TOKENS.colors.primaryDark}>{category}</TextUI>
-              <TextUI size={11} color={c.textSecondary}>{toArabicNumber(items.length)} سلسلة</TextUI>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderColor: p.border }}>
+              <Feather name="book-open" size={16} color={p.primary} />
+              <TextUI size={15} weight="bold" color={p.primaryInk}>{category}</TextUI>
+              <TextUI size={11} color={p.muted}>{toArabicNumber(items.length)} سلسلة</TextUI>
             </View>
             {items.map((course: any) => {
           const expanded = expandedCourseIds.has(course.id) || !!courseSearch.trim();
@@ -354,51 +354,51 @@ export const HaramainLessonsScreen: React.FC = () => {
           <View
             key={course.id}
             style={{
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               borderRadius: 18,
               padding: 18,
               marginBottom: 14,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
               <View style={{ flex: 1 }}>
-                <TextUI variant="h4" color={TOKENS.colors.primaryDark}>
+                <TextUI variant="h4" color={p.primaryInk}>
                   {course.titleAr}
                 </TextUI>
-                <TextUI variant="bodyMedium" color={TOKENS.colors.primary} style={{ marginTop: 2 }}>
+                <TextUI variant="bodyMedium" color={p.primary} style={{ marginTop: 2 }}>
                   {course.scholarAr}
                 </TextUI>
               </View>
 
               <View
                 style={{
-                  backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
+                  backgroundColor: p.soft,
                   paddingHorizontal: 8,
                   paddingVertical: 3,
                   borderRadius: TOKENS.radius.pill
                 }}
               >
-                <TextUI variant="badge" color={TOKENS.colors.primaryDark}>
+                <TextUI variant="badge" color={p.primaryInk}>
                   {course.categoryAr}
                 </TextUI>
               </View>
             </View>
 
-            <TextUI variant="caption" color={c.textSecondary} style={{ lineHeight: 18, marginBottom: 12 }}>
+            <TextUI variant="caption" color={p.muted} style={{ lineHeight: 18, marginBottom: 12 }}>
               {course.descriptionAr}
             </TextUI>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <Feather name="headphones" size={13} color={TOKENS.colors.primary} />
-              <TextUI variant="caption" color={c.textSecondary}>{toArabicNumber(course.lessons.length)} درس مسجل</TextUI>
+              <Feather name="headphones" size={13} color={p.primary} />
+              <TextUI variant="caption" color={p.muted}>{toArabicNumber(course.lessons.length)} درس مسجل</TextUI>
             </View>
 
-            <TouchableOpacity onPress={() => navigate('haramain_book', { courseId: course.id })} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, backgroundColor: TOKENS.colors.primaryDark, borderRadius: 12, marginBottom: 12 }}>
-              <Feather name="book-open" size={16} color="#FFFFFF" />
-              <TextUI variant="captionBold" color="#FFFFFF">افتح صفحة الكتاب وجميع الدروس</TextUI>
+            <TouchableOpacity onPress={() => navigate('haramain_book', { courseId: course.id })} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, backgroundColor: p.hero, borderRadius: 12, marginBottom: 12 }}>
+              <Feather name="book-open" size={16} color={p.onHero} />
+              <TextUI variant="captionBold" color={p.onHero}>افتح صفحة الكتاب وجميع الدروس</TextUI>
             </TouchableOpacity>
 
             {/* Lessons List in Course */}
@@ -415,7 +415,7 @@ export const HaramainLessonsScreen: React.FC = () => {
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: isCurrent ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20') : c.bgSecondary,
+                      backgroundColor: isCurrent ? p.soft : p.bgAlt,
                       borderRadius: 12,
                       padding: 10
                     }}
@@ -428,13 +428,13 @@ export const HaramainLessonsScreen: React.FC = () => {
                       <Feather
                         name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
                         size={22}
-                        color={TOKENS.colors.primary}
+                        color={p.primary}
                       />
                       <View style={{ flex: 1 }}>
-                        <TextUI variant="bodyMedium" weight={isCurrent ? 'bold' : 'medium'} color={c.textPrimary} numberOfLines={1}>
+                        <TextUI variant="bodyMedium" weight={isCurrent ? 'bold' : 'medium'} color={p.ink} numberOfLines={1}>
                           {lesson.number}. {lesson.titleAr}
                         </TextUI>
-                        <TextUI variant="caption" color={c.textSecondary}>
+                        <TextUI variant="caption" color={p.muted}>
                           {lesson.duration}
                         </TextUI>
                       </View>
@@ -448,12 +448,12 @@ export const HaramainLessonsScreen: React.FC = () => {
                       style={{ padding: 6 }}
                     >
                       {isDownloading ? (
-                        <ActivityIndicator size="small" color={TOKENS.colors.primary} />
+                        <ActivityIndicator size="small" color={p.primary} />
                       ) : (
                         <Feather
                           name={isDownloaded ? 'check-circle' : 'download-cloud'}
                           size={18}
-                          color={isDownloaded ? '#4CAF50' : c.textSecondary}
+                          color={isDownloaded ? p.success : p.muted}
                         />
                       )}
                     </TouchableOpacity>
@@ -472,10 +472,10 @@ export const HaramainLessonsScreen: React.FC = () => {
                 })}
                 style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingTop: 12 }}
               >
-                <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>
+                <TextUI size={12} weight="bold" color={p.primary}>
                   {expanded ? 'إخفاء الحلقات' : `عرض جميع الحلقات (${toArabicNumber(course.lessons.length)})`}
                 </TextUI>
-                <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={TOKENS.colors.primary} />
+                <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={p.primary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -485,8 +485,8 @@ export const HaramainLessonsScreen: React.FC = () => {
         ))}
         {filteredCourses.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 36 }}>
-            <Feather name="search" size={26} color={c.textSecondary} />
-            <TextUI size={13} weight="bold" color={c.textPrimary} style={{ marginTop: 10 }}>لا توجد سلاسل مطابقة</TextUI>
+            <Feather name="search" size={26} color={p.muted} />
+            <TextUI size={13} weight="bold" color={p.ink} style={{ marginTop: 10 }}>لا توجد سلاسل مطابقة</TextUI>
           </View>
         ) : null}
       </ScrollView>
@@ -499,31 +499,31 @@ export const HaramainLessonsScreen: React.FC = () => {
             bottom: 0,
             left: 0,
             right: 0,
-            backgroundColor: c.surfaceElevated,
+            backgroundColor: p.surface,
             borderTopWidth: 1,
-            borderColor: c.border,
+            borderColor: p.border,
             paddingHorizontal: 18,
             paddingVertical: 12,
             ...makeShadow('0 -4px 16px rgba(0,0,0,0.08)', '#000', 0.08, 6)
           }}
         >
           {/* Progress Slider Bar */}
-          <View style={{ height: 3, width: '100%', backgroundColor: c.border, marginBottom: 10 }}>
+          <View style={{ height: 3, width: '100%', backgroundColor: p.border, marginBottom: 10 }}>
             <View
               style={{
                 height: '100%',
                 width: totalSecs > 0 ? `${(currentSecs / totalSecs) * 100}%` : '0%',
-                backgroundColor: TOKENS.colors.primary
+                backgroundColor: p.primary
               }}
             />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flex: 1, marginRight: 10 }}>
-              <TextUI size={13} weight="bold" color={c.textPrimary} numberOfLines={1}>
+              <TextUI size={13} weight="bold" color={p.ink} numberOfLines={1}>
                 {activeLesson.titleAr}
               </TextUI>
-              <TextUI size={11} color={c.textSecondary}>
+              <TextUI size={11} color={p.muted}>
                 {formatSecs(currentSecs)} / {formatSecs(totalSecs)}
               </TextUI>
             </View>
@@ -539,10 +539,10 @@ export const HaramainLessonsScreen: React.FC = () => {
                 }}
                 style={{ minWidth: 36, alignItems: 'center' }}
               >
-                <TextUI size={11} weight="bold" color={c.textPrimary}>{playbackSpeed}×</TextUI>
+                <TextUI size={11} weight="bold" color={p.ink}>{playbackSpeed}×</TextUI>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => skipSeconds(-15)}>
-                <Feather name="rotate-ccw" size={18} color={c.textPrimary} />
+                <Feather name="rotate-ccw" size={18} color={p.ink} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -551,16 +551,16 @@ export const HaramainLessonsScreen: React.FC = () => {
                   width: 38,
                   height: 38,
                   borderRadius: 19,
-                  backgroundColor: TOKENS.colors.primary,
+                  backgroundColor: p.primary,
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}
               >
-                <Feather name={isPlaying ? 'pause' : 'play'} size={18} color="#FFFFFF" />
+                <Feather name={isPlaying ? 'pause' : 'play'} size={18} color={p.onPrimary} />
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => skipSeconds(15)}>
-                <Feather name="rotate-cw" size={18} color={c.textPrimary} />
+                <Feather name="rotate-cw" size={18} color={p.ink} />
               </TouchableOpacity>
             </View>
           </View>
