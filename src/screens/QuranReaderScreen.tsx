@@ -33,6 +33,7 @@ import {
 } from '../services/tafsirService';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { useScreenParams } from '../navigation/routes';
+import { KhatmaService } from '../services/khatmaService';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 let allQuranVersesCache: QuranVerse[] | null = null;
@@ -98,6 +99,10 @@ export const QuranReaderScreen: React.FC = () => {
   const [streamTafsirs, setStreamTafsirs] = useState<Record<string, string>>({});
   const [streamTafsirLoading, setStreamTafsirLoading] = useState<Record<string, boolean>>({});
   const [activePage, setActivePage] = useState<number>(initialPage);
+  // Count in-order page reading toward the active khatma (if any).
+  useEffect(() => {
+    KhatmaService.recordPage(activePage).catch(() => {});
+  }, [activePage]);
   const [renderedPages, setRenderedPages] = useState<number[]>(() => {
     const first = Math.max(1, initialPage - 2);
     return Array.from({ length: Math.min(8, 605 - first) }, (_, index) => first + index);

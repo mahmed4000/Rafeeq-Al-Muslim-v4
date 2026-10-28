@@ -19,7 +19,10 @@ export const SCREEN_PATHS: Record<string, string> = {
   allah_names: '/allah-names',
   ruqyah: '/ruqyah',
   zakat_calculator: '/zakat',
-  downloads: '/downloads'
+  downloads: '/downloads',
+  tasbih: '/tasbih',
+  khatma: '/khatma',
+  tahfeez: '/tahfeez'
 };
 
 // Bottom-tab routes: navigating to these switches tabs instead of stacking a new screen.

@@ -551,6 +551,38 @@ export const QuranIndexScreen: React.FC = () => {
           </TouchableOpacity>
         )}
 
+        {/* 3.5 Khatma & memorization shortcuts */}
+        {!search && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            {[
+              { key: 'khatma', label: t('ختمتي', 'My Khatma'), icon: 'award' as const },
+              { key: 'tahfeez', label: t('جلسة حفظ', 'Memorize'), icon: 'repeat' as const }
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                onPress={() => navigate(item.key)}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  minHeight: 48,
+                  paddingHorizontal: 12,
+                  borderRadius: 14,
+                  backgroundColor: c.surface,
+                  borderWidth: 1,
+                  borderColor: c.border
+                }}
+              >
+                <Feather name={item.icon} size={16} color={TOKENS.colors.primary} />
+                <TextUI variant="bodyBold" color={c.textPrimary}>{item.label}</TextUI>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* 4. Triple Tabs Selector (السور • الأجزاء • الأحزاب) */}
         {!search && (
           <View

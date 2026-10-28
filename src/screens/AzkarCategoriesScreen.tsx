@@ -80,6 +80,29 @@ export const AzkarCategoriesScreen: React.FC = () => {
         contentContainerStyle={{ padding: 18, paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Tasbih shortcut */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          onPress={() => navigate('tasbih')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            minHeight: 52,
+            paddingHorizontal: 14,
+            marginBottom: 16,
+            borderRadius: 14,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.border
+          }}
+        >
+          <Feather name="circle" size={18} color={TOKENS.colors.primary} />
+          <TextUI variant="bodyBold" color={c.textPrimary} style={{ flex: 1 }}>{t('السبحة الإلكترونية', 'Tasbih Counter')}</TextUI>
+          <Feather name="chevron-left" size={16} color={c.textSecondary} />
+        </TouchableOpacity>
+
         {/* Featured Section: Morning & Evening Azkar (الورد اليومي) */}
         <View style={{ marginBottom: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
