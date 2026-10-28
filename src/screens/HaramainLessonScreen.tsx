@@ -32,6 +32,8 @@ export const HaramainLessonScreen: React.FC = () => {
   const [noteTarget, setNoteTarget] = useState<LessonMarker | null>(null);
   const [progressWidth, setProgressWidth] = useState(0);
   const playerRef = useRef<any>(null);
+  // Mirrors playerRef for rendering (refs can't drive what is shown).
+  const [hasPlayer, setHasPlayer] = useState(false);
   const lastSavedSecond = useRef(-1);
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export const HaramainLessonScreen: React.FC = () => {
       setLoading(true);
       const player = createAudioPlayer(source, { updateInterval: 500 });
       playerRef.current = player;
+      setHasPlayer(true);
       player.setPlaybackRate(speed);
       player.addListener('playbackStatusUpdate', (status: any) => {
         setLoading(!!status?.isBuffering);
@@ -130,7 +133,7 @@ export const HaramainLessonScreen: React.FC = () => {
         <View><TextUI variant="h2" color="#FFFFFF">{lesson.titleAr}</TextUI><TextUI variant="bodyMedium" color="#E7D7C6" style={{ marginTop: 6 }}>{course.scholarAr}</TextUI></View>
         <TextUI variant="caption" color="#E7D7C6">{course.titleAr}</TextUI>
       </View>
-      {resumeAt != null && !playerRef.current ? <TouchableOpacity onPress={() => { setCurrentSecs(resumeAt); setResumeAt(null); startPlayback(resumeAt); }} style={{ marginTop: 14, borderRadius: 14, padding: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, flexDirection: 'row', gap: 8, alignItems: 'center' }}><Feather name="rotate-ccw" size={16} color={TOKENS.colors.primary} /><TextUI variant="captionBold" color={c.textPrimary}>استئناف من {clock(resumeAt)}</TextUI></TouchableOpacity> : null}
+      {resumeAt != null && !hasPlayer ?<TouchableOpacity onPress={() => { setCurrentSecs(resumeAt); setResumeAt(null); startPlayback(resumeAt); }} style={{ marginTop: 14, borderRadius: 14, padding: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, flexDirection: 'row', gap: 8, alignItems: 'center' }}><Feather name="rotate-ccw" size={16} color={TOKENS.colors.primary} /><TextUI variant="captionBold" color={c.textPrimary}>استئناف من {clock(resumeAt)}</TextUI></TouchableOpacity> : null}
       <View style={{ marginTop: 20, backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.border, padding: 18 }}>
         <TouchableOpacity activeOpacity={1} onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)} onPress={(event) => { if (totalSecs && progressWidth) seek(totalSecs * event.nativeEvent.locationX / progressWidth); }} style={{ height: 14, justifyContent: 'center' }}>
           <View style={{ height: 6, backgroundColor: c.border, borderRadius: 8, overflow: 'hidden' }}><View style={{ height: 6, width: `${totalSecs ? Math.min(100, currentSecs / totalSecs * 100) : 0}%`, backgroundColor: TOKENS.colors.primary }} /></View>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, TouchableOpacity, Platform, BackHandler } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
@@ -24,8 +24,19 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { DownloadsScreen } from '../screens/DownloadsScreen';
 
 export const MainNavigator: React.FC = () => {
-  const { screen, navigate, theme, themeMode, triggerHaptic } = useApp();
+  const { screen, navigate, goBack, theme, themeMode, triggerHaptic } = useApp();
   const c = theme;
+
+  // Android hardware back: go to the previous screen instead of closing the app.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'home') return false;
+      goBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [screen, goBack]);
 
   const renderCurrentScreen = () => {
     switch (screen) {

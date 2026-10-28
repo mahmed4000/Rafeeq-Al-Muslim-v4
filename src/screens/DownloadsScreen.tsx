@@ -20,7 +20,11 @@ export const DownloadsScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    loadDownloads();
+    let alive = true;
+    AudioService.getDownloadedLessons().then((records) => {
+      if (alive) setDownloadedList(Object.values(records));
+    });
+    return () => { alive = false; };
   }, []);
 
   const handleDelete = async (lessonId: string, title: string) => {

@@ -663,11 +663,11 @@ export const QuranReaderScreen: React.FC = () => {
       const verseSurah = QURAN_DATA.find((item) => item.id === verse.surahId) || currentSurah;
       setReadingBookmark({
         surahId: verse.surahId,
-        surahName: `سورة ${verseSurah.nameAr}`,
+        surahName: verseSurah.nameAr,
         ayah: verse.ayahNumber,
         page: verse.pageNum || activePage,
         juz: verse.juzNum || currentSurah.juz || 1,
-        date: 'الآن'
+        date: new Date().toISOString()
       });
     }
     setActionModalVisible(false);

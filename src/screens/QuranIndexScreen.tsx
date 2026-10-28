@@ -47,7 +47,8 @@ export const QuranIndexScreen: React.FC = () => {
       readingMode: mode,
       startPage: page,
       startSurahId: surah.id,
-      startAyah: startAyah || 1,
+      // Only pass an ayah when one was chosen; the reader highlights it as the target.
+      startAyah,
       reciterId: selectedReciter,
       autoPlay
     });

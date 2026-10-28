@@ -4,11 +4,15 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
-import { calculateAccuratePrayerTimes, toArabicNumber } from '../services/prayerCalculation';
+import { calculateAccuratePrayerTimes, formatPrayerTime, toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
 
+// Imsak is a precautionary margin before Fajr, not a separate prayer time.
+// 10 minutes is the common convention in published imsakiyat; adjustable here.
+const IMSAK_MINUTES_BEFORE_FAJR = 10;
+
 export const ImsakiahScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, currentCity, calculationMethod } = useApp();
+  const { goBack, theme, themeMode, t, currentCity, calculationMethod, asrMethod } = useApp();
   const c = theme;
 
   // Generate 30 days of Ramadan / Hijri calendar
@@ -16,10 +20,12 @@ export const ImsakiahScreen: React.FC = () => {
   const days = Array.from({ length: 30 }, (_, i) => {
     const d = new Date();
     d.setDate(today.getDate() + i);
-    const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, d, calculationMethod);
+    const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, d, calculationMethod, asrMethod);
+    const imsakTotal = (times.fajr.hours * 60 + times.fajr.minutes - IMSAK_MINUTES_BEFORE_FAJR + 1440) % 1440;
     return {
       dayNum: i + 1,
       dateStr: `${d.getDate()}/${d.getMonth() + 1}`,
+      imsak: formatPrayerTime(Math.floor(imsakTotal / 60), imsakTotal % 60).split(' ')[0],
       fajr: times.fajr.timeStr.split(' ')[0],
       sunrise: times.sunrise.timeStr.split(' ')[0],
       dhuhr: times.dhuhr.timeStr.split(' ')[0],
@@ -83,7 +89,7 @@ export const ImsakiahScreen: React.FC = () => {
                 {toArabicNumber(d.dayNum)}
               </TextUI>
               <TextUI variant="caption" color={c.textSecondary} style={{ flex: 1, textAlign: 'center' }}>
-                {d.fajr}
+                {d.imsak}
               </TextUI>
               <TextUI variant="caption" weight={isToday ? 'bold' : 'regular'} color={c.textPrimary} style={{ flex: 1, textAlign: 'center' }}>
                 {d.fajr}

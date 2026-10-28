@@ -43,8 +43,8 @@ export function calculateAccuratePrayerTimes(
   method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
   asrMethod: 'standard' | 'hanafi' = 'standard'
 ): PrayerTimeValues {
-  const safeLat = (typeof lat === 'number' && Number.isFinite(lat) && lat !== 0) ? lat : 21.422487;
-  const safeLng = (typeof lng === 'number' && Number.isFinite(lng) && lng !== 0) ? lng : 39.826206;
+  const safeLat = (typeof lat === 'number' && Number.isFinite(lat)) ? lat : 21.422487;
+  const safeLng = (typeof lng === 'number' && Number.isFinite(lng)) ? lng : 39.826206;
   const safeDate = (date instanceof Date && !isNaN(date.getTime())) ? date : new Date();
 
   // Try adhan library if available

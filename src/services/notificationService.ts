@@ -28,19 +28,34 @@ export const NotificationService = {
     }
   },
 
+  async hasPermission(): Promise<boolean> {
+    try {
+      if (Platform.OS === 'web') return false;
+      const { status } = await Notifications.getPermissionsAsync();
+      return status === 'granted';
+    } catch (e) {
+      return false;
+    }
+  },
+
+  /**
+   * Replace all scheduled prayer alerts with the next 7 days for the given
+   * settings. Never prompts the user: call requestPermissions() first from a
+   * user action. Called on every app start so the 7-day window keeps rolling.
+   */
   async scheduleWeeklyPrayerNotifications(
     cityNameAr: string,
     cityNameEn: string,
     lat: number,
     lng: number,
     bells: PrayerBellsConfig,
-    method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura'
+    method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
+    asrMethod: 'standard' | 'hanafi' = 'standard'
   ): Promise<void> {
     if (Platform.OS === 'web') return;
 
     try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) return;
+      if (!(await this.hasPermission())) return;
 
       // Cancel previous scheduled notifications
       await Notifications.cancelAllScheduledNotificationsAsync();
@@ -51,7 +66,7 @@ export const NotificationService = {
         const targetDate = new Date();
         targetDate.setDate(now.getDate() + dayOffset);
 
-        const times = calculateAccuratePrayerTimes(lat, lng, targetDate, method);
+        const times = calculateAccuratePrayerTimes(lat, lng, targetDate, method, asrMethod);
 
         const dailyPrayers = [
           { key: 'fajr' as const, nameAr: 'الفجر', nameEn: 'Fajr', hours: times.fajr.hours, minutes: times.fajr.minutes },

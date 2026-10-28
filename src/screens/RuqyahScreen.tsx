@@ -115,14 +115,15 @@ export const RuqyahScreen: React.FC = () => {
         contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 110 }}
         showsVerticalScrollIndicator={false}
       >
-        {items.map((item: any) => {
-          const count = counters[item.id] || 0;
+        {items.map((item: any, index: number) => {
+          const itemKey = item.id || `${activeTab}-${index}`;
+          const count = counters[itemKey] || 0;
           const target = item.repeat || 1;
           const isDone = count >= target;
 
           return (
             <View
-              key={item.id}
+              key={itemKey}
               style={{
                 backgroundColor: c.surface,
                 borderRadius: 18,
@@ -141,7 +142,7 @@ export const RuqyahScreen: React.FC = () => {
                 {item.repeat ? (
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => handleCount(item.id, target)}
+                    onPress={() => handleCount(itemKey, target)}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -168,12 +169,13 @@ export const RuqyahScreen: React.FC = () => {
                 color={c.textPrimary}
                 style={{ lineHeight: activeTab === 'quran' ? 30 : 22, textAlign: 'justify', marginVertical: 6 }}
               >
-                {item.textAr || item.text}
+                {/* Quran items keep their text in `verse`, adab items in `descAr`. */}
+                {item.textAr || item.text || item.verse || item.descAr}
               </TextUI>
 
-              {item.source ? (
+              {item.source || item.reference ? (
                 <TextUI variant="caption" color={c.textSecondary} style={{ marginTop: 4 }}>
-                  📚 {item.source}
+                  📚 {item.source || item.reference}
                 </TextUI>
               ) : null}
             </View>

@@ -8,6 +8,9 @@ import { TOKENS, makeShadow } from '../constants/tokens';
 import { getFullDateInfo } from '../services/hijriDate';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { AZKAR_CATEGORIES } from '../data/azkarData';
+import { useNextPrayer } from '../hooks/useNextPrayer';
+
+const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 
 export const HomeScreen: React.FC = () => {
   const {
@@ -17,15 +20,28 @@ export const HomeScreen: React.FC = () => {
     t,
     currentCity,
     prayerTimes,
-    nextPrayerInfo,
     prayerBells,
     togglePrayerBell,
     readingBookmark,
     refreshLocation,
-    triggerHaptic
+    triggerHaptic,
+    setSelectedSurah
   } = useApp();
 
   const c = theme;
+  const nextPrayerInfo = useNextPrayer(prayerTimes);
+
+  // The reader reads the surah from context and the position from startPage/startAyah.
+  const openReaderAt = (surahId: number, page?: number, ayah?: number) => {
+    const surah = QURAN_DATA.find((item) => item.id === surahId) || QURAN_DATA[0];
+    setSelectedSurah(surah);
+    navigate('quran_reader', {
+      readingMode: 'page',
+      startPage: page || surah.mushafPageStart || 1,
+      startSurahId: surah.id,
+      startAyah: ayah
+    });
+  };
   const dateInfo = getFullDateInfo();
 
   const prayersList = [
@@ -506,7 +522,7 @@ export const HomeScreen: React.FC = () => {
             activeOpacity={0.88}
             onPress={() => {
               triggerHaptic?.('medium');
-              navigate('quran_reader', { surahId: 18, startPage: 293 });
+              openReaderAt(18);
             }}
             style={{
               flexDirection: 'row',
@@ -568,7 +584,7 @@ export const HomeScreen: React.FC = () => {
           onPress={() => {
             triggerHaptic?.('light');
             if (readingBookmark) {
-              navigate('quran_reader', { surahId: readingBookmark.surahId, ayah: readingBookmark.ayah });
+              openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
             } else {
               navigate('quran_index');
             }

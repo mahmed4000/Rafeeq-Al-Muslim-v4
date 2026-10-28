@@ -1,190 +1,66 @@
 export const KAABA_LAT = 21.422487;
 export const KAABA_LNG = 39.826206;
 
-export const CITIES = [
-  {
-    id: 'makkah',
-    nameAr: 'مكة المكرمة',
-    nameEn: 'Makkah',
-    country: 'السعودية',
-    lat: '21.42° N',
-    lng: '39.82° E',
-    qiblaAngle: 0,
-    qiblaTextAr: 'في رحاب الكعبة المشرفة',
-    qiblaTextEn: 'At the Holy Kaaba',
-    distanceToMakkah: '٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٤٥ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٥٢ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٦:٠٨ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١٢:١٨ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٤٥ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٢٨ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٧:٥٨ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'madinah',
-    nameAr: 'المدينة المنورة',
-    nameEn: 'Madinah',
-    country: 'السعودية',
-    lat: '24.46° N',
-    lng: '39.61° E',
-    qiblaAngle: 176,
-    qiblaTextAr: '١٧٦° جنوب (South)',
-    qiblaTextEn: '176° South',
-    distanceToMakkah: '٤٢٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٤٥ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٥٤ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٦:١٢ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١٢:٢٠ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٤٥ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٢٩ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٧:٥٩ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'cairo',
-    nameAr: 'القاهرة',
-    nameEn: 'Cairo',
-    country: 'مصر',
-    lat: '30.04° N',
-    lng: '31.23° E',
-    qiblaAngle: 136,
-    qiblaTextAr: '١٣٦° جنوب شرق (SE)',
-    qiblaTextEn: '136° South-East',
-    distanceToMakkah: '١,٢٩٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٣٨ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:١٢ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٥:٤٠ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١٢:٠٥ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٣٨ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٢٢ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٧:٥٢ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'riyadh',
-    nameAr: 'الرياض',
-    nameEn: 'Riyadh',
-    country: 'السعودية',
-    lat: '24.71° N',
-    lng: '46.67° E',
-    qiblaAngle: 244,
-    qiblaTextAr: '٢٤٤° جنوب غرب (SW)',
-    qiblaTextEn: '244° South-West',
-    distanceToMakkah: '٨٧٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٢٢ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٣٢ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٥:٤٩ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١١:٥٨ ص', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٢٢ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٠٧ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٧:٣٧ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'dubai',
-    nameAr: 'دبي',
-    nameEn: 'Dubai',
-    country: 'الإمارات',
-    lat: '25.20° N',
-    lng: '55.27° E',
-    qiblaAngle: 258,
-    qiblaTextAr: '٢٥٨° جنوب غرب (SW)',
-    qiblaTextEn: '258° South-West',
-    distanceToMakkah: '١,٦٥٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٤٦ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٤٥ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٦:٠١ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١٢:٢٢ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٤٦ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٤٢ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٨:٠٢ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'amman',
-    nameAr: 'عمان',
-    nameEn: 'Amman',
-    country: 'الأردن',
-    lat: '31.95° N',
-    lng: '35.93° E',
-    qiblaAngle: 162,
-    qiblaTextAr: '١٦٢° جنوب (South)',
-    qiblaTextEn: '162° South',
-    distanceToMakkah: '١,٢٣٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٣:٤٨ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٢٥ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٥:٥٢ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '١٢:١٢ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٣:٤٨ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٦:٣٢ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٨:٠٢ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'istanbul',
-    nameAr: 'إسطنبول',
-    nameEn: 'Istanbul',
-    country: 'تركيا',
-    lat: '41.00° N',
-    lng: '28.97° E',
-    qiblaAngle: 152,
-    qiblaTextAr: '١٥٢° جنوب شرق (SE)',
-    qiblaTextEn: '152° South-East',
-    distanceToMakkah: '٢,٤١٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٤:٣٨ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٤:٥٨ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٦:٣٥ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '٠١:٠٢ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٤:٣٨ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٧:٣٠ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '٠٩:٠٠ م', isNext: false, icon: 'moon' }
-    ]
-  },
-  {
-    id: 'london',
-    nameAr: 'لندن',
-    nameEn: 'London',
-    country: 'المملكة المتحدة',
-    lat: '51.50° N',
-    lng: '0.12° W',
-    qiblaAngle: 119,
-    qiblaTextAr: '١١٩° جنوب شرق (SE)',
-    qiblaTextEn: '119° South-East',
-    distanceToMakkah: '٤,٧٩٠ كم',
-    nextPrayerNameAr: 'صلاة العصر',
-    nextPrayerNameEn: 'Asr',
-    nextPrayerTime: '٠٥:١٥ م',
-    prayers: [
-      { id: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr', time: '٠٣:٤٥ ص', isNext: false, icon: 'sunrise' },
-      { id: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise', time: '٠٥:٢٢ ص', isNext: false, icon: 'sun' },
-      { id: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr', time: '٠١:٠٨ م', isNext: false, icon: 'sun' },
-      { id: 'asr', nameAr: 'العصر', nameEn: 'Asr', time: '٠٥:١٥ م', isNext: true, icon: 'clock' },
-      { id: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib', time: '٠٨:٥٥ م', isNext: false, icon: 'sunset' },
-      { id: 'isha', nameAr: 'العشاء', nameEn: 'Isha', time: '١٠:٣٠ م', isNext: false, icon: 'moon' }
-    ]
-  }
+export interface City {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  country: string;
+  countryAr: string;
+  countryEn: string;
+  lat: number;
+  lng: number;
+  qiblaAngle?: number;
+}
+
+// Decimal-degree coordinates (positive = North / East). Prayer times and Qibla
+// are always computed from these at runtime, never stored per city.
+export const CITIES: City[] = [
+  { id: 'makkah', nameAr: 'مكة المكرمة', nameEn: 'Makkah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 21.4225, lng: 39.8262 },
+  { id: 'madinah', nameAr: 'المدينة المنورة', nameEn: 'Madinah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 24.4672, lng: 39.6024 },
+  { id: 'cairo', nameAr: 'القاهرة', nameEn: 'Cairo', country: 'مصر', countryAr: 'مصر', countryEn: 'Egypt', lat: 30.0444, lng: 31.2357 },
+  { id: 'riyadh', nameAr: 'الرياض', nameEn: 'Riyadh', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 24.7136, lng: 46.6753 },
+  { id: 'dubai', nameAr: 'دبي', nameEn: 'Dubai', country: 'الإمارات', countryAr: 'الإمارات', countryEn: 'UAE', lat: 25.2048, lng: 55.2708 },
+  { id: 'amman', nameAr: 'عمان', nameEn: 'Amman', country: 'الأردن', countryAr: 'الأردن', countryEn: 'Jordan', lat: 31.9454, lng: 35.9284 },
+  { id: 'istanbul', nameAr: 'إسطنبول', nameEn: 'Istanbul', country: 'تركيا', countryAr: 'تركيا', countryEn: 'Turkey', lat: 41.0082, lng: 28.9784 },
+  { id: 'london', nameAr: 'لندن', nameEn: 'London', country: 'المملكة المتحدة', countryAr: 'المملكة المتحدة', countryEn: 'United Kingdom', lat: 51.5074, lng: -0.1278 }
 ];
 
+/**
+ * Parse a coordinate that may be a number, a numeric string, or the legacy
+ * label format stored by older versions (e.g. "30.04° N", "0.12° W").
+ */
+export function parseCoordinate(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const match = value.match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  let num = parseFloat(match[0]);
+  if (/[SW]\s*$/i.test(value.trim())) num = -Math.abs(num);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * Bring a city object (from storage, GPS or the list) to the current shape.
+ * Built-in cities are refreshed from CITIES so old saved copies get corrected
+ * coordinates; returns null when the coordinates cannot be recovered.
+ */
+export function normalizeCity(raw: any): City | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const builtIn = CITIES.find((c) => c.id === raw.id);
+  if (builtIn) return builtIn;
+  const lat = parseCoordinate(raw.lat);
+  const lng = parseCoordinate(raw.lng);
+  if (lat === null || lng === null) return null;
+  const countryAr = raw.countryAr || raw.country || '';
+  return {
+    id: String(raw.id || 'custom'),
+    nameAr: raw.nameAr || raw.nameEn || '',
+    nameEn: raw.nameEn || raw.nameAr || '',
+    country: countryAr,
+    countryAr,
+    countryEn: raw.countryEn || countryAr,
+    lat,
+    lng
+  };
+}
