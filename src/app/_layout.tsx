@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, StatusBar, Platform, I18nManager, ActivityIndicator } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { setAudioModeAsync } from 'expo-audio';
 import {
@@ -18,11 +19,9 @@ import {
   Cairo_700Bold
 } from '@expo-google-fonts/cairo';
 
-import { AppProvider, useApp } from './src/context/AppContext';
-import { MainNavigator } from './src/navigation/MainNavigator';
-import { SafeErrorBoundary } from './src/components/common/SafeErrorBoundary';
-import { TextUI } from './src/components/common/TextUI';
-import { TOKENS } from './src/constants/tokens';
+import { AppProvider, useApp } from '../context/AppContext';
+import { SafeErrorBoundary } from '../components/common/SafeErrorBoundary';
+import { TextUI } from '../components/common/TextUI';
 
 // RTL & Audio Background Config
 try {
@@ -60,21 +59,32 @@ if (Platform.OS !== 'web') {
   } catch (e) {}
 }
 
-const AppContent: React.FC = () => {
+const ThemedStack: React.FC = () => {
   const { themeMode } = useApp();
+  const router = useRouter();
+  const bg = themeMode === 'light' ? '#FAF6F0' : '#1C1511';
+
+  // Tapping a prayer alert opens the prayer times screen.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (response.notification.request.content.data?.prayer) router.push('/prayer-times');
+    });
+    return () => sub.remove();
+  }, [router]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: themeMode === 'light' ? '#FAF6F0' : '#1C1511', direction: 'rtl' }}>
+    <View style={{ flex: 1, backgroundColor: bg, direction: 'rtl' }}>
       <StatusBar
         barStyle={themeMode === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={themeMode === 'light' ? '#FAF6F0' : '#1C1511'}
+        backgroundColor={bg}
       />
-      <MainNavigator />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }} />
     </View>
   );
 };
 
-export default function App() {
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Tajawal_400Regular,
     Tajawal_500Medium,
@@ -107,7 +117,7 @@ export default function App() {
   return (
     <SafeErrorBoundary>
       <AppProvider>
-        <AppContent />
+        <ThemedStack />
       </AppProvider>
     </SafeErrorBoundary>
   );

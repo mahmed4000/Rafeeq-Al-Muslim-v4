@@ -7,9 +7,11 @@ import { TextUI } from '../components/common/TextUI';
 import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS } from '../constants/tokens';
+import { useScreenParams } from '../navigation/routes';
 
 export const HaramainBookScreen: React.FC = () => {
-  const { goBack, navigate, screenParams, theme } = useApp();
+  const { goBack, navigate, theme } = useApp();
+  const screenParams = useScreenParams();
   const c = theme;
   const course: any = useMemo(() => [...PROPHET_MOSQUE_COURSES, ...MAKKAH_MOSQUE_COURSES]
     .find((item: any) => item.id === screenParams?.courseId), [screenParams?.courseId]);

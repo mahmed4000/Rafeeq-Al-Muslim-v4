@@ -4,16 +4,19 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
-import { AZKAR_DATABASE } from '../data/azkarData';
+import { AZKAR_CATEGORIES, AZKAR_DATABASE } from '../data/azkarData';
+import { useScreenParams } from '../navigation/routes';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { StorageService } from '../services/storage';
 
 export const AzkarSessionScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, screenParams, triggerHaptic, isRTL } = useApp();
+  const { goBack, theme, themeMode, t, triggerHaptic, isRTL } = useApp();
+  const screenParams = useScreenParams();
   const c = theme;
 
-  const category = screenParams?.category || { id: 'morning', titleAr: 'أذكار الصباح' };
+  const category: any = AZKAR_CATEGORIES.find((cat) => cat.id === screenParams?.categoryId) ||
+    { id: 'morning', titleAr: 'أذكار الصباح' };
   const azkarList = AZKAR_DATABASE[category.id] || AZKAR_DATABASE.morning;
 
   const [currentIndex, setCurrentIndex] = useState(0);

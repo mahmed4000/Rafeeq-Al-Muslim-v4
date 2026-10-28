@@ -32,6 +32,7 @@ import {
   DEFAULT_TAFSIR_ID
 } from '../services/tafsirService';
 import { TOKENS, makeShadow } from '../constants/tokens';
+import { useScreenParams } from '../navigation/routes';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 let allQuranVersesCache: QuranVerse[] | null = null;
@@ -65,7 +66,6 @@ export const SCROLL_SPEED_OPTIONS = [
 export const QuranReaderScreen: React.FC = () => {
   const {
     goBack,
-    screenParams,
     theme,
     themeMode,
     t,
@@ -77,11 +77,14 @@ export const QuranReaderScreen: React.FC = () => {
     setReadingBookmark,
     triggerHaptic
   } = useApp();
+  const screenParams = useScreenParams();
 
   const c = theme;
   const tafsirCardBgColor = themeMode === 'light' ? TOKENS.colors.light.tafsirCardBg : TOKENS.colors.dark.tafsirCardBg;
   const tafsirBorderColor = themeMode === 'light' ? TOKENS.colors.light.tafsirBorder : TOKENS.colors.dark.tafsirBorder;
-  const currentSurah = selectedSurah || QURAN_DATA[0];
+  // Opened from a link (or after a reload) the context may not hold the surah yet.
+  const currentSurah = selectedSurah ||
+    QURAN_DATA.find((item) => item.id === screenParams?.startSurahId) || QURAN_DATA[0];
   const parsedSurah = parseSurahVerses(currentSurah);
   const initialPage = screenParams?.startPage ||
     (readingBookmark && readingBookmark.surahId === currentSurah.id ? readingBookmark.page : currentSurah.mushafPageStart || 1);

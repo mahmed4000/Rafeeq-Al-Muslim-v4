@@ -104,7 +104,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   activeOpacity={0.85}
                   onPress={() => {
                     triggerHaptic('medium');
-                    navigate('azkar_session', { category: morningCat });
+                    navigate('azkar_session', { categoryId: morningCat.id });
                   }}
                   style={{
                     flex: 1,
@@ -181,7 +181,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   activeOpacity={0.85}
                   onPress={() => {
                     triggerHaptic('medium');
-                    navigate('azkar_session', { category: eveningCat });
+                    navigate('azkar_session', { categoryId: eveningCat.id });
                   }}
                   style={{
                     flex: 1,
@@ -381,7 +381,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
                 activeOpacity={0.82}
                 onPress={() => {
                   triggerHaptic('light');
-                  navigate('azkar_session', { category: cat });
+                  navigate('azkar_session', { categoryId: cat.id });
                 }}
                 style={{
                   flexDirection: 'row',

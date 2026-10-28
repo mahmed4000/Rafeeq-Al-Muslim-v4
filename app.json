@@ -68,7 +68,8 @@
         }
       ],
       "expo-audio",
-      "expo-font"
+      "expo-font",
+      "expo-router"
     ],
     "extra": {
       "eas": {

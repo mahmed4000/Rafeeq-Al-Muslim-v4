@@ -9,12 +9,14 @@ import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainD
 import { AudioService, LessonMarker } from '../services/audioService';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { TOKENS } from '../constants/tokens';
+import { useScreenParams } from '../navigation/routes';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const clock = (n: number) => `${Math.floor(n / 60).toString().padStart(2, '0')}:${Math.floor(n % 60).toString().padStart(2, '0')}`;
 
 export const HaramainLessonScreen: React.FC = () => {
-  const { goBack, screenParams, theme } = useApp();
+  const { goBack, theme } = useApp();
+  const screenParams = useScreenParams();
   const c = theme;
   const { course, lesson } = useMemo(() => {
     const all = [...PROPHET_MOSQUE_COURSES, ...MAKKAH_MOSQUE_COURSES];

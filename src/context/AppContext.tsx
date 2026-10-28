@@ -10,6 +10,8 @@ import {
   PrayerTimeValues
 } from '../services/prayerCalculation';
 import { NotificationService, PrayerBellsConfig } from '../services/notificationService';
+import { useRouter, usePathname } from 'expo-router';
+import { SCREEN_PATHS, TAB_SCREENS, screenKeyForPath, serializeParams } from '../navigation/routes';
 
 export interface BookmarkItem {
   surahId: number;
@@ -35,7 +37,6 @@ interface AppContextType {
   screen: string;
   navigate: (screenName: string, params?: any) => void;
   goBack: () => void;
-  screenParams: any;
   themeMode: 'light' | 'dark';
   setThemeMode: (mode: 'light' | 'dark') => void;
   theme: typeof TOKENS.colors.light;
@@ -71,9 +72,9 @@ const AppContext = createContext<AppContextType | null>(null);
 const todayKey = () => new Date().toDateString();
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [screen, setScreen] = useState<string>('home');
-  const [stack, setStack] = useState<string[]>([]);
-  const [screenParams, setScreenParams] = useState<any>({});
+  const router = useRouter();
+  const pathname = usePathname();
+  const screen = screenKeyForPath(pathname);
   const [themeMode, setThemeModeState] = useState<'light' | 'dark'>('light');
   const [lang, setLangState] = useState<'ar' | 'en'>('ar');
   const [currentCity, setCurrentCityState] = useState<City>(CITIES[0]);
@@ -125,23 +126,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
   };
 
-  // Navigation handlers
+  // Navigation handlers: legacy screen keys routed through Expo Router.
+  // Screens read their params with useScreenParams().
   const navigate = (nextScreen: string, params: any = {}) => {
     triggerHaptic('light');
-    setStack((prev) => [...prev, screen]);
-    setScreenParams(params);
-    setScreen(nextScreen);
+    const pathnameFor = SCREEN_PATHS[nextScreen] || '/';
+    if (TAB_SCREENS.has(nextScreen)) {
+      router.navigate(pathnameFor as any);
+    } else {
+      router.push({ pathname: pathnameFor as any, params: serializeParams(params) });
+    }
   };
 
   const goBack = () => {
     triggerHaptic('light');
-    if (stack.length > 0) {
-      const prev = stack[stack.length - 1];
-      setStack((s) => s.slice(0, s.length - 1));
-      setScreen(prev);
-    } else {
-      setScreen('home');
-    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   };
 
   // Load preferences from persistent storage on startup
@@ -347,7 +347,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         screen,
         navigate,
         goBack,
-        screenParams,
         themeMode,
         setThemeMode,
         theme,

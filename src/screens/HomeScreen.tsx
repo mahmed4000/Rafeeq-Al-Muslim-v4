@@ -429,7 +429,7 @@ export const HomeScreen: React.FC = () => {
             onPress={() => {
               triggerHaptic?.('light');
               const morningCat = AZKAR_CATEGORIES.find((cat) => cat.id === 'morning') || AZKAR_CATEGORIES[0];
-              navigate('azkar_session', { category: morningCat });
+              navigate('azkar_session', { categoryId: morningCat.id });
             }}
             style={{
               flex: 1,
@@ -473,7 +473,7 @@ export const HomeScreen: React.FC = () => {
             onPress={() => {
               triggerHaptic?.('light');
               const eveningCat = AZKAR_CATEGORIES.find((cat) => cat.id === 'evening') || AZKAR_CATEGORIES[1];
-              navigate('azkar_session', { category: eveningCat });
+              navigate('azkar_session', { categoryId: eveningCat.id });
             }}
             style={{
               flex: 1,
