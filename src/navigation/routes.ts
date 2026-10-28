@@ -22,7 +22,10 @@ export const SCREEN_PATHS: Record<string, string> = {
   downloads: '/downloads',
   tasbih: '/tasbih',
   khatma: '/khatma',
-  tahfeez: '/tahfeez'
+  tahfeez: '/tahfeez',
+  prayer_month: '/prayer-month',
+  adhan_settings: '/adhan-settings',
+  onboarding: '/onboarding'
 };
 
 // Bottom-tab routes: navigating to these switches tabs instead of stacking a new screen.

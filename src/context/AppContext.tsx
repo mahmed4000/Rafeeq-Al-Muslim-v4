@@ -9,7 +9,13 @@ import {
   calculateAccuratePrayerTimes,
   PrayerTimeValues
 } from '../services/prayerCalculation';
-import { NotificationService, PrayerBellsConfig } from '../services/notificationService';
+import {
+  NotificationService,
+  PrayerBellsConfig,
+  PrayerAlertsConfig,
+  defaultAlertsConfig,
+  bellsFromAlerts
+} from '../services/notificationService';
 import { useRouter, usePathname } from 'expo-router';
 import { SCREEN_PATHS, TAB_SCREENS, screenKeyForPath, serializeParams } from '../navigation/routes';
 
@@ -49,6 +55,13 @@ interface AppContextType {
   prayerTimes: PrayerTimeValues;
   prayerBells: PrayerBellsConfig;
   togglePrayerBell: (prayerKey: keyof PrayerBellsConfig) => void;
+  alertsConfig: PrayerAlertsConfig;
+  setAlertsConfig: (config: PrayerAlertsConfig) => void;
+  /** Re-run scheduling after the user grants notification permission. */
+  refreshNotifications: () => void;
+  prefsLoaded: boolean;
+  onboarded: boolean;
+  completeOnboarding: () => void;
   calculationMethod: CalculationMethod;
   setCalculationMethod: (method: CalculationMethod) => void;
   asrMethod: AsrMethod;
@@ -59,7 +72,7 @@ interface AppContextType {
   readingBookmark: ReadingBookmark | null;
   setReadingBookmark: (rb: ReadingBookmark | null) => void;
   triggerHaptic: (type?: 'light' | 'medium' | 'heavy' | 'success') => void;
-  refreshLocation: () => Promise<void>;
+  refreshLocation: () => Promise<City | null>;
   // Quran reader state
   selectedSurah: any;
   setSelectedSurah: (s: any) => void;
@@ -70,6 +83,9 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 const todayKey = () => new Date().toDateString();
+const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
+const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
+const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -81,13 +97,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [calculationMethod, setCalcMethodState] = useState<CalculationMethod>('umm_al_qura');
   const [asrMethod, setAsrMethodState] = useState<AsrMethod>('standard');
-  const [prayerBells, setPrayerBells] = useState<PrayerBellsConfig>({
-    fajr: true,
-    dhuhr: true,
-    asr: true,
-    maghrib: true,
-    isha: true
-  });
+  const [alertsConfig, setAlertsConfigState] = useState<PrayerAlertsConfig>(() => defaultAlertsConfig());
+  const prayerBells = useMemo(() => bellsFromAlerts(alertsConfig), [alertsConfig]);
+  // Existing installs (a saved city) skip onboarding; new installs see it once.
+  const [onboarded, setOnboarded] = useState(true);
 
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [readingBookmark, setReadingBookmarkState] = useState<ReadingBookmark | null>(null);
@@ -162,10 +175,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedAsr = await StorageService.getItem('almosala_asr_method');
         if (savedAsr === 'standard' || savedAsr === 'hanafi') setAsrMethodState(savedAsr);
 
-        const savedBells = await StorageService.getObject<PrayerBellsConfig>('almosala_bells', {
-          fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true
-        });
-        setPrayerBells(savedBells);
+        // Per-prayer alert settings; older installs only had on/off bells.
+        const savedAlerts = await StorageService.getObject<PrayerAlertsConfig | null>(ALERTS_KEY, null);
+        if (savedAlerts?.prayers) {
+          setAlertsConfigState(savedAlerts);
+        } else {
+          const legacyBells = await StorageService.getObject<PrayerBellsConfig | null>('almosala_bells', null);
+          setAlertsConfigState(defaultAlertsConfig(legacyBells || undefined));
+        }
+
+        // Alerts scheduled by older versions had random ids; clear them once so
+        // the new scheduler (which only manages its own ids) doesn't duplicate them.
+        if (!(await StorageService.getItem(NOTIF_MIGRATION_KEY))) {
+          await NotificationService.clearLegacyScheduled();
+          await StorageService.setItem(NOTIF_MIGRATION_KEY, '1');
+        }
+
+        const onboardedFlag = await StorageService.getItem(ONBOARDED_KEY);
+        const hasSavedCity = !!(await StorageService.getItem('almosala_city'));
+        setOnboarded(onboardedFlag === '1' || hasSavedCity);
 
         const savedBookmarks = await StorageService.getObject<BookmarkItem[]>('almosala_bookmarks', []);
         setBookmarks(savedBookmarks);
@@ -206,23 +234,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Keep the 7-day notification window in sync with the current settings.
+  // Keep the scheduled prayer alerts in sync with the current settings.
   // Runs on every start, so alerts keep rolling forward as long as the app is opened weekly.
   useEffect(() => {
     if (!prefsLoaded) return;
     const timer = setTimeout(() => {
-      NotificationService.scheduleWeeklyPrayerNotifications(
+      NotificationService.schedulePrayerAlerts(
         currentCity.nameAr,
-        currentCity.nameEn,
         currentCity.lat,
         currentCity.lng,
-        prayerBells,
+        alertsConfig,
         calculationMethod,
         asrMethod
       );
     }, 800);
     return () => clearTimeout(timer);
-  }, [prefsLoaded, currentCity, prayerBells, calculationMethod, asrMethod, dayKey, notifRev]);
+  }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, dayKey, notifRev]);
 
   // Persist the Quran font size after pinch/zoom settles.
   useEffect(() => {
@@ -258,18 +285,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!normalized) return;
     setCurrentCityState(normalized);
     StorageService.setObject('almosala_city', normalized);
-    // Choosing a city is a user action: ask for notification permission here
-    // (as before) so adhan alerts can be scheduled for it.
-    NotificationService.requestPermissions().then(() => setNotifRev((n) => n + 1));
+  };
+
+  const setAlertsConfig = (config: PrayerAlertsConfig) => {
+    setAlertsConfigState(config);
+    StorageService.setObject(ALERTS_KEY, config);
+  };
+
+  const refreshNotifications = () => setNotifRev((n) => n + 1);
+
+  const completeOnboarding = () => {
+    setOnboarded(true);
+    StorageService.setItem(ONBOARDED_KEY, '1');
   };
 
   const togglePrayerBell = (prayerKey: keyof PrayerBellsConfig) => {
     triggerHaptic('light');
     const turningOn = !prayerBells[prayerKey];
-    setPrayerBells((prev) => {
-      const next = { ...prev, [prayerKey]: !prev[prayerKey] };
-      StorageService.setObject('almosala_bells', next);
-      return next;
+    const current = alertsConfig.prayers[prayerKey];
+    setAlertsConfig({
+      ...alertsConfig,
+      // Turning a bell on also re-enables the master switch.
+      enabled: turningOn ? true : alertsConfig.enabled,
+      prayers: { ...alertsConfig.prayers, [prayerKey]: { ...current, adhan: turningOn } }
     });
     if (turningOn) {
       // Ask from a user action; reschedule once the answer is known.
@@ -302,11 +340,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const refreshLocation = async () => {
+  /** Locate the device and switch to that place. Resolves to the new city, or null if denied/failed. */
+  const refreshLocation = async (): Promise<City | null> => {
     triggerHaptic('medium');
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') return null;
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       if (loc && loc.coords) {
         const lat = loc.coords.latitude;
@@ -318,20 +357,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Reverse geocoding needs a network; coordinates alone are enough for prayer times.
         }
         const cityName = geo ? (geo.city || geo.subregion || geo.region || 'موقعي الحالي') : 'موقعي الحالي';
-        setCurrentCity({
+        const city: City = {
           id: 'live_gps',
           nameAr: cityName,
           nameEn: cityName,
           country: geo?.country || 'الموقع المباشر',
           countryAr: geo?.country || 'الموقع المباشر',
           countryEn: geo?.country || 'Current Location',
+          countryCode: geo?.isoCountryCode || undefined,
           lat,
           lng
-        });
+        };
+        setCurrentCity(city);
+        return city;
       }
     } catch (e) {
       console.warn('refreshLocation error:', e);
     }
+    return null;
   };
 
   // Prayer times change only with the day, place or method — not every render.
@@ -359,6 +402,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         prayerTimes,
         prayerBells,
         togglePrayerBell,
+        alertsConfig,
+        setAlertsConfig,
+        refreshNotifications,
+        prefsLoaded,
+        onboarded,
+        completeOnboarding,
         calculationMethod,
         setCalculationMethod,
         asrMethod,

@@ -10,20 +10,42 @@ export interface City {
   countryEn: string;
   lat: number;
   lng: number;
+  /** ISO 3166 alpha-2, used to suggest a calculation method. */
+  countryCode?: string;
   qiblaAngle?: number;
 }
+
+type CalcMethod = 'umm_al_qura' | 'egypt' | 'mwl' | 'isna';
+
+/** Calculation method commonly used in a country; Muslim World League otherwise. */
+export function suggestMethodForCountry(code?: string): CalcMethod {
+  switch ((code || '').toUpperCase()) {
+    case 'SA': return 'umm_al_qura';
+    case 'EG': return 'egypt';
+    case 'US':
+    case 'CA': return 'isna';
+    default: return 'mwl';
+  }
+}
+
+export const METHOD_NAMES_AR: Record<CalcMethod, string> = {
+  umm_al_qura: 'أم القرى (السعودية)',
+  egypt: 'الهيئة المصرية العامة للمساحة',
+  mwl: 'رابطة العالم الإسلامي',
+  isna: 'الجمعية الإسلامية لأمريكا الشمالية'
+};
 
 // Decimal-degree coordinates (positive = North / East). Prayer times and Qibla
 // are always computed from these at runtime, never stored per city.
 export const CITIES: City[] = [
-  { id: 'makkah', nameAr: 'مكة المكرمة', nameEn: 'Makkah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 21.4225, lng: 39.8262 },
-  { id: 'madinah', nameAr: 'المدينة المنورة', nameEn: 'Madinah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 24.4672, lng: 39.6024 },
-  { id: 'cairo', nameAr: 'القاهرة', nameEn: 'Cairo', country: 'مصر', countryAr: 'مصر', countryEn: 'Egypt', lat: 30.0444, lng: 31.2357 },
-  { id: 'riyadh', nameAr: 'الرياض', nameEn: 'Riyadh', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', lat: 24.7136, lng: 46.6753 },
-  { id: 'dubai', nameAr: 'دبي', nameEn: 'Dubai', country: 'الإمارات', countryAr: 'الإمارات', countryEn: 'UAE', lat: 25.2048, lng: 55.2708 },
-  { id: 'amman', nameAr: 'عمان', nameEn: 'Amman', country: 'الأردن', countryAr: 'الأردن', countryEn: 'Jordan', lat: 31.9454, lng: 35.9284 },
-  { id: 'istanbul', nameAr: 'إسطنبول', nameEn: 'Istanbul', country: 'تركيا', countryAr: 'تركيا', countryEn: 'Turkey', lat: 41.0082, lng: 28.9784 },
-  { id: 'london', nameAr: 'لندن', nameEn: 'London', country: 'المملكة المتحدة', countryAr: 'المملكة المتحدة', countryEn: 'United Kingdom', lat: 51.5074, lng: -0.1278 }
+  { id: 'makkah', nameAr: 'مكة المكرمة', nameEn: 'Makkah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', countryCode: 'SA', lat: 21.4225, lng: 39.8262 },
+  { id: 'madinah', nameAr: 'المدينة المنورة', nameEn: 'Madinah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', countryCode: 'SA', lat: 24.4672, lng: 39.6024 },
+  { id: 'cairo', nameAr: 'القاهرة', nameEn: 'Cairo', country: 'مصر', countryAr: 'مصر', countryEn: 'Egypt', countryCode: 'EG', lat: 30.0444, lng: 31.2357 },
+  { id: 'riyadh', nameAr: 'الرياض', nameEn: 'Riyadh', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', countryCode: 'SA', lat: 24.7136, lng: 46.6753 },
+  { id: 'dubai', nameAr: 'دبي', nameEn: 'Dubai', country: 'الإمارات', countryAr: 'الإمارات', countryEn: 'UAE', countryCode: 'AE', lat: 25.2048, lng: 55.2708 },
+  { id: 'amman', nameAr: 'عمان', nameEn: 'Amman', country: 'الأردن', countryAr: 'الأردن', countryEn: 'Jordan', countryCode: 'JO', lat: 31.9454, lng: 35.9284 },
+  { id: 'istanbul', nameAr: 'إسطنبول', nameEn: 'Istanbul', country: 'تركيا', countryAr: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 41.0082, lng: 28.9784 },
+  { id: 'london', nameAr: 'لندن', nameEn: 'London', country: 'المملكة المتحدة', countryAr: 'المملكة المتحدة', countryEn: 'United Kingdom', countryCode: 'GB', lat: 51.5074, lng: -0.1278 }
 ];
 
 /**
@@ -60,6 +82,7 @@ export function normalizeCity(raw: any): City | null {
     country: countryAr,
     countryAr,
     countryEn: raw.countryEn || countryAr,
+    countryCode: typeof raw.countryCode === 'string' ? raw.countryCode : undefined,
     lat,
     lng
   };

@@ -10,7 +10,7 @@ export interface FormattedDateInfo {
   gregorianDate: string;
 }
 
-const HIJRI_MONTHS = [
+export const HIJRI_MONTHS = [
   'المحرّم',
   'صفر',
   'ربيع الأول',
@@ -25,7 +25,7 @@ const HIJRI_MONTHS = [
   'ذو الحجة'
 ];
 
-const GREGORIAN_MONTHS = [
+export const GREGORIAN_MONTHS = [
   'يناير',
   'فبراير',
   'مارس',
@@ -101,6 +101,25 @@ function fallbackKuwaiti(date: Date, adjustmentDays = 0): { day: number; month: 
   if (im === 13) im = 12;
   const id = z - Math.floor(29.5001 * im - 29);
   return { day: Math.max(1, Math.min(30, id)), month: Math.max(1, Math.min(12, im)), year: iy };
+}
+
+/** Umm al-Qura Hijri day/month/year as numbers (month 1-12), with an arithmetic fallback. */
+export function getHijriParts(date: Date): { day: number; month: number; year: number } {
+  try {
+    if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+      const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric'
+      }).formatToParts(date);
+      const get = (type: string) => parseInt((parts.find((p) => p.type === type)?.value || '').replace(/[^0-9]/g, ''), 10);
+      const day = get('day');
+      const month = get('month');
+      const year = get('year');
+      if (day && month && year) return { day, month, year };
+    }
+  } catch {}
+  return fallbackKuwaiti(date);
 }
 
 export function getFullDateInfo(date = new Date(), adjustmentDays = 0): FormattedDateInfo {

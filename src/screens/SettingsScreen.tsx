@@ -157,6 +157,19 @@ export const SettingsScreen: React.FC = () => {
           </TextUI>
 
           <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            onPress={() => navigate('adhan_settings')}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginBottom: 10 }}
+          >
+            <Feather name="sliders" size={18} color={TOKENS.colors.primary} />
+            <TextUI variant="h4" color={c.textPrimary} style={{ flex: 1 }}>
+              {t('الأذان والإقامة لكل صلاة', 'Adhan & iqama per prayer')}
+            </TextUI>
+            <Feather name="chevron-left" size={18} color={c.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             activeOpacity={0.85}
             onPress={async () => {
               triggerHaptic('medium');

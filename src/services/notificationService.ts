@@ -1,6 +1,12 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { calculateAccuratePrayerTimes } from './prayerCalculation';
+
+export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+export const PRAYER_KEYS: PrayerKey[] = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+export const PRAYER_NAMES_AR: Record<PrayerKey, string> = {
+  fajr: 'الفجر', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء'
+};
 
 export interface PrayerBellsConfig {
   fajr: boolean;
@@ -8,6 +14,65 @@ export interface PrayerBellsConfig {
   asr: boolean;
   maghrib: boolean;
   isha: boolean;
+}
+
+/** Alerts for one prayer: a reminder before the adhan, the adhan itself, and the iqama. */
+export interface PrayerAlertSetting {
+  before: boolean;
+  beforeMinutes: number;
+  adhan: boolean;
+  iqama: boolean;
+  iqamaMinutes: number;
+}
+
+export interface PrayerAlertsConfig {
+  enabled: boolean;
+  sameForAll: boolean;
+  prayers: Record<PrayerKey, PrayerAlertSetting>;
+}
+
+// Common iqama gaps used by many mosques; users adjust them to their own mosque.
+const DEFAULT_IQAMA: Record<PrayerKey, number> = { fajr: 25, dhuhr: 20, asr: 20, maghrib: 10, isha: 20 };
+
+export function defaultAlertsConfig(bells?: PrayerBellsConfig): PrayerAlertsConfig {
+  const prayers = {} as Record<PrayerKey, PrayerAlertSetting>;
+  PRAYER_KEYS.forEach((key) => {
+    prayers[key] = {
+      before: false,
+      beforeMinutes: 15,
+      adhan: bells ? bells[key] : true,
+      iqama: false,
+      iqamaMinutes: DEFAULT_IQAMA[key]
+    };
+  });
+  return { enabled: true, sameForAll: false, prayers };
+}
+
+/** The adhan on/off per prayer, for screens that still show simple bells. */
+export function bellsFromAlerts(config: PrayerAlertsConfig): PrayerBellsConfig {
+  const bells = {} as PrayerBellsConfig;
+  PRAYER_KEYS.forEach((key) => { bells[key] = config.enabled && config.prayers[key].adhan; });
+  return bells;
+}
+
+const PRAYER_ID_PREFIX = 'prayer-';
+const CHANNEL_ADHAN = 'prayer-adhan';
+const CHANNEL_REMINDER = 'prayer-reminder';
+// iOS keeps at most 64 pending local notifications; leave room for other reminders.
+const MAX_PRAYER_ALERTS = 56;
+
+async function ensureChannels() {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(CHANNEL_ADHAN, {
+    name: 'الأذان',
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: 'default'
+  });
+  await Notifications.setNotificationChannelAsync(CHANNEL_REMINDER, {
+    name: 'التذكير قبل الصلاة والإقامة',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default'
+  });
 }
 
 export const NotificationService = {
@@ -33,22 +98,35 @@ export const NotificationService = {
       if (Platform.OS === 'web') return false;
       const { status } = await Notifications.getPermissionsAsync();
       return status === 'granted';
-    } catch (e) {
+    } catch {
       return false;
     }
   },
 
+  /** One-time cleanup of alerts scheduled by older versions (they had random ids). */
+  async clearLegacyScheduled(): Promise<void> {
+    if (Platform.OS === 'web') return;
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch {}
+  },
+
+  /** Opens the app's page in the system settings (to allow notifications). */
+  openSystemSettings() {
+    Linking.openSettings().catch(() => {});
+  },
+
   /**
-   * Replace all scheduled prayer alerts with the next 7 days for the given
-   * settings. Never prompts the user: call requestPermissions() first from a
-   * user action. Called on every app start so the 7-day window keeps rolling.
+   * Replace the scheduled prayer alerts (only ours, identified by prefix) with
+   * the coming days for the given settings. Never prompts the user: call
+   * requestPermissions() from a user action first. Called on every app start
+   * so the window keeps rolling forward.
    */
-  async scheduleWeeklyPrayerNotifications(
+  async schedulePrayerAlerts(
     cityNameAr: string,
-    cityNameEn: string,
     lat: number,
     lng: number,
-    bells: PrayerBellsConfig,
+    config: PrayerAlertsConfig,
     method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
     asrMethod: 'standard' | 'hanafi' = 'standard'
   ): Promise<void> {
@@ -56,51 +134,84 @@ export const NotificationService = {
 
     try {
       if (!(await this.hasPermission())) return;
+      await ensureChannels();
 
-      // Cancel previous scheduled notifications
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      await Promise.all(
+        scheduled
+          .filter((item: any) => typeof item?.identifier === 'string' && item.identifier.startsWith(PRAYER_ID_PREFIX))
+          .map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier))
+      );
+      if (!config.enabled) return;
+
+      const perDay = PRAYER_KEYS.reduce((sum, key) => {
+        const s = config.prayers[key];
+        return sum + (s.before ? 1 : 0) + (s.adhan ? 1 : 0) + (s.iqama ? 1 : 0);
+      }, 0);
+      if (perDay === 0) return;
+      const days = Math.max(1, Math.min(7, Math.floor(MAX_PRAYER_ALERTS / perDay)));
 
       const now = new Date();
-      // Schedule for the next 7 days
-      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-        const targetDate = new Date();
-        targetDate.setDate(now.getDate() + dayOffset);
+      for (let dayOffset = 0; dayOffset < days; dayOffset++) {
+        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 12);
+        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod);
 
-        const times = calculateAccuratePrayerTimes(lat, lng, targetDate, method, asrMethod);
+        for (const key of PRAYER_KEYS) {
+          const s = config.prayers[key];
+          const name = PRAYER_NAMES_AR[key];
+          const at = new Date(day);
+          at.setHours(times[key].hours, times[key].minutes, 0, 0);
 
-        const dailyPrayers = [
-          { key: 'fajr' as const, nameAr: 'الفجر', nameEn: 'Fajr', hours: times.fajr.hours, minutes: times.fajr.minutes },
-          { key: 'dhuhr' as const, nameAr: 'الظهر', nameEn: 'Dhuhr', hours: times.dhuhr.hours, minutes: times.dhuhr.minutes },
-          { key: 'asr' as const, nameAr: 'العصر', nameEn: 'Asr', hours: times.asr.hours, minutes: times.asr.minutes },
-          { key: 'maghrib' as const, nameAr: 'المغرب', nameEn: 'Maghrib', hours: times.maghrib.hours, minutes: times.maghrib.minutes },
-          { key: 'isha' as const, nameAr: 'العشاء', nameEn: 'Isha', hours: times.isha.hours, minutes: times.isha.minutes }
-        ];
+          const alerts: { kind: string; date: Date; title: string; body: string; channel: string }[] = [];
+          if (s.before) {
+            alerts.push({
+              kind: 'before',
+              date: new Date(at.getTime() - s.beforeMinutes * 60000),
+              title: `اقترب أذان ${name}`,
+              body: `بعد ${s.beforeMinutes} دقيقة · ${cityNameAr}`,
+              channel: CHANNEL_REMINDER
+            });
+          }
+          if (s.adhan) {
+            alerts.push({
+              kind: 'adhan',
+              date: at,
+              title: `حان الآن موعد أذان ${name}`,
+              body: `حي على الصلاة · ${cityNameAr}`,
+              channel: CHANNEL_ADHAN
+            });
+          }
+          if (s.iqama) {
+            alerts.push({
+              kind: 'iqama',
+              date: new Date(at.getTime() + s.iqamaMinutes * 60000),
+              title: `إقامة صلاة ${name}`,
+              body: `بعد الأذان بـ ${s.iqamaMinutes} دقيقة`,
+              channel: CHANNEL_REMINDER
+            });
+          }
 
-        for (const prayer of dailyPrayers) {
-          if (!bells[prayer.key]) continue;
-
-          const triggerDate = new Date(targetDate);
-          triggerDate.setHours(prayer.hours, prayer.minutes, 0, 0);
-
-          // Only schedule future times
-          if (triggerDate.getTime() > now.getTime()) {
+          for (const alert of alerts) {
+            if (alert.date.getTime() <= now.getTime()) continue;
             await Notifications.scheduleNotificationAsync({
+              identifier: `${PRAYER_ID_PREFIX}${dayOffset}-${key}-${alert.kind}`,
               content: {
-                title: `الله أكبر • حان الآن موعد أذان ${prayer.nameAr}`,
-                body: `حي على الصلاة • موعد صلاة ${prayer.nameAr} بتوقيت ${cityNameAr}`,
+                title: alert.title,
+                body: alert.body,
                 sound: true,
-                data: { prayer: prayer.key, date: triggerDate.toISOString() }
+                data: { prayer: key, kind: alert.kind, date: alert.date.toISOString() }
               },
               trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DATE,
-                date: triggerDate
-              } as any
+                date: alert.date,
+                channelId: alert.channel
+              }
             }).catch(() => {});
           }
         }
       }
     } catch (e) {
-      console.warn('scheduleWeeklyPrayerNotifications error:', e);
+      console.warn('schedulePrayerAlerts error:', e);
     }
   },
 
@@ -109,8 +220,8 @@ export const NotificationService = {
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'granted') {
-            new Notification('الله أكبر • حان الآن موعد الصلاة', {
-              body: `حي على الصلاة • تجربة أذان رفيق المسلم بتوقيت ${cityNameAr}`,
+            new Notification('حان الآن موعد الصلاة', {
+              body: `تجربة تنبيه رفيق المسلم · ${cityNameAr}`,
               icon: '/favicon.ico'
             });
           }
@@ -120,10 +231,11 @@ export const NotificationService = {
 
       const hasPerm = await this.requestPermissions();
       if (hasPerm) {
+        await ensureChannels();
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'الله أكبر • حان الآن موعد الصلاة',
-            body: `حي على الصلاة • تجربة أذان رفيق المسلم بتوقيت ${cityNameAr}`,
+            title: 'حان الآن موعد الصلاة',
+            body: `تجربة تنبيه رفيق المسلم · ${cityNameAr}`,
             sound: true
           },
           trigger: null // Deliver immediately

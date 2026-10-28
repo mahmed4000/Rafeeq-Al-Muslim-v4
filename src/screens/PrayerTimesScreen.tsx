@@ -7,10 +7,12 @@ import { TextUI } from '../components/common/TextUI';
 import { CITIES } from '../constants/cities';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { NotificationService } from '../services/notificationService';
+import { computeNightTimes } from '../services/prayerCalculation';
 
 export const PrayerTimesScreen: React.FC = () => {
   const {
     goBack,
+    navigate,
     theme,
     themeMode,
     t,
@@ -195,6 +197,45 @@ export const PrayerTimesScreen: React.FC = () => {
               </View>
             );
           })}
+        </View>
+
+        {/* Night times (Maghrib → Fajr) */}
+        {(() => {
+          const night = computeNightTimes(currentCity.lat, currentCity.lng, new Date(), calculationMethod, asrMethod);
+          return (
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              {[
+                { label: t('منتصف الليل', 'Midnight'), value: night.midnight },
+                { label: t('الثلث الأخير', 'Last third'), value: night.lastThird }
+              ].map((item) => (
+                <View key={item.label} style={{ flex: 1, backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border }}>
+                  <TextUI variant="caption" color={c.textSecondary}>{item.label}</TextUI>
+                  <TextUI variant="h3" color={c.textPrimary}>{item.value}</TextUI>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
+
+        {/* Shortcuts: monthly table, alerts, qibla */}
+        <View style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.border, marginBottom: 20, overflow: 'hidden' }}>
+          {[
+            { key: 'prayer_month', label: t('مواقيت الشهر', 'Monthly times'), icon: 'calendar' as const },
+            { key: 'adhan_settings', label: t('الأذان والإقامة', 'Adhan & iqama alerts'), icon: 'bell' as const },
+            { key: 'qibla', label: t('اتجاه القبلة', 'Qibla'), icon: 'compass' as const }
+          ].map((item, i) => (
+            <TouchableOpacity
+              key={item.key}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              onPress={() => navigate(item.key)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: c.border }}
+            >
+              <Feather name={item.icon} size={18} color={TOKENS.colors.primary} />
+              <TextUI size={15} weight="medium" color={c.textPrimary} style={{ flex: 1 }}>{item.label}</TextUI>
+              <Feather name="chevron-left" size={18} color={c.textSecondary} />
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Settings & Calculation Method Selectors */}

@@ -1,8 +1,13 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { AppTabBar } from '../../components/navigation/AppTabBar';
+import { useApp } from '../../context/AppContext';
 
 export default function TabsLayout() {
+  const { prefsLoaded, onboarded } = useApp();
+  // First launch on a new install: set up location and alerts first.
+  if (prefsLoaded && !onboarded) return <Redirect href="/onboarding" />;
+
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <AppTabBar {...props} />}>
       <Tabs.Screen name="index" />

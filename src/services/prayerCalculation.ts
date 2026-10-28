@@ -162,6 +162,29 @@ export function calculateAccuratePrayerTimes(
   };
 }
 
+/**
+ * Middle of the night and start of its last third, taking the night as
+ * Maghrib → next day's Fajr (the reckoning commonly used for qiyam).
+ */
+export function computeNightTimes(
+  lat: number,
+  lng: number,
+  date = new Date(),
+  method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
+  asrMethod: 'standard' | 'hanafi' = 'standard'
+): { midnight: string; lastThird: string } {
+  const today = calculateAccuratePrayerTimes(lat, lng, date, method, asrMethod);
+  const tomorrow = calculateAccuratePrayerTimes(lat, lng, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12), method, asrMethod);
+  const maghrib = today.maghrib.hours * 60 + today.maghrib.minutes;
+  const fajrNext = tomorrow.fajr.hours * 60 + tomorrow.fajr.minutes + 1440;
+  const night = fajrNext - maghrib;
+  const at = (mins: number) => {
+    const m = Math.round(mins) % 1440;
+    return formatPrayerTime(Math.floor(m / 60), m % 60);
+  };
+  return { midnight: at(maghrib + night / 2), lastThird: at(maghrib + (night * 2) / 3) };
+}
+
 export interface NextPrayerInfo {
   id: string;
   nameAr: string;

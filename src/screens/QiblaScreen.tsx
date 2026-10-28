@@ -4,39 +4,41 @@ import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Magnetometer } from 'expo-sensors';
 import { useApp } from '../context/AppContext';
-import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
+import { ScreenHeader } from '../ui/ScreenHeader';
+import { usePalette } from '../theme/palette';
 import { computeQiblaBearing, computeDistanceToKaaba } from '../services/qiblaService';
 import { toArabicNumber } from '../services/prayerCalculation';
-import { TOKENS, makeShadow } from '../constants/tokens';
+
+const ALIGN_TOLERANCE = 4; // degrees
 
 export const QiblaScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, currentCity, refreshLocation, triggerHaptic } = useApp();
+  const { goBack, t, currentCity, refreshLocation, triggerHaptic } = useApp();
+  const p = usePalette();
   const { width: windowWidth } = useWindowDimensions();
-  const c = theme;
 
   const [deviceHeading, setDeviceHeading] = useState(0);
-  const [hasMagnetometer, setHasMagnetometer] = useState(true);
+  // null until the first reading; false when no sensor is available (e.g. web).
+  const [sensorLive, setSensorLive] = useState<boolean | null>(null);
+  const [lowAccuracy, setLowAccuracy] = useState(false);
 
   const qiblaTarget = computeQiblaBearing(currentCity.lat, currentCity.lng);
   const distanceKm = computeDistanceToKaaba(currentCity.lat, currentCity.lng);
 
-  // Compass angular difference (-180 to 180)
+  // Signed difference between where the phone points and the Qibla (-180..180).
   let diff = (deviceHeading - qiblaTarget) % 360;
   if (diff < -180) diff += 360;
   if (diff > 180) diff -= 360;
 
-  const isAligned = Math.abs(diff) <= 4;
-  const relativeAngle = ((qiblaTarget - deviceHeading) % 360 + 360) % 360;
+  const isAligned = sensorLive === true && Math.abs(diff) <= ALIGN_TOLERANCE;
+  // Without a live sensor, show the bearing with north at the top.
+  const needleAngle = sensorLive ? ((qiblaTarget - deviceHeading) % 360 + 360) % 360 : qiblaTarget;
 
-  // Sensory haptic feedback on perfect Kaaba alignment
   const wasAlignedRef = useRef(false);
   useEffect(() => {
-    if (isAligned && !wasAlignedRef.current) {
-      triggerHaptic('success');
-    }
+    if (isAligned && !wasAlignedRef.current) triggerHaptic('success');
     wasAlignedRef.current = isAligned;
-  }, [isAligned]);
+  }, [isAligned, triggerHaptic]);
 
   useEffect(() => {
     let headingSub: any = null;
@@ -44,38 +46,45 @@ export const QiblaScreen: React.FC = () => {
     let isCancelled = false;
 
     (async () => {
+      if (Platform.OS === 'web') {
+        setSensorLive(false);
+        return;
+      }
       try {
-        if (Platform.OS !== 'web') {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === 'granted') {
-            headingSub = await Location.watchHeadingAsync((data) => {
-              if (isCancelled) return;
-              const h = data.trueHeading != null && data.trueHeading >= 0 ? data.trueHeading : data.magHeading;
-              if (typeof h === 'number' && !isNaN(h)) {
-                setDeviceHeading(h);
-              }
-            });
-            return;
-          }
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          headingSub = await Location.watchHeadingAsync((data) => {
+            if (isCancelled) return;
+            const h = data.trueHeading != null && data.trueHeading >= 0 ? data.trueHeading : data.magHeading;
+            if (typeof h === 'number' && !isNaN(h)) {
+              setDeviceHeading(h);
+              setSensorLive(true);
+              // Android reports 0–3; low values mean the compass needs calibrating.
+              setLowAccuracy(typeof data.accuracy === 'number' && data.accuracy < 2);
+            }
+          });
+          return;
         }
-      } catch (e) {}
+      } catch {}
 
-      // Fallback to Magnetometer
+      // Fallback: raw magnetometer (no tilt or declination correction).
       try {
-        if (Platform.OS !== 'web') {
-          const avail = await Magnetometer.isAvailableAsync();
-          setHasMagnetometer(avail);
-          if (avail) {
-            Magnetometer.setUpdateInterval(100);
-            magSub = Magnetometer.addListener((data) => {
-              if (isCancelled) return;
-              let angle = Math.atan2(data.x, data.y) * (180 / Math.PI);
-              if (angle < 0) angle += 360;
-              setDeviceHeading(angle);
-            });
-          }
+        const avail = await Magnetometer.isAvailableAsync();
+        if (!avail) {
+          setSensorLive(false);
+          return;
         }
-      } catch (e) {}
+        Magnetometer.setUpdateInterval(100);
+        magSub = Magnetometer.addListener((data) => {
+          if (isCancelled) return;
+          let angle = Math.atan2(data.x, data.y) * (180 / Math.PI);
+          if (angle < 0) angle += 360;
+          setDeviceHeading(angle);
+          setSensorLive(true);
+        });
+      } catch {
+        setSensorLive(false);
+      }
     })();
 
     return () => {
@@ -85,197 +94,87 @@ export const QiblaScreen: React.FC = () => {
     };
   }, []);
 
-  const compassDiameter = Math.min(windowWidth * 0.76, 300);
+  const dial = Math.min(windowWidth - 80, 290);
+
+  const statusChip = () => {
+    if (sensorLive === false) {
+      return { bg: p.soft, fg: p.primaryInk, icon: 'info' as const, text: 'البوصلة غير متاحة هنا · الاتجاه من الشمال' };
+    }
+    if (isAligned) return { bg: p.successBg, fg: p.successInk, icon: 'check' as const, text: 'أنت متجه نحو القبلة' };
+    const deg = toArabicNumber(Math.abs(Math.round(diff)));
+    return {
+      bg: p.soft,
+      fg: p.primaryInk,
+      icon: (diff < 0 ? 'rotate-cw' : 'rotate-ccw') as 'rotate-cw' | 'rotate-ccw',
+      text: diff < 0 ? `أدر الهاتف يمينًا ${deg}°` : `أدر الهاتف يسارًا ${deg}°`
+    };
+  };
+  const chip = statusChip();
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header
-        title={t('اتجاه القبلة', 'Qibla Direction')}
-        subtitle={t('بوصلة دقيقة نحو الكعبة المشرفة', 'Compass to the Holy Kaaba')}
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
+      <ScreenHeader
+        title={t('القبلة', 'Qibla')}
+        subtitle={`${currentCity.nameAr} · ${currentCity.countryAr}`}
         onBack={goBack}
+        right={
+          <TouchableOpacity onPress={refreshLocation} accessibilityRole="button" accessibilityLabel="تحديث الموقع" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name="navigation" size={18} color={p.primary} />
+          </TouchableOpacity>
+        }
       />
 
-      <ScrollView
-        contentContainerStyle={{
-          alignItems: 'center',
-          paddingVertical: 20,
-          paddingHorizontal: 20,
-          paddingBottom: 110
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* City & Distance Info Card */}
-        <View
-          style={{
-            width: '100%',
-            maxWidth: 360,
-            backgroundColor: c.surface,
-            borderRadius: 16,
-            padding: 14,
-            marginBottom: 20,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderWidth: 1,
-            borderColor: c.border
-          }}
-        >
-          <View>
-            <TextUI variant="caption" color={c.textSecondary}>
-              {t('موقعك المباشر', 'Current Location')}
-            </TextUI>
-            <TextUI variant="h4" color={c.textPrimary}>
-              {currentCity.nameAr}
-            </TextUI>
-          </View>
-
-          <View style={{ alignItems: 'flex-end' }}>
-            <TextUI variant="caption" color={c.textSecondary}>
-              {t('المسافة إلى مكة', 'Distance')}
-            </TextUI>
-            <TextUI variant="h4" color={TOKENS.colors.primary}>
-              {toArabicNumber(distanceKm)} {t('كم', 'km')}
-            </TextUI>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={refreshLocation}
-            style={{
-              padding: 8,
-              borderRadius: TOKENS.radius.pill,
-              backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20'
-            }}
-          >
-            <Feather name="navigation" size={16} color={TOKENS.colors.primary} />
-          </TouchableOpacity>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 18, alignItems: 'stretch' }}>
+        <View accessibilityRole="text" style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: chip.bg }}>
+          <Feather name={chip.icon} size={16} color={chip.fg} />
+          <TextUI size={15} weight="bold" color={chip.fg}>{chip.text}</TextUI>
         </View>
 
-        {/* Alignment Status Banner */}
         <View
+          accessibilityRole="image"
+          accessibilityLabel={`القبلة على ${toArabicNumber(qiblaTarget)} درجة من الشمال`}
           style={{
-            flexDirection: 'row',
+            alignSelf: 'center',
+            width: dial,
+            height: dial,
+            borderRadius: dial / 2,
+            backgroundColor: p.surface,
+            borderWidth: 2,
+            borderColor: isAligned ? p.success : p.accent,
             alignItems: 'center',
-            gap: 8,
-            backgroundColor: isAligned ? '#E8F5E9' : (themeMode === 'light' ? '#FFF5EA' : '#382A20'),
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: TOKENS.radius.pill,
-            marginBottom: 28,
-            borderWidth: 1,
-            borderColor: isAligned ? '#4CAF50' : TOKENS.colors.secondary
+            justifyContent: 'center'
           }}
         >
-          <Feather
-            name={isAligned ? 'check-circle' : 'compass'}
-            size={18}
-            color={isAligned ? '#2E7D32' : TOKENS.colors.primary}
-          />
-          <TextUI
-            size={14}
-            weight="bold"
-            color={isAligned ? '#2E7D32' : TOKENS.colors.primaryDark}
-          >
-            {isAligned
-              ? t('محاذاة تامة نحو الكعبة المشرفة 🕋', 'Directly facing the Kaaba')
-              : diff < 0
-              ? `${t('أدر الهاتف يميناً بمقدار', 'Turn right by')} ${toArabicNumber(Math.abs(Math.round(diff)))}°`
-              : `${t('أدر الهاتف يساراً بمقدار', 'Turn left by')} ${toArabicNumber(Math.abs(Math.round(diff)))}°`}
-          </TextUI>
+          <View style={{ position: 'absolute', top: 14, left: 14, right: 14, bottom: 14, borderRadius: dial / 2, borderWidth: 1, borderStyle: 'dashed', borderColor: p.border }} />
+          <TextUI size={14} weight="bold" color={p.primary} style={{ position: 'absolute', top: 20 }}>ش</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', bottom: 20 }}>ج</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', right: 22 }}>ق</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', left: 22 }}>غ</TextUI>
+
+          <View style={{ position: 'absolute', width: dial, height: dial, alignItems: 'center', transform: [{ rotate: `${needleAngle}deg` }] }}>
+            <View style={{ marginTop: -14, width: 34, height: 34, borderRadius: 9, backgroundColor: '#2D1E16', borderWidth: 2, borderColor: isAligned ? p.success : p.accent }} />
+            <View style={{ marginTop: 14, width: 8, height: dial / 2 - 54, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: isAligned ? p.success : p.primary }} />
+          </View>
+          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: p.accent, borderWidth: 3, borderColor: p.surface }} />
         </View>
 
-        {/* Compass Dial Circle */}
-        <View
-          style={{
-            width: compassDiameter,
-            height: compassDiameter,
-            borderRadius: compassDiameter / 2,
-            backgroundColor: c.surface,
-            borderWidth: 3.5,
-            borderColor: isAligned ? '#4CAF50' : TOKENS.colors.secondary,
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            ...makeShadow(
-              isAligned ? '0 8px 32px rgba(76, 175, 80, 0.45)' : '0 8px 30px rgba(0,0,0,0.08)',
-              isAligned ? '#4CAF50' : '#000',
-              isAligned ? 0.45 : 0.08,
-              12
-            )
-          }}
-        >
-          {/* North Marker */}
-          <View style={{ position: 'absolute', top: 10, alignItems: 'center' }}>
-            <TextUI size={12} weight="bold" color="#E53935">ش</TextUI>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1, borderRadius: 16, padding: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+            <TextUI size={13} color={p.muted}>الاتجاه من الشمال</TextUI>
+            <TextUI size={22} weight="bold" color={p.ink}>{`${toArabicNumber(qiblaTarget)}°`}</TextUI>
           </View>
-          {/* South Marker */}
-          <View style={{ position: 'absolute', bottom: 10, alignItems: 'center' }}>
-            <TextUI size={12} weight="bold" color={c.textSecondary}>ج</TextUI>
-          </View>
-          {/* East Marker */}
-          <View style={{ position: 'absolute', right: 10, alignItems: 'center' }}>
-            <TextUI size={12} weight="bold" color={c.textSecondary}>ق</TextUI>
-          </View>
-          {/* West Marker */}
-          <View style={{ position: 'absolute', left: 10, alignItems: 'center' }}>
-            <TextUI size={12} weight="bold" color={c.textSecondary}>غ</TextUI>
-          </View>
-
-          {/* Rotating Qibla Needle */}
-          <View
-            style={{
-              width: '100%',
-              height: '100%',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ rotate: `${relativeAngle}deg` }]
-            }}
-          >
-            {/* Kaaba Top Pointer */}
-            <View style={{ alignItems: 'center', position: 'absolute', top: 22 }}>
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: isAligned ? '#2E7D32' : TOKENS.colors.primaryDark,
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <TextUI size={16}>🕋</TextUI>
-              </View>
-              <View
-                style={{
-                  width: 4,
-                  height: 48,
-                  backgroundColor: isAligned ? '#2E7D32' : TOKENS.colors.primary,
-                  borderRadius: 2
-                }}
-              />
-            </View>
-
-            {/* Center Pivot */}
-            <View
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 9,
-                backgroundColor: TOKENS.colors.secondary,
-                borderWidth: 3,
-                borderColor: '#FFFFFF'
-              }}
-            />
+          <View style={{ flex: 1, borderRadius: 16, padding: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+            <TextUI size={13} color={p.muted}>المسافة إلى الكعبة</TextUI>
+            <TextUI size={22} weight="bold" color={p.ink}>{`${toArabicNumber(distanceKm.toLocaleString('en-US').replace(',', '٬'))} كم`}</TextUI>
           </View>
         </View>
 
-        {/* Degrees & Calibration Note */}
-        <View style={{ marginTop: 28, alignItems: 'center' }}>
-          <TextUI size={24} weight="bold" color={TOKENS.colors.primaryDark}>
-            {toArabicNumber(qiblaTarget)}°
-          </TextUI>
-          <TextUI size={13} color={c.textSecondary} style={{ marginTop: 4 }}>
-            {t('زاوية القبلة من الشمال الحقيقي', 'Qibla Bearing from True North')}
+        <View style={{ borderRadius: 14, padding: 12, flexDirection: 'row', gap: 10, backgroundColor: lowAccuracy ? '#F7E3DF' : p.soft }}>
+          <Feather name="info" size={18} color={lowAccuracy ? '#7A2E2B' : p.primary} />
+          <TextUI size={13} color={lowAccuracy ? '#7A2E2B' : p.primaryInk} style={{ flex: 1, lineHeight: 21 }}>
+            {lowAccuracy
+              ? 'دقة البوصلة منخفضة الآن. حرّك الهاتف على شكل الرقم ٨ عدة مرات.'
+              : 'القراءة غير مستقرة؟ ضع الهاتف أفقيًا، وابتعد عن المعادن والمغناطيس، وحرّكه على شكل الرقم ٨.'}
           </TextUI>
         </View>
       </ScrollView>
