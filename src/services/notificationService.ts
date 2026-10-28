@@ -1,6 +1,7 @@
 import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { calculateAccuratePrayerTimes } from './prayerCalculation';
+import { cityNow } from './cityTime';
 
 export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
 export const PRAYER_KEYS: PrayerKey[] = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -128,7 +129,8 @@ export const NotificationService = {
     lng: number,
     config: PrayerAlertsConfig,
     method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
-    asrMethod: 'standard' | 'hanafi' = 'standard'
+    asrMethod: 'standard' | 'hanafi' = 'standard',
+    timeZone?: string
   ): Promise<void> {
     if (Platform.OS === 'web') return;
 
@@ -152,15 +154,18 @@ export const NotificationService = {
       const days = Math.max(1, Math.min(7, Math.floor(MAX_PRAYER_ALERTS / perDay)));
 
       const now = new Date();
+      // Days are the city's days; each alert fires at the prayer's absolute instant,
+      // so it is right even when the device is set to another time zone.
+      const cityToday = cityNow(timeZone);
       for (let dayOffset = 0; dayOffset < days; dayOffset++) {
-        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 12);
-        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod);
+        const day = new Date(cityToday.getFullYear(), cityToday.getMonth(), cityToday.getDate() + dayOffset, 12);
+        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod, timeZone);
 
         for (const key of PRAYER_KEYS) {
           const s = config.prayers[key];
           const name = PRAYER_NAMES_AR[key];
-          const at = new Date(day);
-          at.setHours(times[key].hours, times[key].minutes, 0, 0);
+          const at = new Date(times[key].at.getTime());
+          at.setSeconds(0, 0);
 
           const alerts: { kind: string; date: Date; title: string; body: string; channel: string }[] = [];
           if (s.before) {

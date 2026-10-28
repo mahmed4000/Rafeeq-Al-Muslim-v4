@@ -7,6 +7,7 @@ import { ScreenHeader } from '../ui/ScreenHeader';
 import { usePalette } from '../theme/palette';
 import { calculateAccuratePrayerTimes, formatPrayerTime, toArabicNumber } from '../services/prayerCalculation';
 import { getHijriParts, HIJRI_MONTHS, GREGORIAN_MONTHS } from '../services/hijriDate';
+import { cityNow, fromCityClock, zoneOffsetMinutes } from '../services/cityTime';
 
 type Mode = 'hijri' | 'gregorian';
 const COLUMNS: { key: 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha'; label: string }[] = [
@@ -21,9 +22,13 @@ const COLUMNS: { key: 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
+/** UTC offset (minutes) in effect in the city on a date; used to flag DST changes. */
+const offsetOn = (date: Date, timeZone?: string) =>
+  zoneOffsetMinutes(timeZone, fromCityClock(date, timeZone)) ?? -date.getTimezoneOffset();
+
 /** All dates of the Hijri month that is `offset` months away from today's. */
-function hijriMonthDates(offset: number): Date[] {
-  const today = addDays(new Date(), 0);
+function hijriMonthDates(offset: number, now: Date): Date[] {
+  const today = addDays(now, 0);
   // Jump roughly `offset` lunar months, then walk back to day 1 of that month.
   let probe = addDays(today, Math.round(offset * 29.53));
   for (let i = 0; i < 31 && getHijriParts(probe).day !== 1; i++) probe = addDays(probe, -1);
@@ -33,8 +38,7 @@ function hijriMonthDates(offset: number): Date[] {
   return dates;
 }
 
-function gregorianMonthDates(offset: number): Date[] {
-  const now = new Date();
+function gregorianMonthDates(offset: number, now: Date): Date[] {
   const first = new Date(now.getFullYear(), now.getMonth() + offset, 1, 12);
   const dates: Date[] = [];
   for (let d = first; d.getMonth() === first.getMonth(); d = addDays(d, 1)) dates.push(d);
@@ -48,12 +52,13 @@ export const PrayerMonthScreen: React.FC = () => {
   const [offset, setOffset] = useState(0);
 
   const { rows, label, subLabel } = useMemo(() => {
-    const dates = mode === 'hijri' ? hijriMonthDates(offset) : gregorianMonthDates(offset);
-    const today = new Date();
+    const tz = currentCity.timeZone;
+    const today = cityNow(tz);
+    const dates = mode === 'hijri' ? hijriMonthDates(offset, today) : gregorianMonthDates(offset, today);
     const built = dates.map((date, i) => {
-      const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, date, calculationMethod, asrMethod);
+      const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, date, calculationMethod, asrMethod, tz);
       const hijri = getHijriParts(date);
-      const dstChanged = i > 0 && dates[i - 1].getTimezoneOffset() !== date.getTimezoneOffset();
+      const dstChanged = i > 0 && offsetOn(dates[i - 1], tz) !== offsetOn(date, tz);
       return {
         key: date.toDateString(),
         isToday: sameDay(date, today),
@@ -145,7 +150,7 @@ export const PrayerMonthScreen: React.FC = () => {
           ))}
         </View>
         <TextUI size={12.5} color={p.muted} style={{ lineHeight: 20 }}>
-          {`محسوبة لموقع ${currentCity.nameAr} بتوقيت جهازك. التاريخ الهجري وفق تقويم أم القرى وقد يختلف يومًا عن رؤية الهلال في بلدك.`}
+          {`محسوبة لموقع ${currentCity.nameAr}${currentCity.timeZone ? ' وبتوقيتها المحلي' : ' بتوقيت جهازك'}. التاريخ الهجري وفق تقويم أم القرى وقد يختلف يومًا عن رؤية الهلال في بلدك.`}
         </TextUI>
       </ScrollView>
     </View>

@@ -1,4 +1,5 @@
 // Prayer Times Calculation Engine (Accurate offline engine + Adhan support)
+import { fromCityClock, toCityClock, zoneOffsetMinutes } from './cityTime';
 
 export const toArabicNumber = (num: number | string): string => {
   const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -27,25 +28,42 @@ export const formatPrayerTime = (hours: number, minutes: number, lang: 'ar' | 'e
   return `${hStr}:${mStr} ${period}`;
 };
 
-export interface PrayerTimeValues {
-  fajr: { hours: number; minutes: number; timeStr: string };
-  sunrise: { hours: number; minutes: number; timeStr: string };
-  dhuhr: { hours: number; minutes: number; timeStr: string };
-  asr: { hours: number; minutes: number; timeStr: string };
-  maghrib: { hours: number; minutes: number; timeStr: string };
-  isha: { hours: number; minutes: number; timeStr: string };
+/** hours/minutes/timeStr are in the city's clock; `at` is the absolute instant (for alerts). */
+export interface PrayerTime {
+  hours: number;
+  minutes: number;
+  timeStr: string;
+  at: Date;
 }
 
+export interface PrayerTimeValues {
+  fajr: PrayerTime;
+  sunrise: PrayerTime;
+  dhuhr: PrayerTime;
+  asr: PrayerTime;
+  maghrib: PrayerTime;
+  isha: PrayerTime;
+}
+
+/**
+ * Prayer times for the calendar day of `date` (read from its local fields, i.e.
+ * a city wall-clock date). With `timeZone`, times are expressed in that zone;
+ * without it, in the device's.
+ */
 export function calculateAccuratePrayerTimes(
   lat: number,
   lng: number,
   date = new Date(),
   method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
-  asrMethod: 'standard' | 'hanafi' = 'standard'
+  asrMethod: 'standard' | 'hanafi' = 'standard',
+  timeZone?: string
 ): PrayerTimeValues {
   const safeLat = (typeof lat === 'number' && Number.isFinite(lat)) ? lat : 21.422487;
   const safeLng = (typeof lng === 'number' && Number.isFinite(lng)) ? lng : 39.826206;
   const safeDate = (date instanceof Date && !isNaN(date.getTime())) ? date : new Date();
+  // Absolute instant for a city wall-clock time on this date.
+  const instantAt = (h: number, m: number) =>
+    fromCityClock(new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate(), h, m), timeZone);
 
   // Try adhan library if available
   try {
@@ -63,14 +81,16 @@ export function calculateAccuratePrayerTimes(
 
       const pTimes = new adhan.PrayerTimes(coordinates, safeDate, params);
       if (pTimes) {
-        const toObj = (d: any, fbH = 12, fbM = 0) => {
+        const toObj = (d: any, fbH = 12, fbM = 0): PrayerTime => {
           if (!d || !(d instanceof Date) || isNaN(d.getTime())) {
-            return { hours: fbH, minutes: fbM, timeStr: formatPrayerTime(fbH, fbM) };
+            return { hours: fbH, minutes: fbM, timeStr: formatPrayerTime(fbH, fbM), at: instantAt(fbH, fbM) };
           }
+          const wall = toCityClock(d, timeZone);
           return {
-            hours: d.getHours(),
-            minutes: d.getMinutes(),
-            timeStr: formatPrayerTime(d.getHours(), d.getMinutes())
+            hours: wall.getHours(),
+            minutes: wall.getMinutes(),
+            timeStr: formatPrayerTime(wall.getHours(), wall.getMinutes()),
+            at: d
           };
         };
         return {
@@ -94,7 +114,7 @@ export function calculateAccuratePrayerTimes(
   const delta = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * (Math.PI / 180));
   const deltaRad = (delta * Math.PI) / 180;
   const latRad = (lat * Math.PI) / 180;
-  const tzOffsetHours = -date.getTimezoneOffset() / 60;
+  const tzOffsetHours = (zoneOffsetMinutes(timeZone, instantAt(12, 0)) ?? -safeDate.getTimezoneOffset()) / 60;
   const noon = 12 + tzOffsetHours - lng / 15 - EqT / 60;
 
   const hourAngle = (angleDeg: number) => {
@@ -131,22 +151,22 @@ export function calculateAccuratePrayerTimes(
   const asrAlt = Math.atan(1 / (shadowFactor + Math.tan(Math.abs(latRad - deltaRad)))) * (180 / Math.PI);
   const haAsr = hourAngle(asrAlt) / 15;
 
-  const toTimeObj = (decHours: number) => {
+  const toTimeObj = (decHours: number): PrayerTime => {
     let h = Math.floor(decHours);
     let m = Math.round((decHours - h) * 60);
     if (m >= 60) { h += 1; m -= 60; }
     h = (h + 24) % 24;
-    return { hours: h, minutes: m, timeStr: formatPrayerTime(h, m) };
+    return { hours: h, minutes: m, timeStr: formatPrayerTime(h, m), at: instantAt(h, m) };
   };
 
   const maghribObj = toTimeObj(noon + haSunset);
-  let ishaObj: { hours: number; minutes: number; timeStr: string };
+  let ishaObj: PrayerTime;
 
   if (ishaFixedMinutes > 0) {
     let ishaMin = maghribObj.minutes + ishaFixedMinutes;
     let ishaH = (maghribObj.hours + Math.floor(ishaMin / 60)) % 24;
     ishaMin = ishaMin % 60;
-    ishaObj = { hours: ishaH, minutes: ishaMin, timeStr: formatPrayerTime(ishaH, ishaMin) };
+    ishaObj = { hours: ishaH, minutes: ishaMin, timeStr: formatPrayerTime(ishaH, ishaMin), at: instantAt(ishaH, ishaMin) };
   } else {
     const haIsha = hourAngle(ishaAngle) / 15;
     ishaObj = toTimeObj(noon + haIsha);
@@ -171,10 +191,11 @@ export function computeNightTimes(
   lng: number,
   date = new Date(),
   method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
-  asrMethod: 'standard' | 'hanafi' = 'standard'
+  asrMethod: 'standard' | 'hanafi' = 'standard',
+  timeZone?: string
 ): { midnight: string; lastThird: string } {
-  const today = calculateAccuratePrayerTimes(lat, lng, date, method, asrMethod);
-  const tomorrow = calculateAccuratePrayerTimes(lat, lng, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12), method, asrMethod);
+  const today = calculateAccuratePrayerTimes(lat, lng, date, method, asrMethod, timeZone);
+  const tomorrow = calculateAccuratePrayerTimes(lat, lng, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12), method, asrMethod, timeZone);
   const maghrib = today.maghrib.hours * 60 + today.maghrib.minutes;
   const fajrNext = tomorrow.fajr.hours * 60 + tomorrow.fajr.minutes + 1440;
   const night = fajrNext - maghrib;

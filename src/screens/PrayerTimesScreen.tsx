@@ -8,6 +8,7 @@ import { CITIES } from '../constants/cities';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { NotificationService } from '../services/notificationService';
 import { computeNightTimes } from '../services/prayerCalculation';
+import { cityNow } from '../services/cityTime';
 
 export const PrayerTimesScreen: React.FC = () => {
   const {
@@ -201,7 +202,7 @@ export const PrayerTimesScreen: React.FC = () => {
 
         {/* Night times (Maghrib → Fajr) */}
         {(() => {
-          const night = computeNightTimes(currentCity.lat, currentCity.lng, new Date(), calculationMethod, asrMethod);
+          const night = computeNightTimes(currentCity.lat, currentCity.lng, cityNow(currentCity.timeZone), calculationMethod, asrMethod, currentCity.timeZone);
           return (
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
               {[

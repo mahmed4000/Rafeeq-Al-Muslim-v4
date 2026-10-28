@@ -14,6 +14,7 @@ import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaServ
 import { PrayerLogService, localDateKey } from '../services/prayerLog';
 import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey } from '../services/notificationService';
 import { surahById, surahForPage } from '../services/quranPages';
+import { cityNow, differsFromDevice } from '../services/cityTime';
 
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
 const AFTER_PRAYER_WINDOW = 30;
@@ -104,8 +105,11 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
 export const HomeScreen: React.FC = () => {
   const { navigate, t, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah } = useApp();
   const p = usePalette();
-  const next = useNextPrayer(prayerTimes);
-  const now = new Date();
+  const timeZone = currentCity.timeZone;
+  const next = useNextPrayer(prayerTimes, timeZone);
+  // Everything time-based on Home follows the selected city's clock.
+  const now = cityNow(timeZone);
+  const otherZone = differsFromDevice(timeZone);
   const dateInfo = getFullDateInfo(now);
 
   const [khatma, setKhatma] = useState<Khatma | null>(null);
@@ -116,7 +120,7 @@ export const HomeScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      const day = localDateKey();
+      const day = localDateKey(cityNow(timeZone));
       KhatmaService.getActive().then((k) => { if (alive) setKhatma(k); });
       PrayerLogService.getDay(day).then((list) => {
         if (!alive) return;
@@ -124,7 +128,7 @@ export const HomeScreen: React.FC = () => {
         setPrayedDay(day);
       });
       return () => { alive = false; };
-    }, [])
+    }, [timeZone])
   );
 
   // The tracker resets itself at midnight without waiting for a refocus.
@@ -292,6 +296,7 @@ export const HomeScreen: React.FC = () => {
         <SkyArch phase={skyPhase(prayerTimes, now)} />
         <View style={{ flex: 1, gap: 4, justifyContent: 'center' }}>
           <TextUI size={14} color={p.onHeroMuted}>{next.isTomorrow ? 'الصلاة القادمة (غدًا)' : 'الصلاة القادمة'}</TextUI>
+          {otherZone ? <TextUI size={12.5} color={p.onHeroMuted}>{`بتوقيت ${currentCity.nameAr}`}</TextUI> : null}
           <TextUI size={22} weight="bold" color={p.onHero}>{`${next.nameAr} بعد`}</TextUI>
           <TextUI size={36} weight="bold" color={p.onHero} style={{ lineHeight: 44, letterSpacing: 1 }}>{countdown}</TextUI>
           <TextUI size={14} color={p.onHeroMuted}>{`الأذان ${next.time}`}</TextUI>

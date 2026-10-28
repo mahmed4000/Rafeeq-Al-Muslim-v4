@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { TOKENS } from '../constants/tokens';
 import { CITIES, City, normalizeCity } from '../constants/cities';
 import { StorageService } from '../services/storage';
+import { cityNow, deviceTimeZone } from '../services/cityTime';
 import {
   calculateAccuratePrayerTimes,
   PrayerTimeValues
@@ -82,7 +83,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const todayKey = () => new Date().toDateString();
+const todayKey = (timeZone?: string) => cityNow(timeZone).toDateString();
 const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
 const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
@@ -110,7 +111,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // True once saved preferences are applied; gates notification scheduling and saving.
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   // Changes once per calendar day so prayer times roll over at midnight.
-  const [dayKey, setDayKey] = useState<string>(todayKey);
+  const [dayKey, setDayKey] = useState<string>(() => todayKey());
   // Bumped after the user grants notification permission to reschedule.
   const [notifRev, setNotifRev] = useState(0);
 
@@ -218,10 +219,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })();
   }, []);
 
-  // Roll prayer times over to the new day without re-rendering every second.
+  // Roll prayer times over at the city's midnight without re-rendering every second.
+  const cityTimeZone = currentCity.timeZone;
   useEffect(() => {
     const check = () => {
-      const key = todayKey();
+      const key = todayKey(cityTimeZone);
       setDayKey((prev) => (prev === key ? prev : key));
     };
     const timer = setInterval(check, 30000);
@@ -232,7 +234,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clearInterval(timer);
       sub.remove();
     };
-  }, []);
+  }, [cityTimeZone]);
 
   // Keep the scheduled prayer alerts in sync with the current settings.
   // Runs on every start, so alerts keep rolling forward as long as the app is opened weekly.
@@ -245,7 +247,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentCity.lng,
         alertsConfig,
         calculationMethod,
-        asrMethod
+        asrMethod,
+        currentCity.timeZone
       );
     }, 800);
     return () => clearTimeout(timer);
@@ -365,6 +368,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           countryAr: geo?.country || 'الموقع المباشر',
           countryEn: geo?.country || 'Current Location',
           countryCode: geo?.isoCountryCode || undefined,
+          // GPS gives the device's own position, so its clock is the device's.
+          timeZone: deviceTimeZone(),
           lat,
           lng
         };
@@ -378,10 +383,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Prayer times change only with the day, place or method — not every render.
+  // They are for the city's current date and shown in the city's clock.
   const prayerTimes = useMemo(
-    () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, new Date(), calculationMethod, asrMethod),
+    () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, cityNow(cityTimeZone), calculationMethod, asrMethod, cityTimeZone),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentCity.lat, currentCity.lng, calculationMethod, asrMethod, dayKey]
+    [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, dayKey]
   );
 
   return (
