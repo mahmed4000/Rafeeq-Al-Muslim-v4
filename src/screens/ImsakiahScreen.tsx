@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
 import { calculateAccuratePrayerTimes, formatPrayerTime, toArabicNumber } from '../services/prayerCalculation';
-import { TOKENS, makeShadow } from '../constants/tokens';
+import { usePalette } from '../theme/palette';
 import { cityNow } from '../services/cityTime';
 
 // Imsak is a precautionary margin before Fajr, not a separate prayer time.
@@ -13,8 +13,8 @@ import { cityNow } from '../services/cityTime';
 const IMSAK_MINUTES_BEFORE_FAJR = 10;
 
 export const ImsakiahScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, currentCity, calculationMethod, asrMethod } = useApp();
-  const c = theme;
+  const { goBack, t, currentCity, calculationMethod, asrMethod } = useApp();
+  const p = usePalette();
 
   // Generate 30 days of Ramadan / Hijri calendar
   const today = cityNow(currentCity.timeZone);
@@ -36,7 +36,7 @@ export const ImsakiahScreen: React.FC = () => {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('إمساكية رمضان المبارك', 'Ramadan Imsakiah')}
         subtitle={`${currentCity.nameAr} • ٣٠ يوماً`}
@@ -52,19 +52,19 @@ export const ImsakiahScreen: React.FC = () => {
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: TOKENS.colors.primaryDark,
+            backgroundColor: p.hero,
             borderRadius: 12,
             paddingVertical: 12,
             paddingHorizontal: 8,
             marginBottom: 8
           }}
         >
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ width: 44, textAlign: 'center' }}>اليوم</TextUI>
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ flex: 1, textAlign: 'center' }}>الإمساك</TextUI>
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ flex: 1, textAlign: 'center' }}>الفجر</TextUI>
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ flex: 1, textAlign: 'center' }}>الشروق</TextUI>
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ flex: 1, textAlign: 'center' }}>المغرب</TextUI>
-          <TextUI variant="captionBold" color="#FFFFFF" style={{ flex: 1, textAlign: 'center' }}>العشاء</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ width: 44, textAlign: 'center' }}>اليوم</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الإمساك</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الفجر</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الشروق</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>المغرب</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>العشاء</TextUI>
         </View>
 
         {/* Days Rows */}
@@ -76,31 +76,31 @@ export const ImsakiahScreen: React.FC = () => {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: isToday ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#382A20') : c.surface,
+                backgroundColor: isToday ? p.soft : p.surface,
                 borderRadius: 10,
                 paddingVertical: 10,
                 paddingHorizontal: 8,
                 marginBottom: 6,
                 borderWidth: 1,
-                borderColor: isToday ? TOKENS.colors.primary : c.border
+                borderColor: isToday ? p.primary : p.border
               }}
             >
-              <TextUI variant="captionBold" color={isToday ? TOKENS.colors.primaryDark : c.textPrimary} style={{ width: 44, textAlign: 'center' }}>
+              <TextUI variant="captionBold" color={isToday ? p.primaryInk : p.ink} style={{ width: 44, textAlign: 'center' }}>
                 {toArabicNumber(d.dayNum)}
               </TextUI>
-              <TextUI variant="caption" color={c.textSecondary} style={{ flex: 1, textAlign: 'center' }}>
+              <TextUI variant="caption" color={p.muted} style={{ flex: 1, textAlign: 'center' }}>
                 {d.imsak}
               </TextUI>
-              <TextUI variant="caption" weight={isToday ? 'bold' : 'regular'} color={c.textPrimary} style={{ flex: 1, textAlign: 'center' }}>
+              <TextUI variant="caption" weight={isToday ? 'bold' : 'regular'} color={p.ink} style={{ flex: 1, textAlign: 'center' }}>
                 {d.fajr}
               </TextUI>
-              <TextUI variant="caption" color={c.textSecondary} style={{ flex: 1, textAlign: 'center' }}>
+              <TextUI variant="caption" color={p.muted} style={{ flex: 1, textAlign: 'center' }}>
                 {d.sunrise}
               </TextUI>
-              <TextUI variant="captionBold" color={TOKENS.colors.primary} style={{ flex: 1, textAlign: 'center' }}>
+              <TextUI variant="captionBold" color={p.primary} style={{ flex: 1, textAlign: 'center' }}>
                 {d.maghrib}
               </TextUI>
-              <TextUI variant="caption" color={c.textSecondary} style={{ flex: 1, textAlign: 'center' }}>
+              <TextUI variant="caption" color={p.muted} style={{ flex: 1, textAlign: 'center' }}>
                 {d.isha}
               </TextUI>
             </View>

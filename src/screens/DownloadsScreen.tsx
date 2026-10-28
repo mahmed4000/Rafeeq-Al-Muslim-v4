@@ -6,11 +6,12 @@ import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
 import { AudioService, DownloadedLessonRecord } from '../services/audioService';
 import { toArabicNumber } from '../services/prayerCalculation';
-import { TOKENS, makeShadow } from '../constants/tokens';
+import { makeShadow } from '../constants/tokens';
+import { usePalette } from '../theme/palette';
 
 export const DownloadsScreen: React.FC = () => {
-  const { goBack, theme, themeMode, t, triggerHaptic } = useApp();
-  const c = theme;
+  const { goBack, t, triggerHaptic } = useApp();
+  const p = usePalette();
 
   const [downloadedList, setDownloadedList] = useState<DownloadedLessonRecord[]>([]);
 
@@ -40,7 +41,7 @@ export const DownloadsScreen: React.FC = () => {
   }, 0);
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('إدارة التنزيلات والمساحة', 'Downloads & Storage')}
         subtitle={`${toArabicNumber(downloadedList.length)} دروس محفوظة للاستماع أوفلاين`}
@@ -55,22 +56,22 @@ export const DownloadsScreen: React.FC = () => {
         {/* Storage Summary Banner */}
         <View
           style={{
-            backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A',
+            backgroundColor: p.soft,
             borderRadius: 20,
             padding: 20,
             marginBottom: 20,
             borderWidth: 1,
-            borderColor: TOKENS.colors.primary,
+            borderColor: p.primary,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between'
           }}
         >
           <View>
-            <TextUI variant="caption" color={c.textSecondary}>
+            <TextUI variant="caption" color={p.muted}>
               المساحة المستخدمة من ذاكرة الهاتف
             </TextUI>
-            <TextUI variant="h1" size={24} color={TOKENS.colors.primaryDark} style={{ marginTop: 4 }}>
+            <TextUI variant="h1" size={24} color={p.primaryInk} style={{ marginTop: 4 }}>
               {toArabicNumber(totalMB.toFixed(1))} ميجابايت
             </TextUI>
           </View>
@@ -80,22 +81,22 @@ export const DownloadsScreen: React.FC = () => {
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: themeMode === 'light' ? '#FFFFFF' : '#382A20',
+              backgroundColor: p.surface,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Feather name="hard-drive" size={24} color={TOKENS.colors.primary} />
+            <Feather name="hard-drive" size={24} color={p.primary} />
           </View>
         </View>
 
         {downloadedList.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-            <Feather name="download-cloud" size={48} color={c.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
-            <TextUI variant="h4" color={c.textPrimary}>
+            <Feather name="download-cloud" size={48} color={p.muted} style={{ marginBottom: 12, opacity: 0.5 }} />
+            <TextUI variant="h4" color={p.ink}>
               لا توجد دروس محملة حالياً
             </TextUI>
-            <TextUI variant="caption" color={c.textSecondary} style={{ marginTop: 4, textAlign: 'center' }}>
+            <TextUI variant="caption" color={p.muted} style={{ marginTop: 4, textAlign: 'center' }}>
               يمكنك تحميل دروس وسلاسل كراسي الحرمين الشريفين للاستماع إليها بدون اتصال بالإنترنت.
             </TextUI>
           </View>
@@ -105,11 +106,11 @@ export const DownloadsScreen: React.FC = () => {
               <View
                 key={item.lessonId}
                 style={{
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   borderRadius: 16,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -117,13 +118,13 @@ export const DownloadsScreen: React.FC = () => {
                 }}
               >
                 <View style={{ flex: 1, marginRight: 12 }}>
-                  <TextUI variant="h4" color={c.textPrimary} numberOfLines={1}>
+                  <TextUI variant="h4" color={p.ink} numberOfLines={1}>
                     {item.titleAr}
                   </TextUI>
-                  <TextUI variant="bodyMedium" color={TOKENS.colors.primary} style={{ marginTop: 2 }}>
+                  <TextUI variant="bodyMedium" color={p.primary} style={{ marginTop: 2 }}>
                     {item.scholarAr}
                   </TextUI>
-                  <TextUI variant="caption" color={c.textSecondary} style={{ marginTop: 2 }}>
+                  <TextUI variant="caption" color={p.muted} style={{ marginTop: 2 }}>
                     💾 {item.sizeMB} • {item.downloadedAt}
                   </TextUI>
                 </View>
@@ -135,12 +136,12 @@ export const DownloadsScreen: React.FC = () => {
                     width: 36,
                     height: 36,
                     borderRadius: 18,
-                    backgroundColor: themeMode === 'light' ? '#FFEBEE' : '#382020',
+                    backgroundColor: p.dangerBg,
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  <Feather name="trash-2" size={16} color="#E53935" />
+                  <Feather name="trash-2" size={16} color={p.danger} />
                 </TouchableOpacity>
               </View>
             ))}

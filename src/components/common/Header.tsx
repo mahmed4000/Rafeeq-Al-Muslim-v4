@@ -3,12 +3,14 @@ import { View, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from './TextUI';
 import { TOKENS } from '../../constants/tokens';
+import { usePalette } from '../../theme/palette';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   onBack?: () => void;
   rightAction?: React.ReactNode;
+  /** Ignored: colors come from the palette. Kept so older call sites still compile. */
   theme?: any;
   isRTL?: boolean;
 }
@@ -18,10 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   subtitle,
   onBack,
   rightAction,
-  theme,
   isRTL = true
 }) => {
-  const c = theme || TOKENS.colors.light;
+  const p = usePalette();
 
   return (
     <View
@@ -32,9 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
         paddingHorizontal: 14,
         paddingTop: Platform.OS === 'ios' ? 56 : (Platform.OS === 'web' ? 42 : 14),
         paddingBottom: 12,
-        backgroundColor: c.bg,
+        backgroundColor: p.bg,
         borderBottomWidth: 1,
-        borderColor: c.border
+        borderColor: p.border
       }}
     >
       {/* Back Button with text and icon for high visibility */}
@@ -53,13 +54,13 @@ export const Header: React.FC<HeaderProps> = ({
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: TOKENS.radius.pill,
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               borderWidth: 1,
-              borderColor: c.border
+              borderColor: p.border
             }}
           >
-            <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={15} color={TOKENS.colors.primary} />
-            <TextUI variant="captionBold" color={TOKENS.colors.primary}>
+            <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={15} color={p.primary} />
+            <TextUI variant="captionBold" color={p.primary}>
               رجوع
             </TextUI>
           </TouchableOpacity>
@@ -70,11 +71,11 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Center: Title & Subtitle */}
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
-        <TextUI variant="h3" color={c.textPrimary} numberOfLines={1}>
+        <TextUI variant="h3" color={p.ink} numberOfLines={1}>
           {title}
         </TextUI>
         {subtitle ? (
-          <TextUI variant="caption" color={c.textSecondary} style={{ marginTop: 2 }} numberOfLines={1}>
+          <TextUI variant="caption" color={p.muted} style={{ marginTop: 2 }} numberOfLines={1}>
             {subtitle}
           </TextUI>
         ) : null}

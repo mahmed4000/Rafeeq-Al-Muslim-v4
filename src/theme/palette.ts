@@ -27,6 +27,8 @@ export const PALETTE = {
     success: '#4E7D5B',
     successBg: '#E7EFE9',
     successInk: '#3A6346',
+    danger: '#B34743',
+    dangerBg: '#F7E4E2',
     track: '#E8DFD5'
   },
   dark: {
@@ -50,6 +52,8 @@ export const PALETTE = {
     success: '#7FB08B',
     successBg: '#24382A',
     successInk: '#9CCBA8',
+    danger: '#E08A84',
+    dangerBg: '#3A2220',
     track: '#43352C'
   }
 };
