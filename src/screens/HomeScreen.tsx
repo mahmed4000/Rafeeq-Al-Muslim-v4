@@ -1,717 +1,390 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { MoorishArchFrame } from '../components/common/MoorishArchFrame';
-import { TOKENS, makeShadow } from '../constants/tokens';
+import { SkyArch, skyPhase } from '../components/home/SkyArch';
+import { usePalette, Palette } from '../theme/palette';
 import { getFullDateInfo } from '../services/hijriDate';
-import { toArabicNumber } from '../services/prayerCalculation';
+import { toArabicNumber, PrayerTimeValues } from '../services/prayerCalculation';
 import { AZKAR_CATEGORIES } from '../data/azkarData';
 import { useNextPrayer } from '../hooks/useNextPrayer';
+import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaService';
+import { PrayerLogService, localDateKey } from '../services/prayerLog';
+import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey } from '../services/notificationService';
+import { surahById, surahForPage } from '../services/quranPages';
 
-const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
+// Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
+const AFTER_PRAYER_WINDOW = 30;
+
+const STRIP: { key: keyof PrayerTimeValues; label: string }[] = [
+  { key: 'fajr', label: 'الفجر' },
+  { key: 'sunrise', label: 'الشروق' },
+  { key: 'dhuhr', label: 'الظهر' },
+  { key: 'asr', label: 'العصر' },
+  { key: 'maghrib', label: 'المغرب' },
+  { key: 'isha', label: 'العشاء' }
+];
+
+const MORE: { screen: string; title: string; icon: keyof typeof Feather.glyphMap }[] = [
+  { screen: 'tasbih', title: 'المسبحة', icon: 'circle' },
+  { screen: 'qibla', title: 'القبلة', icon: 'compass' },
+  { screen: 'allah_names', title: 'أسماء الله الحسنى', icon: 'star' },
+  { screen: 'hadith_40', title: 'الأربعون النووية', icon: 'award' },
+  { screen: 'ruqyah', title: 'الرقية الشرعية', icon: 'shield' },
+  { screen: 'zakat_calculator', title: 'حاسبة الزكاة', icon: 'percent' }
+];
+
+const toMin = (t: { hours: number; minutes: number }) => t.hours * 60 + t.minutes;
+
+/** "صفحة واحدة", "صفحتان", "٣ صفحات", "١١ صفحة" (Arabic number agreement). */
+const pagesText = (n: number) => {
+  if (n === 1) return 'صفحة واحدة';
+  if (n === 2) return 'صفحتان';
+  const mod = n % 100;
+  return `${toArabicNumber(n)} ${mod >= 3 && mod <= 10 ? 'صفحات' : 'صفحة'}`;
+};
+
+type NowCard =
+  | { kind: 'adhkar'; categoryId: string; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }
+  | { kind: 'kahf' }
+  | { kind: 'quran' };
+
+/** What the "now" card suggests, based only on the day's prayer times. */
+function pickNowCard(times: PrayerTimeValues, now: Date): NowCard {
+  const m = now.getHours() * 60 + now.getMinutes();
+  const category = (id: string) => AZKAR_CATEGORIES.find((c) => c.id === id)!;
+
+  const justPrayed = PRAYER_KEYS.find((k) => m >= toMin(times[k]) && m < toMin(times[k]) + AFTER_PRAYER_WINDOW);
+  if (justPrayed) {
+    const c = category('after_prayer');
+    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: `بعد صلاة ${PRAYER_NAMES_AR[justPrayed]}`, icon: 'check-circle' };
+  }
+  // Windows follow the subtitles already shown on the adhkar categories.
+  if (m >= toMin(times.fajr) && m < toMin(times.sunrise)) {
+    const c = category('morning');
+    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'sun' };
+  }
+  if (m >= toMin(times.asr) && m < toMin(times.maghrib)) {
+    const c = category('evening');
+    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'moon' };
+  }
+  if (m >= toMin(times.isha) || m < toMin(times.fajr)) {
+    const c = category('sleep');
+    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'moon' };
+  }
+  if (now.getDay() === 5 && m < toMin(times.maghrib)) return { kind: 'kahf' };
+  return { kind: 'quran' };
+}
+
+const Card: React.FC<{ p: Palette; children: React.ReactNode; tone?: 'surface' | 'soft'; style?: object }> = ({ p, children, tone = 'surface', style }) => (
+  <View style={[{ borderRadius: 16, padding: 16, backgroundColor: tone === 'soft' ? p.soft : p.surface, borderWidth: 1, borderColor: p.border }, style]}>
+    {children}
+  </View>
+);
+
+const PrimaryButton: React.FC<{ p: Palette; label: string; onPress: () => void }> = ({ p, label, onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    accessibilityRole="button"
+    onPress={onPress}
+    style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary }}
+  >
+    <TextUI size={15} weight="bold" color={p.onPrimary}>{label}</TextUI>
+  </TouchableOpacity>
+);
+
+const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = ({ p, percent, height = 6 }) => (
+  <View style={{ flex: 1, height, borderRadius: height / 2, overflow: 'hidden', backgroundColor: p.track }}>
+    <View style={{ width: `${Math.min(100, Math.max(0, percent))}%`, height: '100%', backgroundColor: p.accent }} />
+  </View>
+);
 
 export const HomeScreen: React.FC = () => {
-  const {
-    navigate,
-    theme,
-    themeMode,
-    t,
-    currentCity,
-    prayerTimes,
-    prayerBells,
-    togglePrayerBell,
-    readingBookmark,
-    refreshLocation,
-    triggerHaptic,
-    setSelectedSurah
-  } = useApp();
+  const { navigate, t, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah } = useApp();
+  const p = usePalette();
+  const next = useNextPrayer(prayerTimes);
+  const now = new Date();
+  const dateInfo = getFullDateInfo(now);
 
-  const c = theme;
-  const nextPrayerInfo = useNextPrayer(prayerTimes);
+  const [khatma, setKhatma] = useState<Khatma | null>(null);
+  const [prayed, setPrayed] = useState<PrayerKey[]>([]);
+  const [prayedDay, setPrayedDay] = useState(localDateKey());
 
-  // The reader reads the surah from context and the position from startPage/startAyah.
-  const openReaderAt = (surahId: number, page?: number, ayah?: number) => {
-    const surah = QURAN_DATA.find((item) => item.id === surahId) || QURAN_DATA[0];
-    setSelectedSurah(surah);
-    navigate('quran_reader', {
-      readingMode: 'page',
-      startPage: page || surah.mushafPageStart || 1,
-      startSurahId: surah.id,
-      startAyah: ayah
-    });
+  // Reload when Home regains focus (after reading, or on a new day).
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const day = localDateKey();
+      KhatmaService.getActive().then((k) => { if (alive) setKhatma(k); });
+      PrayerLogService.getDay(day).then((list) => {
+        if (!alive) return;
+        setPrayed(list);
+        setPrayedDay(day);
+      });
+      return () => { alive = false; };
+    }, [])
+  );
+
+  // The tracker resets itself at midnight without waiting for a refocus.
+  const today = localDateKey(now);
+  const prayedToday = prayedDay === today ? prayed : [];
+
+  const togglePrayed = async (key: PrayerKey) => {
+    triggerHaptic('light');
+    const list = await PrayerLogService.toggle(key, today);
+    setPrayed(list);
+    setPrayedDay(today);
   };
-  const dateInfo = getFullDateInfo();
 
-  const prayersList = [
-    { key: 'fajr' as const, nameAr: 'الفجر', nameEn: 'Fajr', time: prayerTimes.fajr.timeStr, icon: 'sunrise' as const },
-    { key: 'dhuhr' as const, nameAr: 'الظهر', nameEn: 'Dhuhr', time: prayerTimes.dhuhr.timeStr, icon: 'sun' as const },
-    { key: 'asr' as const, nameAr: 'العصر', nameEn: 'Asr', time: prayerTimes.asr.timeStr, icon: 'clock' as const },
-    { key: 'maghrib' as const, nameAr: 'المغرب', nameEn: 'Maghrib', time: prayerTimes.maghrib.timeStr, icon: 'sunset' as const },
-    { key: 'isha' as const, nameAr: 'العشاء', nameEn: 'Isha', time: prayerTimes.isha.timeStr, icon: 'moon' as const }
-  ];
+  const openReaderAt = (surahId: number, page?: number, ayah?: number) => {
+    const surah = surahById(surahId);
+    setSelectedSurah(surah);
+    navigate('quran_reader', { readingMode: 'page', startPage: page || surah.mushafPageStart || 1, startSurahId: surah.id, startAyah: ayah });
+  };
+  const openReaderAtPage = (page: number) => openReaderAt(surahForPage(page).id, page);
 
-  const quickFeatures = [
-    { id: 'quran_index', titleAr: 'المصحف الشريف', titleEn: 'Holy Quran', icon: 'book-open', screen: 'quran_index', color: '#8C5E3C' },
-    { id: 'azkar_categories', titleAr: 'حصن المسلم', titleEn: 'Azkar & Duas', icon: 'heart', screen: 'azkar_categories', color: '#5D3A22' },
-    { id: 'haramain_lessons', titleAr: 'كراسي الحرمين', titleEn: 'Haramain Lessons', icon: 'mic', screen: 'haramain_lessons', color: '#1E5A3E' },
-    { id: 'qibla', titleAr: 'اتجاه القبلة', titleEn: 'Qibla Direction', icon: 'compass', screen: 'qibla', color: '#C69255' },
-    { id: 'zakat_calculator', titleAr: 'حاسبة الزكاة', titleEn: 'Zakat Calculator', icon: 'dollar-sign', screen: 'zakat_calculator', color: '#7B5E28' },
-    { id: 'hadith_40', titleAr: 'الأربعون النووية', titleEn: '40 Hadith', icon: 'award', screen: 'hadith_40', color: '#8C5E3C' },
-    { id: 'allah_names', titleAr: 'أسماء الله الحسنى', titleEn: '99 Divine Names', icon: 'star', screen: 'allah_names', color: '#A66B38' },
-    { id: 'ruqyah', titleAr: 'الرقية الشرعية', titleEn: 'Islamic Ruqyah', icon: 'shield', screen: 'ruqyah', color: '#2D4F38' }
-  ];
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowCard = pickNowCard(prayerTimes, now);
+  const progress = khatma && !khatma.completedAt ? getKhatmaProgress(khatma) : null;
+  const countdown = next.countdownText.replace(/^-/, '');
+
+  const renderNowCard = () => {
+    let icon: keyof typeof Feather.glyphMap = 'book-open';
+    let title = 'وِرد القرآن';
+    let subtitle = 'افتح المصحف واقرأ ما تيسّر';
+    let action = () => navigate('quran_index');
+    if (nowCard.kind === 'adhkar') {
+      icon = nowCard.icon;
+      title = nowCard.title;
+      subtitle = nowCard.subtitle;
+      action = () => navigate('azkar_session', { categoryId: nowCard.categoryId });
+    } else if (nowCard.kind === 'kahf') {
+      icon = 'star';
+      title = 'سورة الكهف';
+      subtitle = 'قراءة سورة الكهف يوم الجمعة';
+      action = () => openReaderAt(18);
+    } else if (progress && !progress.isComplete) {
+      const left = Math.max(0, progress.todayTarget - progress.readToday);
+      subtitle = left > 0 ? `بقي من وِرد اليوم ${pagesText(left)}` : 'أتممت وِرد اليوم، بارك الله فيك';
+      action = () => openReaderAtPage(progress.nextPage);
+    } else if (readingBookmark) {
+      subtitle = `تابع من سورة ${readingBookmark.surahName}`;
+      action = () => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
+    }
+    return (
+      <Card p={p} tone="soft" style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface }}>
+          <Feather name={icon} size={22} color={p.primary} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <TextUI size={12.5} weight="bold" color={p.accentInk}>الآن</TextUI>
+          <TextUI size={17} weight="bold" color={p.ink}>{title}</TextUI>
+          <TextUI size={13} color={p.muted} numberOfLines={2}>{subtitle}</TextUI>
+        </View>
+        <PrimaryButton p={p} label="ابدأ" onPress={() => { triggerHaptic('light'); action(); }} />
+      </Card>
+    );
+  };
+
+  const renderContinue = () => {
+    if (progress && !progress.isComplete) {
+      const surah = surahForPage(progress.nextPage);
+      return (
+        <Card p={p} style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <TextUI size={16} weight="bold" color={p.ink}>{khatma!.name}</TextUI>
+            <TextUI size={13} color={p.muted}>{`وِرد اليوم: ${pagesText(progress.todayTarget)}`}</TextUI>
+          </View>
+          <TextUI size={14} color={p.muted}>{`سورة ${surah.nameAr} · صفحة ${toArabicNumber(progress.nextPage)}`}</TextUI>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <ProgressBar p={p} percent={progress.percent} />
+            <TextUI size={13} weight="bold" color={p.muted}>{`${toArabicNumber(progress.percent)}٪`}</TextUI>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <PrimaryButton p={p} label="أكمل وِردك" onPress={() => openReaderAtPage(progress.nextPage)} />
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigate('khatma')} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+              <TextUI size={14} weight="bold" color={p.primary}>تفاصيل الختمة</TextUI>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      );
+    }
+    if (readingBookmark) {
+      return (
+        <Card p={p} style={{ gap: 10 }}>
+          <TextUI size={16} weight="bold" color={p.ink}>آخر قراءة</TextUI>
+          <TextUI size={14} color={p.muted}>
+            {`سورة ${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}${readingBookmark.page ? ` · صفحة ${toArabicNumber(readingBookmark.page)}` : ''}`}
+          </TextUI>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <PrimaryButton p={p} label="تابع القراءة" onPress={() => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah)} />
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigate('khatma')} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+              <TextUI size={14} weight="bold" color={p.primary}>ابدأ ختمة</TextUI>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      );
+    }
+    return (
+      <TouchableOpacity activeOpacity={0.85} accessibilityRole="button" onPress={() => navigate('khatma')}>
+        <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Feather name="book-open" size={20} color={p.primary} />
+          <View style={{ flex: 1 }}>
+            <TextUI size={15} weight="bold" color={p.ink}>ابدأ ختمة</TextUI>
+            <TextUI size={13} color={p.muted}>حدّد المدة ويوزّع التطبيق الصفحات على الأيام</TextUI>
+          </View>
+          <Feather name="chevron-left" size={18} color={p.muted} />
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: c.bg }}
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'ios' ? 56 : (Platform.OS === 'web' ? 42 : 16),
-        paddingBottom: 95
-      }}
+      style={{ flex: 1, backgroundColor: p.bg }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 104, gap: 16 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. Top Brand Header */}
-      <View style={{ marginBottom: 14 }}>
+      {/* Header: name, city, settings, dates */}
+      <View style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextUI variant="h1" color={TOKENS.colors.primaryDark}>
-              {t('المصلى', 'Al-Mosala')}
-            </TextUI>
-            <View
-              style={{
-                backgroundColor: themeMode === 'light' ? TOKENS.colors.secondaryLight : '#382E28',
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: TOKENS.radius.pill,
-                marginRight: 8,
-                borderWidth: 1,
-                borderColor: TOKENS.colors.secondary
-              }}
-            >
-              <TextUI variant="badge" weight="medium" color={TOKENS.colors.primaryDark}>
-                {t('الأندلسي', 'Pro 2026')}
-              </TextUI>
-            </View>
-          </View>
-
-          {/* Settings & City button */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <TextUI font="amiri" size={26} weight="bold" color={p.primaryInk}>رفيق المسلم</TextUI>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => navigate('settings')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: TOKENS.radius.pill,
-                backgroundColor: c.surface,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: c.border
-              }}
+              accessibilityRole="button"
+              accessibilityLabel={`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`}
+              onPress={() => { triggerHaptic('light'); refreshLocation(); }}
+              style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
-              <Feather name="settings" size={16} color={c.textPrimary} />
+              <Feather name="map-pin" size={15} color={p.primary} />
+              <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1}>{currentCity.nameAr}</TextUI>
             </TouchableOpacity>
-
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={refreshLocation}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                backgroundColor: c.surface,
-                paddingHorizontal: 11,
-                paddingVertical: 6,
-                borderRadius: TOKENS.radius.pill,
-                borderWidth: 1,
-                borderColor: c.border
-              }}
+              accessibilityRole="button"
+              accessibilityLabel="الإعدادات"
+              onPress={() => navigate('settings')}
+              style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
-              <Feather name="map-pin" size={13} color={TOKENS.colors.primary} />
-              <TextUI size={12} weight="medium" color={c.textPrimary}>
-                {currentCity.nameAr}
-              </TextUI>
+              <Feather name="sliders" size={18} color={p.ink} />
             </TouchableOpacity>
           </View>
         </View>
-
-        <MoorishArchFrame height={18} color={TOKENS.colors.secondary} opacity={0.6} />
+        <TextUI size={14} color={p.muted}>{`${dateInfo.gregorianDayName} ${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: p.accent, opacity: 0.45 }} />
+          <View style={{ width: 26, height: 13, borderWidth: 1.5, borderBottomWidth: 0, borderColor: p.accent, borderTopLeftRadius: 13, borderTopRightRadius: 13 }} />
+          <View style={{ flex: 1, height: 1, backgroundColor: p.accent, opacity: 0.45 }} />
+        </View>
       </View>
 
-      {/* 2. Hero Next Prayer Card with Live Countdown (Standard Proportions) */}
+      {/* Hero: next prayer with the sky for the current time of day */}
       <TouchableOpacity
         activeOpacity={0.92}
+        accessibilityRole="button"
+        accessibilityLabel={`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`}
         onPress={() => navigate('prayer_times')}
-        style={{
-          borderRadius: 16,
-          padding: 15,
-          backgroundColor: TOKENS.colors.primaryDark,
-          marginBottom: 12,
-          ...makeShadow('0 4px 14px rgba(93, 58, 34, 0.20)', TOKENS.colors.primaryDark, 0.18, 5)
-        }}
+        style={{ borderRadius: 24, padding: 18, flexDirection: 'row', gap: 16, backgroundColor: p.hero, shadowColor: '#5D3A22', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 5 }}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-              <Feather name="clock" size={13} color={TOKENS.colors.secondary} />
-              <TextUI variant="caption" weight="medium" color={TOKENS.colors.secondaryLight}>
-                {t('الصلاة القادمة', 'Next Prayer')}
-              </TextUI>
-            </View>
-            <TextUI cairo size={24} weight="bold" color="#FFFFFF">
-              {nextPrayerInfo.nameAr}
-            </TextUI>
-          </View>
-
-          <View style={{ alignItems: 'flex-end' }}>
-            <TextUI variant="caption" color={TOKENS.colors.secondaryLight} style={{ marginBottom: 3 }}>
-              {t('موعد الأذان', 'Adhan Time')}
-            </TextUI>
-            <TextUI variant="h2" color="#FFFFFF">
-              {nextPrayerInfo.time}
-            </TextUI>
-          </View>
-        </View>
-
-        {/* Countdown Bar */}
-        <View style={{ marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <TextUI variant="caption" color={TOKENS.colors.secondaryLight}>
-              {t('الوقت المتبقي', 'Time Remaining')}
-            </TextUI>
-            <TextUI variant="bodyLarge" weight="bold" color={TOKENS.colors.secondary}>
-              {nextPrayerInfo.countdownText}
-            </TextUI>
-          </View>
-
-          <View style={{ height: 5, width: '100%', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 2.5, overflow: 'hidden' }}>
-            <View
-              style={{
-                height: '100%',
-                width: `${nextPrayerInfo.progress}%`,
-                backgroundColor: TOKENS.colors.secondary,
-                borderRadius: 2.5
-              }}
-            />
+        <SkyArch phase={skyPhase(prayerTimes, now)} />
+        <View style={{ flex: 1, gap: 4, justifyContent: 'center' }}>
+          <TextUI size={14} color={p.onHeroMuted}>{next.isTomorrow ? 'الصلاة القادمة (غدًا)' : 'الصلاة القادمة'}</TextUI>
+          <TextUI size={22} weight="bold" color={p.onHero}>{`${next.nameAr} بعد`}</TextUI>
+          <TextUI size={36} weight="bold" color={p.onHero} style={{ lineHeight: 44, letterSpacing: 1 }}>{countdown}</TextUI>
+          <TextUI size={14} color={p.onHeroMuted}>{`الأذان ${next.time}`}</TextUI>
+          <View style={{ marginTop: 8, height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: 'rgba(250,241,230,0.18)' }}>
+            <View style={{ width: `${next.progress}%`, height: '100%', backgroundColor: p.accent }} />
           </View>
         </View>
       </TouchableOpacity>
 
-      {/* 2.5 Hijri & Gregorian Dates Card (Full Text, Standard Balanced Proportions) */}
-      <View
-        style={{
-          backgroundColor: c.surface,
-          borderRadius: 14,
-          paddingVertical: 9,
-          paddingHorizontal: 14,
-          marginBottom: 14,
-          borderWidth: 1,
-          borderColor: c.border,
-          ...makeShadow('0 2px 6px rgba(0,0,0,0.03)', '#000', 0.03, 2)
-        }}
-      >
-        {/* Hijri Date Row - 100% Full Text */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingVertical: 3
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+      {/* Today's times strip */}
+      <View accessibilityLabel="مواقيت اليوم" style={{ flexDirection: 'row', gap: 2, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        {STRIP.map((s) => {
+          const isNext = s.key === next.id;
+          const time = prayerTimes[s.key].timeStr.split(' ')[0];
+          return (
             <View
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
-                backgroundColor: themeMode === 'light' ? '#FFF5EA' : '#33271C',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: TOKENS.colors.secondary
-              }}
+              key={s.key}
+              accessibilityLabel={`${s.label} ${prayerTimes[s.key].timeStr}${isNext ? '، القادمة' : ''}`}
+              style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8, borderRadius: 12, backgroundColor: isNext ? p.soft : 'transparent' }}
             >
-              <Feather name="moon" size={13} color={TOKENS.colors.secondary} />
+              <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{s.label}</TextUI>
+              <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
             </View>
-            <TextUI size={12} weight="medium" color={c.textSecondary}>
-              {t('التاريخ الهجري', 'Hijri')}
-            </TextUI>
-          </View>
-
-          <TextUI size={13.5} weight="bold" color={c.textPrimary}>
-            {dateInfo.hijriFormatted}
-          </TextUI>
-        </View>
-
-        {/* Separator Line */}
-        <View style={{ height: 1, backgroundColor: c.border, marginVertical: 5 }} />
-
-        {/* Gregorian Date Row - 100% Full Text */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingVertical: 3
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-            <View
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
-                backgroundColor: themeMode === 'light' ? '#F0F5F2' : '#1E2D24',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: themeMode === 'light' ? '#B8D5C4' : '#2A4535'
-              }}
-            >
-              <Feather name="calendar" size={13} color={themeMode === 'light' ? '#2D6A4F' : '#52B788'} />
-            </View>
-            <TextUI size={12} weight="medium" color={c.textSecondary}>
-              {t('التاريخ الميلادي', 'Gregorian')}
-            </TextUI>
-          </View>
-
-          <TextUI size={13} weight="medium" color={c.textPrimary}>
-            {dateInfo.gregorianFormatted}
-          </TextUI>
-        </View>
+          );
+        })}
       </View>
 
-      {/* 3. Daily 5 Prayers Horizontal Card Grid (Standard & Balanced) */}
-      <View style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <TextUI variant="h4" color={c.textPrimary}>
-            {t('مواقيت الصلاة اليوم', "Today's Prayer Schedule")}
-          </TextUI>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigate('prayer_times')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
-          >
-            <TextUI variant="caption" weight="medium" color={TOKENS.colors.primary}>
-              {t('عرض الكل', 'View All')}
-            </TextUI>
-            <Feather name="chevron-left" size={13} color={TOKENS.colors.primary} />
-          </TouchableOpacity>
+      {/* Optional private prayer tracker */}
+      <View style={{ gap: 6, paddingHorizontal: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <TextUI size={15} weight="bold" color={p.ink}>صلوات اليوم</TextUI>
+          <TextUI size={12.5} color={p.muted}>اختياري · يبقى على جهازك فقط</TextUI>
         </View>
-
-        <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'space-between' }}>
-          {prayersList.map((p) => {
-            const isNext = p.key === nextPrayerInfo.id;
-            const hasBell = prayerBells[p.key];
-            const timeOnly = p.time.split(' ')[0];
-
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {PRAYER_KEYS.map((key) => {
+            const done = prayedToday.includes(key);
+            const entered = nowMin >= toMin(prayerTimes[key]);
             return (
-              <View
-                key={p.key}
-                style={{
-                  flex: 1,
-                  backgroundColor: isNext
-                    ? (themeMode === 'light' ? '#F7EEE3' : '#3E2E20')
-                    : c.surface,
-                  borderRadius: 12,
-                  paddingVertical: 10,
-                  paddingHorizontal: 2,
-                  alignItems: 'center',
-                  borderWidth: isNext ? 1.5 : 1,
-                  borderColor: isNext
-                    ? TOKENS.colors.primary
-                    : c.border,
-                  ...makeShadow('0 1px 4px rgba(0,0,0,0.03)', '#000', 0.03, 2)
-                }}
+              <TouchableOpacity
+                key={key}
+                disabled={!entered && !done}
+                onPress={() => togglePrayed(key)}
+                role="checkbox"
+                aria-checked={done}
+                aria-disabled={!entered && !done}
+                accessibilityLabel={`صلاة ${PRAYER_NAMES_AR[key]}`}
+                style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, opacity: !entered && !done ? 0.45 : 1 }}
               >
-                {/* Prayer Icon */}
-                <View
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 13,
-                    backgroundColor: isNext
-                      ? (themeMode === 'light' ? '#EAD6C3' : '#4E3A29')
-                      : (themeMode === 'light' ? '#F5EFE8' : '#2A2018'),
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 3
-                  }}
-                >
-                  <Feather
-                    name={p.icon}
-                    size={14}
-                    color={isNext ? TOKENS.colors.primaryDark : TOKENS.colors.primary}
-                  />
+                <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? p.success : 'transparent', borderWidth: 1.5, borderColor: done ? p.success : p.border }}>
+                  {done ? <Feather name="check" size={15} color="#FFFDF9" /> : null}
                 </View>
-
-                {/* Prayer Name */}
-                <TextUI
-                  cairo
-                  size={13}
-                  weight="bold"
-                  color={isNext ? TOKENS.colors.primaryDark : c.textPrimary}
-                  style={{ marginBottom: 2 }}
-                  numberOfLines={1}
-                >
-                  {p.nameAr}
-                </TextUI>
-
-                {/* Prayer Time */}
-                <TextUI
-                  variant="bodyMedium"
-                  weight="bold"
-                  color={isNext ? TOKENS.colors.primaryDark : c.textPrimary}
-                  numberOfLines={1}
-                >
-                  {timeOnly}
-                </TextUI>
-
-                {/* Notification Bell */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => togglePrayerBell(p.key)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: hasBell
-                      ? (themeMode === 'light' ? '#FFF5EA' : '#3D2D1E')
-                      : (themeMode === 'light' ? '#F4EDE4' : '#291F17'),
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 5
-                  }}
-                >
-                  <Feather
-                    name={hasBell ? 'bell' : 'bell-off'}
-                    size={11}
-                    color={hasBell ? TOKENS.colors.secondary : c.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
+                <TextUI size={11.5} color={done ? p.successInk : p.muted}>{PRAYER_NAMES_AR[key]}</TextUI>
+              </TouchableOpacity>
             );
           })}
         </View>
       </View>
 
-      {/* 3.5. Daily Azkar Quick Access (Morning & Evening) */}
-      <View style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Feather name="sun" size={15} color={TOKENS.colors.primary} />
-            <TextUI variant="h4" color={c.textPrimary}>
-              {t('الورد اليومي', 'Daily Azkar')}
-            </TextUI>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigate('azkar_categories')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>
-              {t('جميع الأذكار ←', 'All Azkar ←')}
-            </TextUI>
-          </TouchableOpacity>
-        </View>
+      {renderNowCard()}
 
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {/* Morning Azkar Quick Card */}
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => {
-              triggerHaptic?.('light');
-              const morningCat = AZKAR_CATEGORIES.find((cat) => cat.id === 'morning') || AZKAR_CATEGORIES[0];
-              navigate('azkar_session', { categoryId: morningCat.id });
-            }}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: themeMode === 'light' ? '#FFF9F0' : '#2D2319',
-              borderRadius: 14,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: themeMode === 'light' ? '#F2DFCA' : '#423222',
-              ...makeShadow('0 2px 6px rgba(0,0,0,0.03)', '#000', 0.03, 2)
-            }}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: themeMode === 'light' ? '#FEEFD8' : '#3E3020',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 10
-              }}
-            >
-              <Feather name="sun" size={17} color="#D97706" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TextUI size={14} weight="bold" color={c.textPrimary}>
-                {t('أذكار الصباح', 'Morning')}
-              </TextUI>
-              <TextUI size={11} color={c.textSecondary}>
-                {toArabicNumber(27)} ذكراً
-              </TextUI>
-            </View>
-            <Feather name="chevron-left" size={15} color={c.textSecondary} />
-          </TouchableOpacity>
-
-          {/* Evening Azkar Quick Card */}
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => {
-              triggerHaptic?.('light');
-              const eveningCat = AZKAR_CATEGORIES.find((cat) => cat.id === 'evening') || AZKAR_CATEGORIES[1];
-              navigate('azkar_session', { categoryId: eveningCat.id });
-            }}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: themeMode === 'light' ? '#F4F7FC' : '#1F2733',
-              borderRadius: 14,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: themeMode === 'light' ? '#D6E2F5' : '#2B394E',
-              ...makeShadow('0 2px 6px rgba(0,0,0,0.03)', '#000', 0.03, 2)
-            }}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: themeMode === 'light' ? '#E0EDFE' : '#28364A',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 10
-              }}
-            >
-              <Feather name="moon" size={17} color="#3B82F6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TextUI size={14} weight="bold" color={c.textPrimary}>
-                {t('أذكار المساء', 'Evening')}
-              </TextUI>
-              <TextUI size={11} color={c.textSecondary}>
-                {toArabicNumber(27)} ذكراً
-              </TextUI>
-            </View>
-            <Feather name="chevron-left" size={15} color={c.textSecondary} />
-          </TouchableOpacity>
-        </View>
+      {/* Continue */}
+      <View style={{ gap: 10 }}>
+        <TextUI size={17} weight="bold" color={p.ink}>تابع</TextUI>
+        {renderContinue()}
       </View>
 
-      {/* 4. Blessed Friday Special Card (Shown on Fridays) */}
-      {(() => {
-        const isFriday = new Date().getDay() === 5;
-        if (!isFriday) return null;
-        return (
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => {
-              triggerHaptic?.('medium');
-              openReaderAt(18);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: themeMode === 'light' ? '#F0FDF4' : '#142E1F',
-              borderRadius: 16,
-              padding: 14,
-              marginBottom: 16,
-              borderWidth: 1.5,
-              borderColor: '#22C55E',
-              ...makeShadow('0 4px 14px rgba(34, 197, 94, 0.15)', '#22C55E', 0.15, 6)
-            }}
-          >
-            <View
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 21,
-                backgroundColor: themeMode === 'light' ? '#DCFCE7' : '#1D452E',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12
-              }}
-            >
-              <Feather name="star" size={20} color="#16A34A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TextUI size={15} weight="bold" color={themeMode === 'light' ? '#15803D' : '#4ADE80'}>
-                  {t('يوم الجمعة المبارك 🕌', 'Blessed Friday')}
-                </TextUI>
-                <View style={{ backgroundColor: '#22C55E', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
-                  <TextUI size={10} weight="bold" color="#FFFFFF">{t('سنة', 'Sunnah')}</TextUI>
-                </View>
-              </View>
-              <TextUI size={12} color={c.textSecondary} style={{ marginTop: 2 }}>
-                {t('قراءة سورة الكهف • الصلاة على النبي ﷺ • ساعة الإجابة', 'Surah Al-Kahf & Salawat')}
-              </TextUI>
-            </View>
-            <Feather name="chevron-left" size={18} color="#16A34A" />
-          </TouchableOpacity>
-        );
-      })()}
-
-      {/* 5. Islamic Features Bento Grid (Modern Elevated Islamic Layout) */}
-      <View style={{ marginBottom: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <TextUI variant="h4" color={c.textPrimary}>
-            {t('الموسوعة والخدمات الإسلامية', 'Islamic Features & Services')}
-          </TextUI>
-          <TextUI variant="caption" color={c.textSecondary}>
-            {t('خدمات شاملة للمسلم', 'All Services')}
-          </TextUI>
-        </View>
-
-        {/* Bento Primary Hero Tile: Holy Quran */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => {
-            triggerHaptic?.('light');
-            if (readingBookmark) {
-              openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
-            } else {
-              navigate('quran_index');
-            }
-          }}
-          style={{
-            backgroundColor: themeMode === 'light' ? '#FFFDF9' : '#2C221A',
-            borderRadius: 18,
-            padding: 16,
-            marginBottom: 10,
-            borderWidth: 1.5,
-            borderColor: TOKENS.colors.secondary,
-            ...makeShadow('0 4px 14px rgba(198, 146, 85, 0.12)', TOKENS.colors.secondary, 0.12, 5)
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: themeMode === 'light' ? '#FBF1E4' : '#3E3022',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: TOKENS.colors.secondary
-                }}
-              >
-                <Feather name="book-open" size={22} color={TOKENS.colors.primaryDark} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TextUI size={16} weight="bold" color={c.textPrimary}>
-                    {t('المصحف الشريف المرتل', 'Holy Quran')}
-                  </TextUI>
-                  <View style={{ backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#3B2E24', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 }}>
-                    <TextUI size={10} weight="bold" color={TOKENS.colors.primaryDark}>
-                      {readingBookmark ? t('متابعة', 'Resume') : t('١١٤ سورة', '114 Surahs')}
-                    </TextUI>
-                  </View>
-                </View>
-                <TextUI size={12} color={c.textSecondary} style={{ marginTop: 3 }} numberOfLines={1}>
-                  {readingBookmark
-                    ? `${t('آخر قراءة:', 'Last Read:')} سورة ${readingBookmark.surahName} • الآية ${toArabicNumber(readingBookmark.ayah)}`
-                    : t('قراءة بالخط العثماني، تفسير الآيات، وتلاوات مشاهير القرّاء', 'Uthmani Script, Tafsir, & Famous Reciters')}
-                </TextUI>
-              </View>
-            </View>
-            <Feather name="chevron-left" size={18} color={TOKENS.colors.primary} />
-          </View>
-        </TouchableOpacity>
-
-        {/* 2x2 Bento Tiles for Core Features */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' }}>
-          {quickFeatures.filter((f) => f.id !== 'quran_index' && f.id !== 'azkar_categories').map((f) => (
+      {/* More tools */}
+      <View style={{ gap: 10 }}>
+        <TextUI size={17} weight="bold" color={p.ink}>{t('المزيد', 'More')}</TextUI>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {MORE.map((item) => (
             <TouchableOpacity
-              key={f.id}
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic?.('light');
-                navigate(f.screen);
-              }}
-              style={{
-                width: '48.5%',
-                backgroundColor: c.surface,
-                borderRadius: 14,
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                borderWidth: 1,
-                borderColor: c.border,
-                ...makeShadow('0 2px 6px rgba(0,0,0,0.02)', '#000', 0.02, 2)
-              }}
+              key={item.screen}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              onPress={() => { triggerHaptic('light'); navigate(item.screen); }}
+              style={{ width: '31%', flexGrow: 1, minHeight: 84, borderRadius: 14, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
-              <View
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  backgroundColor: themeMode === 'light' ? `${f.color}15` : `${f.color}30`,
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Feather name={f.icon as any} size={18} color={f.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary} numberOfLines={1}>
-                  {f.titleAr}
-                </TextUI>
-                <TextUI size={10.5} color={c.textSecondary} numberOfLines={1}>
-                  {f.titleEn}
-                </TextUI>
-              </View>
+              <Feather name={item.icon} size={20} color={p.primary} />
+              <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={2}>{item.title}</TextUI>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* 6. Daily Ayah Inspiration Card */}
-      <View
-        style={{
-          borderRadius: 14,
-          backgroundColor: c.surface,
-          padding: 14,
-          borderWidth: 1,
-          borderColor: c.border,
-          marginBottom: 10
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-          <Feather name="sun" size={14} color={TOKENS.colors.secondary} />
-          <TextUI variant="captionBold" color={TOKENS.colors.secondary}>
-            {t('آية وتأمل اليوم', 'Ayah of the Day')}
-          </TextUI>
-        </View>
-
-        <TextUI variant="quranVerse" size={16} weight="bold" color={TOKENS.colors.primaryDark} style={{ lineHeight: 28, textAlign: 'center', marginVertical: 6 }}>
-          ﴿ إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا ﴾
+      {/* Ayah of the day */}
+      <Card p={p} style={{ gap: 8, alignItems: 'center', paddingVertical: 18 }}>
+        <TextUI size={12.5} weight="bold" color={p.accentInk} style={{ alignSelf: 'flex-start' }}>آية اليوم</TextUI>
+        <TextUI font="amiri" size={22} color={p.quranInk} align="center" style={{ lineHeight: 42 }}>
+          إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا
         </TextUI>
-
-        <TextUI variant="caption" color={c.textSecondary} style={{ textAlign: 'center', marginTop: 2 }}>
-          {t('سورة مريم • الآية ٩٦', 'Surah Maryam • Verse 96')}
-        </TextUI>
-      </View>
+        <TextUI size={13} color={p.muted}>مريم: ٩٦</TextUI>
+      </Card>
     </ScrollView>
   );
 };

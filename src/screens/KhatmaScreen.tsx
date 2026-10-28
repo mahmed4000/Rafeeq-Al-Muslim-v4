@@ -9,12 +9,9 @@ import { Stepper } from '../ui/Stepper';
 import { usePalette } from '../theme/palette';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { Khatma, KhatmaService, getKhatmaProgress, MUSHAF_PAGES } from '../services/khatmaService';
-
-const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
+import { surahForPage } from '../services/quranPages';
 const DURATIONS = [7, 15, 30, 60];
 
-const surahForPage = (page: number) =>
-  QURAN_DATA.find((item) => item.pageMetadata?.some((meta: any) => Number(meta.pageNum) === page)) || QURAN_DATA[0];
 
 export const KhatmaScreen: React.FC = () => {
   const { goBack, navigate, setSelectedSurah, readingBookmark, triggerHaptic, t } = useApp();
