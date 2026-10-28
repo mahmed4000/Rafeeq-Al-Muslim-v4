@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "رفيق المسلم | Almosala Pro",
+    "slug": "almosala-pro",
+    "version": "2.0.27",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "almosala",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF6F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "supportsRTL": true,
+      "bundleIdentifier": "com.almosala.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "يحتاج تطبيق رفيق المسلم إلى تحديد موقعك الجغرافي لحساب مواقيت الصلاة بدقة وتحديد اتجاه القبلة نحو مكة المكرمة.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "يحتاج تطبيق رفيق المسلم إلى موقعك لتقديم تنبيهات الأذان الدقيقة في مواقيتها عند التنقل بين المدن.",
+        "UIBackgroundModes": [
+          "audio",
+          "fetch",
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "supportsRTL": true,
+      "package": "com.almosala.app",
+      "versionCode": 2027,
+      "adaptiveIcon": {
+        "backgroundColor": "#FAF6F0",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "SCHEDULE_EXACT_ALARM",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "baseUrl": "/almosala-v3"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "يحتاج تطبيق رفيق المسلم إلى تحديد موقعك الجغرافي لحساب مواقيت الصلاة بدقة وتحديد اتجاه القبلة نحو مكة المكرمة."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#8C5E3C"
+        }
+      ],
+      "expo-audio",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4dd7909f-a0b8-4985-8ec5-dd25ace9babc"
+      }
+    },
+    "owner": "saudiavisa2023"
+  }
+}
