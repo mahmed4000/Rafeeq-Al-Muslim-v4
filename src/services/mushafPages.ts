@@ -19,6 +19,9 @@ const FONT_DIR = 'qcf4-colrv1';
 
 export const mushafFontFamily = (page: number) => `QCF4_P${page}`;
 
+// Web: FontFace objects already added to document.fonts, by family.
+const webFaces = new Map<string, FontFace>();
+
 // COLRv1 colour fonts render on iOS 17+, Android 13+ (API 33) and current browsers.
 export function supportsMushafPages(): boolean {
   if (Platform.OS === 'android') return Number(Platform.Version) >= 33;
@@ -62,10 +65,23 @@ export async function getMushafPageLayout(page: number): Promise<MushafPageLayou
 // Loads the page font, downloading it once into the app's documents on iOS/Android.
 export async function loadMushafPageFont(page: number): Promise<string> {
   const family = mushafFontFamily(page);
-  if (Font.isLoaded(family)) return family;
+  if (webFaces.has(family) || (Platform.OS !== 'web' && Font.isLoaded(family))) return family;
   const url = `${FONT_BASE}/p${page}.ttf`;
   if (Platform.OS === 'web') {
-    await Font.loadAsync({ [family]: url });
+    // Load the font data through the browser's FontFace API before the page switches to it, with
+    // font-display block: otherwise the glyph codes briefly showed as stray Arabic letters while
+    // scrolling fast. (expo-font's check uses a Latin test string these fonts do not contain.)
+    const doc: any = typeof document !== 'undefined' ? document : null;
+    if (doc?.fonts && typeof FontFace !== 'undefined') {
+      if (!webFaces.has(family)) {
+        const face = new FontFace(family, `url(${url}) format('truetype')`, { display: 'block' });
+        await face.load();
+        doc.fonts.add(face);
+        webFaces.set(family, face);
+      }
+      return family;
+    }
+    await Font.loadAsync({ [family]: { uri: url, display: Font.FontDisplay.BLOCK } });
     return family;
   }
   const dir = new Directory(Paths.document, FONT_DIR);
