@@ -163,6 +163,12 @@ export const AZKAR_DATABASE: Record<string, AzkarItem[]> = {
       target: 100
     },
     {
+      ar: 'اللَّهُ أَكْبَرُ',
+      en: 'Allah is the Greatest',
+      virtue: '',
+      target: 100
+    },
+    {
       ar: 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ',
       en: 'None has the right to be worshipped except Allah alone (100 times)',
       virtue: 'كانت له عدل عشر رقاب، وكُتبت له مائة حسنة، ومُحيت عنه مائة سيئة، وحرزاً من الشيطان يومه كله',
