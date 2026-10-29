@@ -4,7 +4,8 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { SkyArch, skyPhase } from '../components/home/SkyArch';
+import { PrayingFigure } from '../components/home/PrayingFigure';
+import { skyPhase } from '../components/home/SkyArch';
 import { SceneBackdrop, SCENE_HEIGHT } from '../components/home/SceneHeader';
 import { MushafCover } from '../components/home/MushafCover';
 import { usePalette, Palette, PALETTE } from '../theme/palette';
@@ -407,7 +408,7 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         {/* Quran suggestions show an open mushaf; adhkar keep the sky window */}
-        {nowCard.kind === 'adhkar' ? <SkyArch phase={skyPhase(prayerTimes, now)} /> : <MushafCover />}
+        {nowCard.kind === 'adhkar' ? <PrayingFigure /> : <MushafCover />}
       </View>
     );
   };
