@@ -148,7 +148,8 @@ export const AudioService = {
     currentSecs: number,
     totalSecs: number
   ): Promise<void> {
-    if (!courseId || !lessonId || currentSecs < 0) return;
+    // A player that has not started yet reports 0; saving that would wipe the real position.
+    if (!courseId || !lessonId || !(currentSecs >= 1)) return;
     try {
       const existing = await this.getResumeRecords();
       existing[lessonId] = {
@@ -168,6 +169,12 @@ export const AudioService = {
   async getLessonResume(lessonId: string, courseId?: string): Promise<LessonResumeRecord | null> {
     const records = await this.getResumeRecords();
     return records[lessonId] || (courseId ? records[courseId] : null) || null;
+  },
+  /** The most recently played lesson that is started but not finished, for "continue listening". */
+  async getLatestUnfinished(): Promise<LessonResumeRecord | null> {
+    const records = Object.values(await this.getResumeRecords());
+    const open = records.filter((r) => r?.lessonId && r.currentSecs > 5 && !(r.totalSecs > 0 && r.currentSecs >= r.totalSecs - 15));
+    return open.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || null;
   },
   async getLessonMarkers(courseId: string, lessonId: string): Promise<LessonMarker[]> {
     const records = await StorageService.getObject<Record<string, LessonMarker[]>>(MARKERS_STORAGE_KEY, {});

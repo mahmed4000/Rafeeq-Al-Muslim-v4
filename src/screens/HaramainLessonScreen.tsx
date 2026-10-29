@@ -54,24 +54,8 @@ export const HaramainLessonScreen: React.FC = () => {
     return () => { alive = false; };
   }, [course?.id, lesson?.id]);
 
-  useEffect(() => () => {
-    const player = playerRef.current;
-    if (player) {
-      if (course && lesson) AudioService.saveResumeProgress(course.id, lesson.id, lesson.number, lesson.titleAr, player.currentTime || currentSecs, player.duration || totalSecs);
-      player.remove();
-      playerRef.current = null;
-    }
-  }, [course?.id, lesson?.id]);
-
-  useEffect(() => {
-    if (!course || !lesson || currentSecs === lastSavedSecond.current || currentSecs % 4 !== 0) return;
-    lastSavedSecond.current = currentSecs;
-    AudioService.saveResumeProgress(course.id, lesson.id, lesson.number, lesson.titleAr, currentSecs, totalSecs);
-  }, [course?.id, lesson?.id, currentSecs, totalSecs]);
-
-  if (!course || !lesson) return <View style={{ flex: 1, backgroundColor: p.bg }}><Header title="الدرس غير موجود" onBack={goBack} /></View>;
-
   const startPlayback = async (from = currentSecs) => {
+    if (!course || !lesson) return;
     const saved = await AudioService.getDownloadedLessons();
     const source = saved[lesson.id]?.localUri || lesson.audioUrl || course.audioStreamUrl;
     if (!source) { Alert.alert('تعذر تشغيل الدرس', 'لا يتوفر رابط صوتي لهذا الدرس.'); return; }
@@ -95,6 +79,34 @@ export const HaramainLessonScreen: React.FC = () => {
       Alert.alert('تعذر تشغيل الدرس', 'تحقق من اتصال الإنترنت ثم حاول مرة أخرى.');
     }
   };
+
+  // Opened from Home's "continue listening": start from the saved position right away.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!screenParams?.autoplay || autoStarted.current || resumeAt == null || playerRef.current) return;
+    autoStarted.current = true;
+    setCurrentSecs(resumeAt);
+    setResumeAt(null);
+    startPlayback(resumeAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeAt, screenParams?.autoplay]);
+
+  useEffect(() => () => {
+    const player = playerRef.current;
+    if (player) {
+      if (course && lesson) AudioService.saveResumeProgress(course.id, lesson.id, lesson.number, lesson.titleAr, player.currentTime || currentSecs, player.duration || totalSecs);
+      player.remove();
+      playerRef.current = null;
+    }
+  }, [course?.id, lesson?.id]);
+
+  useEffect(() => {
+    if (!course || !lesson || currentSecs === lastSavedSecond.current || currentSecs % 4 !== 0) return;
+    lastSavedSecond.current = currentSecs;
+    AudioService.saveResumeProgress(course.id, lesson.id, lesson.number, lesson.titleAr, currentSecs, totalSecs);
+  }, [course?.id, lesson?.id, currentSecs, totalSecs]);
+
+  if (!course || !lesson) return <View style={{ flex: 1, backgroundColor: p.bg }}><Header title="الدرس غير موجود" onBack={goBack} /></View>;
 
   const togglePlayback = () => {
     if (playerRef.current) {

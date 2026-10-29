@@ -15,6 +15,8 @@ import { PrayerLogService, localDateKey } from '../services/prayerLog';
 import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey } from '../services/notificationService';
 import { surahById, surahForPage } from '../services/quranPages';
 import { cityNow, differsFromDevice } from '../services/cityTime';
+import { AudioService, LessonResumeRecord } from '../services/audioService';
+import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
 
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
 const AFTER_PRAYER_WINDOW = 30;
@@ -46,6 +48,17 @@ const pagesText = (n: number) => {
   const mod = n % 100;
   return `${toArabicNumber(n)} ${mod >= 3 && mod <= 10 ? 'صفحات' : 'صفحة'}`;
 };
+
+/** Seconds as "١٢:٠٥" or "١:٠٢:٠٥" in Arabic digits. */
+const clockAr = (secs: number) => {
+  const s = Math.max(0, Math.floor(secs));
+  const h = Math.floor(s / 3600);
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(h ? 2 : 1, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return toArabicNumber(h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`);
+};
+
+const HARAMAIN_COURSES: any[] = [...PROPHET_MOSQUE_COURSES, ...MAKKAH_MOSQUE_COURSES];
 
 type NowCard =
   | { kind: 'adhkar'; categoryId: string; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }
@@ -115,13 +128,15 @@ export const HomeScreen: React.FC = () => {
   const [khatma, setKhatma] = useState<Khatma | null>(null);
   const [prayed, setPrayed] = useState<PrayerKey[]>([]);
   const [prayedDay, setPrayedDay] = useState(localDateKey());
+  const [listening, setListening] = useState<LessonResumeRecord | null>(null);
 
-  // Reload when Home regains focus (after reading, or on a new day).
+  // Reload when Home regains focus (after reading or listening, or on a new day).
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       const day = localDateKey(cityNow(timeZone));
       KhatmaService.getActive().then((k) => { if (alive) setKhatma(k); });
+      AudioService.getLatestUnfinished().then((r) => { if (alive) setListening(r); });
       PrayerLogService.getDay(day).then((list) => {
         if (!alive) return;
         setPrayed(list);
@@ -245,6 +260,49 @@ export const HomeScreen: React.FC = () => {
     );
   };
 
+  const renderListening = () => {
+    const course = listening && HARAMAIN_COURSES.find((c) => c.id === listening.courseId);
+    const lesson = course?.lessons?.find((l: any) => l.id === listening!.lessonId);
+    if (!listening || !course || !lesson) {
+      return (
+        <TouchableOpacity activeOpacity={0.85} accessibilityRole="button" onPress={() => navigate('haramain_lessons')}>
+          <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Feather name="headphones" size={20} color={p.primary} />
+            <View style={{ flex: 1 }}>
+              <TextUI size={15} weight="bold" color={p.ink}>دروس الحرمين</TextUI>
+              <TextUI size={13} color={p.muted}>كراسي العلماء في المسجد الحرام والمسجد النبوي</TextUI>
+            </View>
+            <Feather name="chevron-left" size={18} color={p.muted} />
+          </Card>
+        </TouchableOpacity>
+      );
+    }
+    const percent = listening.totalSecs > 0 ? Math.round((listening.currentSecs / listening.totalSecs) * 100) : 0;
+    const position = listening.totalSecs > 0
+      ? `توقفت عند ${clockAr(listening.currentSecs)} من ${clockAr(listening.totalSecs)}`
+      : `توقفت عند ${clockAr(listening.currentSecs)}`;
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`متابعة الاستماع: ${lesson.titleAr}، ${course.scholarAr}، ${position}`}
+        onPress={() => { triggerHaptic('light'); navigate('haramain_lesson', { courseId: course.id, lessonId: lesson.id, autoplay: true }); }}
+      >
+        <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: p.soft }}>
+            <Feather name="play" size={18} color={p.primary} style={{ marginLeft: 2 }} />
+          </View>
+          <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+            <TextUI size={13} color={p.muted}>متابعة الاستماع · دروس الحرمين</TextUI>
+            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{`${lesson.titleAr} — الدرس ${toArabicNumber(lesson.number)}`}</TextUI>
+            <TextUI size={12.5} color={p.muted} numberOfLines={1}>{`${course.scholarAr} · ${position}`}</TextUI>
+            {percent > 0 ? <View style={{ flexDirection: 'row' }}><ProgressBar p={p} percent={percent} height={4} /></View> : null}
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: p.bg }}
@@ -361,6 +419,7 @@ export const HomeScreen: React.FC = () => {
       <View style={{ gap: 10 }}>
         <TextUI size={17} weight="bold" color={p.ink}>تابع</TextUI>
         {renderContinue()}
+        {renderListening()}
       </View>
 
       {/* More tools */}
