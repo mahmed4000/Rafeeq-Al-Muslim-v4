@@ -29,7 +29,7 @@ export const SCREEN_PATHS: Record<string, string> = {
 };
 
 // Bottom-tab routes: navigating to these switches tabs instead of stacking a new screen.
-export const TAB_SCREENS = new Set(['home', 'quran_index', 'azkar_categories', 'haramain_lessons', 'settings']);
+export const TAB_SCREENS = new Set(['home', 'prayer_times', 'quran_index', 'azkar_categories', 'haramain_lessons']);
 
 export function screenKeyForPath(pathname: string): string {
   const match = Object.keys(SCREEN_PATHS).find((key) => SCREEN_PATHS[key] === pathname);

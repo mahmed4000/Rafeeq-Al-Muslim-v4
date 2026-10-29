@@ -8,14 +8,14 @@ import { usePalette } from '../../theme/palette';
 
 // Route names in src/app/(tabs), in display order.
 const TAB_ITEMS: Record<string, { labelAr: string; labelEn: string; icon: React.ComponentProps<typeof Feather>['name'] }> = {
-  index: { labelAr: 'الرئيسية', labelEn: 'Home', icon: 'home' },
-  quran: { labelAr: 'المصحف', labelEn: 'Quran', icon: 'book-open' },
+  index: { labelAr: 'اليوم', labelEn: 'Today', icon: 'sun' },
+  'prayer-times': { labelAr: 'الصلاة', labelEn: 'Prayer', icon: 'clock' },
+  quran: { labelAr: 'القرآن', labelEn: 'Quran', icon: 'book-open' },
   azkar: { labelAr: 'الأذكار', labelEn: 'Azkar', icon: 'heart' },
-  haramain: { labelAr: 'الحرمين', labelEn: 'Haramain', icon: 'mic' },
-  settings: { labelAr: 'الإعدادات', labelEn: 'Settings', icon: 'settings' }
+  haramain: { labelAr: 'الحرمين', labelEn: 'Haramain', icon: 'headphones' }
 };
 
-/** Bottom tab bar, same look as the previous hand-made navigator. */
+/** Bottom tab bar from the approved design (TabBar artboard). */
 export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
   const { triggerHaptic, t } = useApp();
   const p = usePalette();
@@ -23,8 +23,9 @@ export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
   return (
     <View
       style={{
-        height: Platform.OS === 'ios' ? 80 : 62,
-        paddingBottom: Platform.OS === 'ios' ? 16 : 4,
+        height: Platform.OS === 'ios' ? 84 : 66,
+        paddingTop: 8,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 6,
         backgroundColor: p.surface,
         borderTopWidth: 1,
         borderColor: p.border,
@@ -54,20 +55,21 @@ export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
               if (!isActive && !event.defaultPrevented) navigation.navigate(route.name);
             }}
             style={{
+              minWidth: 64,
+              minHeight: 48,
               alignItems: 'center',
               justifyContent: 'center',
-              paddingVertical: 5,
-              paddingHorizontal: 14,
+              gap: 3,
+              paddingHorizontal: 8,
               borderRadius: 14,
               backgroundColor: isActive ? p.soft : 'transparent'
             }}
           >
-            <Feather name={item.icon} size={18} color={isActive ? p.primary : p.muted} />
+            <Feather name={item.icon} size={22} color={isActive ? p.primaryInk : p.muted} />
             <TextUI
-              variant="badge"
+              size={12}
               weight={isActive ? 'bold' : 'medium'}
               color={isActive ? p.primaryInk : p.muted}
-              style={{ marginTop: 2 }}
             >
               {label}
             </TextUI>

@@ -11,10 +11,10 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <AppTabBar {...props} />}>
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="prayer-times" />
       <Tabs.Screen name="quran" />
       <Tabs.Screen name="azkar" />
       <Tabs.Screen name="haramain" />
-      <Tabs.Screen name="settings" />
     </Tabs>
   );
 }

@@ -13,7 +13,6 @@ import { usePalette } from '../theme/palette';
 
 export const PrayerTimesScreen: React.FC = () => {
   const {
-    goBack,
     navigate,
     t,
     currentCity,
@@ -58,7 +57,6 @@ export const PrayerTimesScreen: React.FC = () => {
       <Header
         title={t('مواقيت الصلاة والأذان', 'Prayer Times & Adhan')}
         subtitle={`${currentCity.nameAr} • ${currentCity.countryAr}`}
-        onBack={goBack}
       />
 
       <ScrollView
