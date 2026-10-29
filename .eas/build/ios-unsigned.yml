@@ -1,0 +1,41 @@
+# Unsigned iOS .ipa for sideloading (e.g. Sideloadly on Windows signs it with your Apple ID).
+# Run: npx eas-cli@latest build --platform ios --profile sideload
+build:
+  name: Unsigned iOS IPA for sideloading
+  steps:
+    - eas/checkout
+    - eas/install_node_modules
+    - eas/resolve_build_config
+    - eas/prebuild
+    - run:
+        name: Install pods
+        working_directory: ./ios
+        command: pod install
+    - run:
+        name: Build the app without code signing and package it as an .ipa
+        command: |
+          set -eo pipefail
+          cd ios
+          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          echo "Workspace: $WORKSPACE, scheme: $SCHEME"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)
+          rm -rf ../ipa && mkdir -p ../ipa/Payload
+          cp -R "$APP" ../ipa/Payload/
+          cd ../ipa
+          zip -qry ../RafeeqAlMuslim-unsigned.ipa Payload
+          ls -lh ../RafeeqAlMuslim-unsigned.ipa
+    - eas/upload_artifact:
+        name: Upload the IPA
+        inputs:
+          type: application-archive
+          path: RafeeqAlMuslim-unsigned.ipa

@@ -13,6 +13,13 @@
         "buildType": "apk"
       }
     },
+    "sideload": {
+      "distribution": "internal",
+      "ios": {
+        "withoutCredentials": true,
+        "config": "ios-unsigned.yml"
+      }
+    },
     "simulator": {
       "ios": {
         "simulator": true
