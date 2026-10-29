@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
 import { calculateAccuratePrayerTimes, computeNightTimes, countOffsets, toArabicNumber, PrayerTimeValues } from '../services/prayerCalculation';
-import { getFullDateInfo } from '../services/hijriDate';
+import { getFullDateInfo, hijriDayShift } from '../services/hijriDate';
 import { cityNow } from '../services/cityTime';
 import { useNextPrayer } from '../hooks/useNextPrayer';
 import { SettingsList } from '../ui/SettingsList';
@@ -78,7 +78,8 @@ export const PrayerTimesScreen: React.FC = () => {
   );
   const adjustedCount = countOffsets(prayerOffsets);
 
-  const dateInfo = getFullDateInfo(day, hijriAdjust);
+  // Today's Hijri date moves to the next day at maghrib.
+  const dateInfo = getFullDateInfo(day, hijriAdjust + (isToday ? hijriDayShift(prayerTimes.maghrib, today) : 0));
   const dayLabel = dayOffset === 0 ? t('اليوم', 'Today') : dayOffset === 1 ? t('غدًا', 'Tomorrow') : dayOffset === -1 ? t('أمس', 'Yesterday') : '';
   const dayTitle = dayLabel ? `${dayLabel} · ${dateInfo.gregorianDayName}` : dateInfo.gregorianDayName;
 

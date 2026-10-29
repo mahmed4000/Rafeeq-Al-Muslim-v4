@@ -6,7 +6,7 @@ import { TextUI } from '../components/common/TextUI';
 import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
 import { NotificationService, AzkarRemindersConfig, AZKAR_REMINDER_MINUTES } from '../services/notificationService';
 import { toArabicNumber } from '../services/prayerCalculation';
-import { getFullDateInfo, HIJRI_ADJUST_LIMIT } from '../services/hijriDate';
+import { getFullDateInfo, hijriDayShift, HIJRI_ADJUST_LIMIT } from '../services/hijriDate';
 import { cityNow } from '../services/cityTime';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { SettingsList } from '../ui/SettingsList';
@@ -66,6 +66,7 @@ export const SettingsScreen: React.FC = () => {
     setQuranFontSize,
     hijriAdjust,
     setHijriAdjust,
+    prayerTimes,
     azkarReminders,
     setAzkarReminders,
     triggerHaptic,
@@ -92,7 +93,9 @@ export const SettingsScreen: React.FC = () => {
     triggerHaptic('light');
     setAzkarReminders({ ...azkarReminders, [key]: { ...azkarReminders[key], ...patch } });
   };
-  const todayInfo = getFullDateInfo(cityNow(currentCity.timeZone), hijriAdjust);
+  // Today's Hijri date moves to the next day at maghrib.
+  const cityToday = cityNow(currentCity.timeZone);
+  const todayInfo = getFullDateInfo(cityToday, hijriAdjust + hijriDayShift(prayerTimes.maghrib, cityToday));
 
   const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
   const open = (s: PrayerSheet) => { triggerHaptic('light'); setPrayerSheet(s); };

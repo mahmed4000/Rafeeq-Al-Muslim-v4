@@ -7,7 +7,7 @@ import { TextUI } from '../components/common/TextUI';
 import { SkyArch, skyPhase } from '../components/home/SkyArch';
 import { SceneBackdrop, SCENE_HEIGHT } from '../components/home/SceneHeader';
 import { usePalette, Palette, PALETTE } from '../theme/palette';
-import { getFullDateInfo, weekdayName } from '../services/hijriDate';
+import { getFullDateInfo, weekdayName, hijriDayShift } from '../services/hijriDate';
 import { toArabicNumber, PrayerTimeValues, calculateAccuratePrayerTimes, computeNightTimes } from '../services/prayerCalculation';
 import { DailyWirdCard, WirdRow } from '../components/home/DailyWirdCard';
 import { DailyWirdService, WirdAuto, WirdItem } from '../services/dailyWird';
@@ -242,7 +242,8 @@ export const HomeScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentCity.lat, currentCity.lng, shownKey, calculationMethod, asrMethod, timeZone, prayerOffsets]
   );
-  const dateInfo = getFullDateInfo(shownDay, hijriAdjust);
+  // Today's Hijri date moves to the next day at maghrib.
+  const dateInfo = getFullDateInfo(shownDay, hijriAdjust + (isToday ? hijriDayShift(prayerTimes.maghrib, now) : 0));
   const dayLabel = dayOffset === 0 ? t('اليوم', 'Today') : dayOffset === 1 ? t('غدًا', 'Tomorrow') : dayOffset === -1 ? t('أمس', 'Yesterday') : '';
   const dayTitle = dayLabel ? `${dayLabel} · ${dateInfo.gregorianDayName}` : dateInfo.gregorianDayName;
   const shiftDay = (delta: number) => {

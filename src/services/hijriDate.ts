@@ -131,6 +131,14 @@ function shiftDays(date: Date, days: number): Date {
 }
 
 /**
+ * The Hijri day begins at maghrib: 1 once `now` (city clock) has reached that day's maghrib,
+ * else 0. Add it to the adjustment only where today's current Hijri date is shown.
+ */
+export function hijriDayShift(maghrib: { hours: number; minutes: number }, now: Date): number {
+  return now.getHours() * 60 + now.getMinutes() >= maghrib.hours * 60 + maghrib.minutes ? 1 : 0;
+}
+
+/**
  * Umm al-Qura Hijri day/month/year as numbers (month 1-12), with an arithmetic fallback.
  * `adjustmentDays` moves only the Hijri date (local moon-sighting correction).
  */
