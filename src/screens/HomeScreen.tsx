@@ -740,19 +740,13 @@ export const HomeScreen: React.FC = () => {
 
       {/* Ayah of the day, in a framed cartouche like a mushaf heading */}
       {dailyVerse ? (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={t(`آية اليوم من سورة ${dailySurah.nameAr} ${toArabicNumber(dailyAyahNum)}. اضغط لفتحها في المصحف`, `Ayah of the day, ${dailySurah.nameEn} ${dailyAyahNum}. Tap to open it in the mushaf`)}
-          onPress={() => openReaderAt(dailySurahId, dailyVerse.pageNum, dailyAyahNum)}
-          style={{ borderRadius: 22, padding: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-        >
+        <View style={{ borderRadius: 22, padding: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <View style={{ borderRadius: 17, borderWidth: 1.5, borderColor: p.accent, paddingVertical: 16, paddingHorizontal: 14, gap: 8, alignItems: 'center' }}>
             <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
             <TextUI font="hafs" size={22} color={p.quranInk} align="center" style={{ lineHeight: 44 }}>{dailyText}</TextUI>
             <TextUI size={13} color={p.muted}>{t(`${dailySurah.nameAr}: ${toArabicNumber(dailyAyahNum)}`, `${dailySurah.nameEn}: ${dailyAyahNum}`)}</TextUI>
           </View>
-        </TouchableOpacity>
+        </View>
       ) : null}
       </View>
     </ScrollView>
