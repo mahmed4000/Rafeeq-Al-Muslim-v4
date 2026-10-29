@@ -68,9 +68,9 @@ export const DailyWirdCard: React.FC<Props> = ({ p, t, rows, autoLabel, onToggle
         </View>
       ) : null}
 
-      {rows.map((r) => (
-        <View key={r.item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
-          {editing ? (
+      {editing ? (
+        rows.map((r) => (
+          <View key={r.item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={t(`إزالة ${r.label}`, `Remove ${r.label}`)}
@@ -79,32 +79,31 @@ export const DailyWirdCard: React.FC<Props> = ({ p, t, rows, autoLabel, onToggle
             >
               <Feather name="minus-circle" size={20} color={p.danger} />
             </TouchableOpacity>
-          ) : (
+            <TextUI size={15} color={p.ink} style={{ flex: 1 }} numberOfLines={2}>{r.label}</TextUI>
+          </View>
+        ))
+      ) : (
+        // Compact chips: tap to tick by hand; items the app ticked open their screen instead.
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {rows.map((r) => (
             <TouchableOpacity
+              key={r.item.id}
               role="checkbox"
               aria-checked={r.done}
-              aria-disabled={r.autoDone}
-              disabled={r.autoDone}
-              accessibilityLabel={r.label}
-              onPress={() => onToggle(r.item.id)}
-              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityLabel={r.note ? `${r.label}، ${r.note}` : r.label}
+              accessibilityHint={r.autoDone ? t('تمّ تلقائيًا؛ اضغط للفتح', 'Done automatically; tap to open') : undefined}
+              onPress={() => (r.autoDone && r.item.auto ? onOpen(r.item.auto) : onToggle(r.item.id))}
+              onLongPress={r.item.auto ? () => onOpen(r.item.auto!) : undefined}
+              style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: r.done ? p.successBg : 'transparent', borderWidth: 1, borderColor: r.done ? 'transparent' : p.border }}
             >
-              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: r.done ? p.success : 'transparent', borderWidth: 1.5, borderColor: r.done ? p.success : p.border }}>
-                {r.done ? <Feather name="check" size={14} color="#FFFDF9" /> : null}
-              </View>
+              <Feather name={r.done ? 'check' : 'circle'} size={r.done ? 14 : 12} color={r.done ? p.successInk : p.muted} />
+              <TextUI size={13.5} weight={r.done ? 'medium' : 'regular'} color={r.done ? p.successInk : p.ink} numberOfLines={1}>
+                {r.note && !r.done ? `${r.label} · ${r.note}` : r.label}
+              </TextUI>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            accessibilityRole={r.item.auto && !editing ? 'button' : undefined}
-            disabled={!r.item.auto || editing}
-            onPress={() => r.item.auto && onOpen(r.item.auto)}
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}
-          >
-            <TextUI size={15} color={r.done ? p.muted : p.ink} style={{ flex: 1 }} numberOfLines={2}>{r.label}</TextUI>
-            {r.note ? <TextUI size={12.5} color={p.muted} numberOfLines={1}>{r.note}</TextUI> : null}
-          </TouchableOpacity>
+          ))}
         </View>
-      ))}
+      )}
 
       {editing ? (
         <View style={{ gap: 10, paddingTop: 4 }}>

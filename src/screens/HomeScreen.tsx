@@ -148,20 +148,10 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
 
 type Tone = { bg: string; fg: string; ring: string };
 
-// Service and time-of-day icon colours: parchment, night blue, mocha, olive.
-const TONES: Record<'light' | 'dark', Tone[]> = {
-  light: [
-    { bg: '#F2E3CF', fg: '#8C5E3C', ring: '#FBF3E8' },
-    { bg: '#2E3A5C', fg: '#F4D9A8', ring: '#43507A' },
-    { bg: '#5D3A22', fg: '#F4D9A8', ring: '#7A4E2F' },
-    { bg: '#E3EBDD', fg: '#4E7D5B', ring: '#F1F5EE' }
-  ],
-  dark: [
-    { bg: '#3A2C22', fg: '#D6A877', ring: '#4A3A2E' },
-    { bg: '#2E3A5C', fg: '#F4D9A8', ring: '#3B4870' },
-    { bg: '#4A2E1C', fg: '#F0B77F', ring: '#5E3B25' },
-    { bg: '#2F3B2F', fg: '#B9D3A6', ring: '#3C4B3C' }
-  ]
+// One calm parchment tone for service and time-of-day icons.
+const TONES: Record<'light' | 'dark', Tone> = {
+  light: { bg: '#F2E3CF', fg: '#8C5E3C', ring: '#FBF3E8' },
+  dark: { bg: '#3A2C22', fg: '#D6A877', ring: '#4A3A2E' }
 };
 
 const STRIP_ICONS: Record<keyof PrayerTimeValues, keyof typeof Feather.glyphMap> = {
@@ -192,7 +182,7 @@ const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; l
 export const HomeScreen: React.FC = () => {
   const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
-  const tones = p.bg === PALETTE.dark.bg ? TONES.dark : TONES.light;
+  const tone = p.bg === PALETTE.dark.bg ? TONES.dark : TONES.light;
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
   // Everything time-based on Home follows the selected city's clock.
@@ -548,6 +538,79 @@ export const HomeScreen: React.FC = () => {
       {/* Sheet over the scene */}
       <View style={{ marginTop: -26, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: p.bg, paddingHorizontal: 16, paddingTop: 18, gap: 16 }}>
 
+      {/* Times card: date with day arrows, the six times, and the night times */}
+      <View style={{ borderRadius: 20, padding: 10, gap: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم السابق', 'Previous day')} onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={isToday ? `${dayTitle}، ${dateInfo.hijriFormatted}` : t(`${dayTitle}، ${dateInfo.hijriFormatted}. اضغط للعودة إلى اليوم`, `${dayTitle}, ${dateInfo.hijriFormatted}. Tap to return to today`)}
+            disabled={isToday}
+            onPress={() => shiftDay(-dayOffset)}
+            style={{ flex: 1, alignItems: 'center' }}
+          >
+            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{dayTitle}</TextUI>
+            <TextUI size={13} color={p.muted} numberOfLines={1}>{`${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم التالي', 'Next day')} onPress={() => shiftDay(1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.primary} />
+          </TouchableOpacity>
+        </View>
+        <View accessibilityLabel={t('مواقيت اليوم', "Today's prayer times")} style={{ flexDirection: 'row', gap: 2 }}>
+          {STRIP.map((s) => {
+            const isNext = isToday && !next.isTomorrow && s.key === next.id;
+            const time = shownTimes[s.key].timeStr.split(' ')[0];
+            const label = t(s.label, s.labelEn);
+            return (
+              <View
+                key={s.key}
+                accessibilityLabel={`${label} ${shownTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
+                style={{ flex: 1, alignItems: 'center', gap: 6, paddingVertical: 8, borderRadius: 14, backgroundColor: isNext ? p.soft : 'transparent' }}
+              >
+                <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
+                <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: isNext ? p.hero : tone.bg }}>
+                  <Feather name={STRIP_ICONS[s.key]} size={17} color={isNext ? '#F4D9A8' : tone.fg} />
+                </View>
+                <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
+              </View>
+            );
+          })}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[
+            { key: 'mid', label: t('منتصف الليل', 'Midnight'), value: night.midnight },
+            { key: 'third', label: t('الثلث الأخير', 'Last third'), value: night.lastThird }
+          ].map((n) => (
+            <View key={n.key} style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: p.soft }}>
+              <TextUI size={13} color={p.muted} numberOfLines={1}>{n.label}</TextUI>
+              <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{n.value}</TextUI>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Services: round shortcuts; "More" opens the rest in place */}
+      <View style={{ gap: 10 }}>
+        <TextUI size={17} weight="bold" color={p.ink}>{t('الخدمات', 'Services')}</TextUI>
+        <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 }}>
+          {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item) => (
+            <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tone={tone} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
+          ))}
+          <ServiceTile
+            p={p}
+            icon={showMore ? 'chevron-up' : 'grid'}
+            label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
+            tone={tone}
+            expanded={showMore}
+            onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
+          />
+        </View>
+      </View>
+
+      {renderNowCard()}
+
       {/* Your week: the private prayer log for the last seven days, and today's marks */}
       <View style={{ borderRadius: 22, padding: 14, gap: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
@@ -602,79 +665,6 @@ export const HomeScreen: React.FC = () => {
           })}
         </View>
       </View>
-
-      {/* Times card: date with day arrows, the six times, and the night times */}
-      <View style={{ borderRadius: 20, padding: 10, gap: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم السابق', 'Previous day')} onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={isToday ? `${dayTitle}، ${dateInfo.hijriFormatted}` : t(`${dayTitle}، ${dateInfo.hijriFormatted}. اضغط للعودة إلى اليوم`, `${dayTitle}, ${dateInfo.hijriFormatted}. Tap to return to today`)}
-            disabled={isToday}
-            onPress={() => shiftDay(-dayOffset)}
-            style={{ flex: 1, alignItems: 'center' }}
-          >
-            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{dayTitle}</TextUI>
-            <TextUI size={13} color={p.muted} numberOfLines={1}>{`${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم التالي', 'Next day')} onPress={() => shiftDay(1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.primary} />
-          </TouchableOpacity>
-        </View>
-        <View accessibilityLabel={t('مواقيت اليوم', "Today's prayer times")} style={{ flexDirection: 'row', gap: 2 }}>
-          {STRIP.map((s) => {
-            const isNext = isToday && !next.isTomorrow && s.key === next.id;
-            const time = shownTimes[s.key].timeStr.split(' ')[0];
-            const label = t(s.label, s.labelEn);
-            return (
-              <View
-                key={s.key}
-                accessibilityLabel={`${label} ${shownTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
-                style={{ flex: 1, alignItems: 'center', gap: 6, paddingVertical: 8, borderRadius: 14, backgroundColor: isNext ? p.soft : 'transparent' }}
-              >
-                <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
-                <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: isNext ? p.hero : tones[0].bg }}>
-                  <Feather name={STRIP_ICONS[s.key]} size={17} color={isNext ? '#F4D9A8' : tones[0].fg} />
-                </View>
-                <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
-              </View>
-            );
-          })}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[
-            { key: 'mid', label: t('منتصف الليل', 'Midnight'), value: night.midnight },
-            { key: 'third', label: t('الثلث الأخير', 'Last third'), value: night.lastThird }
-          ].map((n) => (
-            <View key={n.key} style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: p.soft }}>
-              <TextUI size={13} color={p.muted} numberOfLines={1}>{n.label}</TextUI>
-              <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{n.value}</TextUI>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Services: round shortcuts; "More" opens the rest in place */}
-      <View style={{ gap: 10 }}>
-        <TextUI size={17} weight="bold" color={p.ink}>{t('الخدمات', 'Services')}</TextUI>
-        <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 }}>
-          {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item, i) => (
-            <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tone={tones[i % tones.length]} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
-          ))}
-          <ServiceTile
-            p={p}
-            icon={showMore ? 'chevron-up' : 'grid'}
-            label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
-            tone={tones[0]}
-            expanded={showMore}
-            onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
-          />
-        </View>
-      </View>
-
-      {renderNowCard()}
 
       <DailyWirdCard
         p={p}
