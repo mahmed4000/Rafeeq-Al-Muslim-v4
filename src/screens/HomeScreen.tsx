@@ -20,6 +20,8 @@ import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaServ
 import { PrayerLogService, localDateKey } from '../services/prayerLog';
 import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey } from '../services/notificationService';
 import { surahById, surahForPage } from '../services/quranPages';
+import { forHafsFont, parseSurahVerses } from '../services/quranParser';
+import { DAILY_AYAT } from '../data/dailyAyat';
 import { cityNow, differsFromDevice } from '../services/cityTime';
 import { AudioService, LessonResumeRecord } from '../services/audioService';
 import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
@@ -299,6 +301,12 @@ export const HomeScreen: React.FC = () => {
   const headerTime = headerKey ? prayerTimes[headerKey].timeStr : next.time;
   const headerTimeLabel = headerKey === 'sunrise' ? t('الشروق', 'Sunrise') : t('الأذان', 'Adhan');
   const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
+  // Ayah of the day: the next approved verse each calendar day (city date), text from the mushaf.
+  const dayNumber = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+  const [dailySurahId, dailyAyahNum] = DAILY_AYAT[dayNumber % DAILY_AYAT.length];
+  const dailySurah = surahById(dailySurahId);
+  const dailyVerse = parseSurahVerses(dailySurah).verses.find((v) => v.ayahNumber === dailyAyahNum);
+  const dailyText = forHafsFont((dailyVerse?.text || '').replace(/^۞\s*/, ''));
   const forwardIcon = isRTL ? 'chevron-left' : 'chevron-right';
   const bookmarkSurah = readingBookmark
     ? (lang === 'en' ? surahById(readingBookmark.surahId).nameEn || readingBookmark.surahName : readingBookmark.surahName)
@@ -731,15 +739,21 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       {/* Ayah of the day, in a framed cartouche like a mushaf heading */}
-      <View style={{ borderRadius: 22, padding: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-        <View style={{ borderRadius: 17, borderWidth: 1.5, borderColor: p.accent, paddingVertical: 16, paddingHorizontal: 14, gap: 8, alignItems: 'center' }}>
-          <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
-          <TextUI font="amiri" size={22} color={p.quranInk} align="center" style={{ lineHeight: 42 }}>
-            إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا
-          </TextUI>
-          <TextUI size={13} color={p.muted}>{t('مريم: ٩٦', 'Maryam: 96')}</TextUI>
-        </View>
-      </View>
+      {dailyVerse ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t(`آية اليوم من سورة ${dailySurah.nameAr} ${toArabicNumber(dailyAyahNum)}. اضغط لفتحها في المصحف`, `Ayah of the day, ${dailySurah.nameEn} ${dailyAyahNum}. Tap to open it in the mushaf`)}
+          onPress={() => openReaderAt(dailySurahId, dailyVerse.pageNum, dailyAyahNum)}
+          style={{ borderRadius: 22, padding: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+        >
+          <View style={{ borderRadius: 17, borderWidth: 1.5, borderColor: p.accent, paddingVertical: 16, paddingHorizontal: 14, gap: 8, alignItems: 'center' }}>
+            <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
+            <TextUI font="hafs" size={22} color={p.quranInk} align="center" style={{ lineHeight: 44 }}>{dailyText}</TextUI>
+            <TextUI size={13} color={p.muted}>{t(`${dailySurah.nameAr}: ${toArabicNumber(dailyAyahNum)}`, `${dailySurah.nameEn}: ${dailyAyahNum}`)}</TextUI>
+          </View>
+        </TouchableOpacity>
+      ) : null}
       </View>
     </ScrollView>
   );

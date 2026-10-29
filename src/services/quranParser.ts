@@ -36,6 +36,16 @@ export const QURAN_RECITERS = [
 
 const PARSED_CACHE = new Map<number, ParsedSurah>();
 
+/**
+ * Re-encodes bundled (Tanzil-style) Uthmani text for the King Fahd Complex Hafs font, display only.
+ * The Complex's own text writes the jazm (sukun) as U+06E1 and the small round zero over a
+ * silent letter as U+0652; ours uses U+0652 and U+06DF, which that font drew as a plain circle
+ * and as a dotted circle. Same marks, different code points.
+ */
+export function forHafsFont(text: string): string {
+  return text.replace(/ْ/g, 'ۡ').replace(/۟/g, 'ْ');
+}
+
 export function getAyahAudioUrl(surahId: number, ayahNumber: number, reciterId = 'Alafasy_128kbps'): string {
   const sPad = surahId.toString().padStart(3, '0');
   const aPad = ayahNumber.toString().padStart(3, '0');

@@ -22,7 +22,8 @@ import {
   parseSurahVerses,
   QuranVerse,
   QURAN_RECITERS,
-  getAyahAudioUrl
+  getAyahAudioUrl,
+  forHafsFont
 } from '../services/quranParser';
 import {
   AVAILABLE_TAFSIR_EDITIONS,
@@ -61,7 +62,8 @@ const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
  */
 // Mushaf text font: King Fahd Complex Hafs (loaded in src/app/_layout.tsx).
 const MUSHAF_FONT = 'KFGQPC_Hafs';
-const SURAH_BANNER_LIGHT = require('../../assets/surah-banner-light.png');
+const BASMALA = forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
+const SURAH_BANNER_LIGHT =require('../../assets/surah-banner-light.png');
 const SURAH_BANNER_DARK = require('../../assets/surah-banner-dark.png');
 
 const MushafPage: React.FC<{ pageNumber: number; version: string; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
@@ -1053,10 +1055,10 @@ export const QuranReaderScreen: React.FC = () => {
     // quran.com's tajweed text writes the dagger alef as U+0672 and stretches some words with
     // repeated tatweels; the Hafs font draws those as a stray mark and over-long joins, so use
     // the standard dagger alef (U+0670, as in our bundled text) and a single tatweel.
-    const clean = markup
+    const clean = forHafsFont(markup
       .replace(/<span\s+class=end>.*?<\/span>/g, '')
       .replace(/ٲ/g, 'ٰ')
-      .replace(/ـ{2,}/g, 'ـ');
+      .replace(/ـ{2,}/g, 'ـ'));
     const tokens: Array<{ text: string; rule: string | null }> = [];
     const tagRegex = /<\/?([a-zA-Z0-9_]+)(?:\s+class=([^>]+))?\/?>/g;
     let lastIndex = 0;
@@ -1150,7 +1152,7 @@ export const QuranReaderScreen: React.FC = () => {
           {isMarked ? ' 🔖 ' : ''}
           {tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`]
             ? renderTajweedText(tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`], `v-${verse.surahId}-${verse.ayahNumber}`)
-            : verse.text}
+            : forHafsFont(verse.text)}
           {renderAyahMarker(verse.arabicNumber, isPlaying, verse)}
         </Text>
       </React.Fragment>
@@ -1198,7 +1200,7 @@ export const QuranReaderScreen: React.FC = () => {
               {section.startAyah === 1 ? (
                 renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
               ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
-              {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI font="hafs" size={Math.round(quranFontSize * 0.85)} color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
+              {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI font="hafs" size={Math.round(quranFontSize * 0.85)} color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>{BASMALA}</TextUI> : null}
               <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
             </View>
           );
@@ -1284,7 +1286,7 @@ export const QuranReaderScreen: React.FC = () => {
           if (extra?.kind === 'basmala') {
             return (
               <Text key={`l-${lineNumber}`} style={{ fontFamily: MUSHAF_FONT, fontSize: Math.round(fontSize * 0.95), lineHeight, color: p.ink, textAlign: 'center', writingDirection: 'rtl' }}>
-                بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+                {BASMALA}
               </Text>
             );
           }
