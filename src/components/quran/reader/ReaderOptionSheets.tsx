@@ -20,9 +20,11 @@ export interface ReadingMenuSheetProps {
   currentReciterObj: (typeof QURAN_RECITERS)[number];
   setReciterModalVisible: (v: boolean) => void;
   setIsImmersive: (v: boolean) => void;
+  autoScroll: boolean;
+  setAutoScroll: (v: boolean) => void;
 }
 
-export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setModeModalVisible, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive }) => {
+export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setModeModalVisible, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive, autoScroll, setAutoScroll }) => {
   const p = usePalette();
   const { quranFontSize, triggerHaptic } = useApp();
   return (
@@ -39,7 +41,8 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
             { key: 'mode', icon: 'layout' as const, label: 'طريقة العرض', value: readingMode === 'tafsir' ? 'التفسير' : readingMode === 'surah' ? 'عرض السورة' : 'صفحات المصحف', open: () => setModeModalVisible(true) },
             { key: 'font', icon: 'type' as const, label: 'حجم الخط', value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
             { key: 'reciter', icon: 'mic' as const, label: 'القارئ', value: currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
-            { key: 'immersive', icon: 'maximize-2' as const, label: 'قراءة دون مشتتات', value: '', open: () => setIsImmersive(true) }
+            { key: 'immersive', icon: 'maximize-2' as const, label: 'قراءة دون مشتتات', value: '', open: () => setIsImmersive(true) },
+            { key: 'autoscroll', icon: 'chevrons-down' as const, label: 'تمرير تلقائي', value: autoScroll ? 'يعمل' : 'متوقف', open: () => setAutoScroll(!autoScroll) }
           ].map((row) => (
             <TouchableOpacity
               key={row.key}
@@ -77,7 +80,7 @@ export const ReciterSheet: React.FC<ReciterSheetProps> = ({ reciterModalVisible,
   const p = usePalette();
   const { triggerHaptic } = useApp();
   return (
-    <Modal visible={reciterModalVisible} animationType="fade" transparent>
+    <Modal visible={reciterModalVisible} animationType="fade" transparent onRequestClose={() => setReciterModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
         <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20, maxHeight: '82%' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

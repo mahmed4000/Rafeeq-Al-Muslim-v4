@@ -6,6 +6,14 @@ export type ReadingMode = 'page' | 'surah' | 'tafsir';
 export type JumpType = 'page' | 'surah' | 'juz';
 export type PlaybackRange = 'page' | 'surah' | 'juz' | 'quran';
 
+export const SCROLL_SPEED_OPTIONS = [
+  { label: 'بطيء ١×', speed: 12 },
+  { label: 'متزن ٢×', speed: 22 },
+  { label: 'متوسط ٣×', speed: 36 },
+  { label: 'سريع ٤×', speed: 55 },
+  { label: 'فائق ٥×', speed: 80 }
+];
+
 export interface PlaybackSettings {
   range: PlaybackRange;
   rangeRepeats: number;

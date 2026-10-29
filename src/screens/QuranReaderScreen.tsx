@@ -35,7 +35,8 @@ import { makeShadow } from '../constants/tokens';
 import { useScreenParams } from '../navigation/routes';
 import { KhatmaService } from '../services/khatmaService';
 import { usePalette } from '../theme/palette';
-import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode } from '../components/quran/reader/readerShared';
+import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
+import { ReaderPlayer } from '../components/quran/reader/ReaderPlayer';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
@@ -51,14 +52,6 @@ const DEFAULT_PLAYBACK_SETTINGS: PlaybackSettings = { range: 'surah', rangeRepea
 const PLAYBACK_SETTINGS_KEY = 'quran.playback-settings.v1';
 const AYAH_NOTES_KEY = 'quran.ayah-notes.v1';
 const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
-
-export const SCROLL_SPEED_OPTIONS = [
-  { label: 'بطيء ١×', speed: 12 },
-  { label: 'متزن ٢×', speed: 22 },
-  { label: 'متوسط ٣×', speed: 36 },
-  { label: 'سريع ٤×', speed: 55 },
-  { label: 'فائق ٥×', speed: 80 }
-];
 
 export const QuranReaderScreen: React.FC = () => {
   const {
@@ -153,7 +146,6 @@ export const QuranReaderScreen: React.FC = () => {
   const maxScrollRef = useRef(0);
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
-  const audioProgressWidthRef = useRef(0);
   const pinchStartDistanceRef = useRef(0);
   const pinchStartFontSizeRef = useRef(quranFontSize);
   const lastPinchFontSizeRef = useRef(quranFontSize);
@@ -1682,383 +1674,30 @@ export const QuranReaderScreen: React.FC = () => {
       </ScrollView>
 
       {(isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? (
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            paddingHorizontal: 14,
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'ios' ? 34 : 12,
-            backgroundColor: p.surface,
-            borderTopWidth: 1,
-            borderColor: p.border,
-            ...makeShadow('0 -6px 20px rgba(0,0,0,0.12)', '#000', 0.12, 8)
-          }}
-        >
-          {/* A. Auto-Scroll Speed Controls Bar (Shown when autoScroll is active) */}
-          {autoScroll && (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: p.bgAlt,
-                borderRadius: 12,
-                paddingHorizontal: 8,
-                paddingVertical: 6,
-                marginBottom: 8,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Feather name="chevrons-down" size={15} color={p.primary} />
-                <TextUI size={11} weight="bold" color={p.primary}>
-                  سرعة التمرير:
-                </TextUI>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                {SCROLL_SPEED_OPTIONS.map((opt, idx) => {
-                  const isSelected = scrollSpeedIndex === idx;
-                  return (
-                    <TouchableOpacity
-                      key={`scroll-spd-${idx}`}
-                      onPress={() => {
-                        triggerHaptic('light');
-                        setScrollSpeedIndex(idx);
-                      }}
-                      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                      style={{
-                        paddingHorizontal: 7,
-                        paddingVertical: 3,
-                        borderRadius: 8,
-                        backgroundColor: isSelected ? p.primary : p.surface,
-                        borderWidth: 1,
-                        borderColor: isSelected ? p.primary : p.border
-                      }}
-                    >
-                      <TextUI
-                        size={10.5}
-                        weight={isSelected ? 'bold' : 'medium'}
-                        color={isSelected ? p.onPrimary : p.muted}
-                      >
-                        {opt.label}
-                      </TextUI>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TouchableOpacity
-                onPress={() => {
-                  triggerHaptic('light');
-                  setAutoScroll(false);
-                }}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={{
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                  borderRadius: 8,
-                  backgroundColor: p.dangerBg
-                }}
-              >
-                <TextUI size={10.5} weight="bold" color={p.danger}>
-                  إيقاف
-                </TextUI>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* B. Surah Progress Header Row (Elapsed Time, Surah & Ayah Badge, Remaining Time) */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 4,
-              paddingHorizontal: 2
-            }}
-          >
-            {/* Elapsed Time (الوقت الذي خلص) */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Feather name="clock" size={11} color={p.primary} />
-              <TextUI size={11} weight="bold" color={p.ink}>
-                {formatAudioTime(surahElapsedSeconds)}
-              </TextUI>
-            </View>
-
-            {/* Surah & Ayah Progress Badge */}
-            <View
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: 10,
-                backgroundColor: p.bgAlt,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <TextUI size={10.5} weight="bold" color={p.primary}>
-                {`سورة ${currentSurah.nameAr} • الآية ${toArabicNumber(currentAyahNum)} من ${toArabicNumber(totalSurahVerses)}`}
-              </TextUI>
-            </View>
-
-            {/* Remaining Time (الوقت المتبقي) */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <TextUI size={10.5} color={p.muted}>
-                متبقي:
-              </TextUI>
-              <TextUI size={11} weight="bold" color={p.muted}>
-                {`-${formatAudioTime(surahRemainingSeconds)}`}
-              </TextUI>
-            </View>
-          </View>
-
-          {/* C. Interactive Surah-Wide Progress Bar */}
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onLayout={(event) => {
-              audioProgressWidthRef.current = event.nativeEvent.layout.width;
-            }}
-            onPress={(event) => {
-              handleSurahProgressPress(event.nativeEvent.locationX, audioProgressWidthRef.current);
-            }}
-            hitSlop={{ top: 8, bottom: 8 }}
-            style={{ height: 14, justifyContent: 'center', marginBottom: 6 }}
-          >
-            <View style={{ height: 5, borderRadius: 2.5, backgroundColor: p.border, overflow: 'hidden' }}>
-              <View
-                style={{
-                  height: 5,
-                  backgroundColor: p.primary,
-                  width: `${Math.min(100, Math.max(0, surahProgressRatio * 100))}%`,
-                  borderRadius: 2.5
-                }}
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* D. Meta Row: Reciter Selector, Auto-scroll Toggle, Bookmark, Stop */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 8,
-              paddingHorizontal: 2
-            }}
-          >
-            {/* Right: Reciter Selector */}
-            <TouchableOpacity
-              onPress={() => setReciterModalVisible(true)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderRadius: 10,
-                backgroundColor: p.bgAlt,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="mic" size={12} color={p.primary} />
-              <TextUI size={11} weight="medium" color={p.ink} numberOfLines={1}>
-                {currentReciterObj.nameAr}
-              </TextUI>
-              <Feather name="chevron-down" size={11} color={p.muted} />
-            </TouchableOpacity>
-
-            {/* Left: Auto-scroll, Bookmark, Stop */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  triggerHaptic('light');
-                  setAutoScroll((on) => !on);
-                }}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 3,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 10,
-                  backgroundColor: autoScroll ? p.soft : p.bgAlt,
-                  borderWidth: 1,
-                  borderColor: autoScroll ? p.primary : p.border
-                }}
-              >
-                <Feather
-                  name="chevrons-down"
-                  size={13}
-                  color={autoScroll ? p.primary : p.muted}
-                />
-                <TextUI
-                  size={10.5}
-                  weight={autoScroll ? 'bold' : 'regular'}
-                  color={autoScroll ? p.primary : p.muted}
-                >
-                  {autoScroll ? `تمرير (${SCROLL_SPEED_OPTIONS[scrollSpeedIndex]?.label || '١×'})` : 'تمرير'}
-                </TextUI>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={bookmarkCurrentReading}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  backgroundColor: p.bgAlt,
-                  borderWidth: 1,
-                  borderColor: p.border,
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Feather name="bookmark" size={14} color={p.accentInk} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={stopAudio}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  backgroundColor: p.bgAlt,
-                  borderWidth: 1,
-                  borderColor: p.border,
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Feather name="x" size={14} color={p.muted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* 3. Main Player Control Buttons Row */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 8
-            }}
-          >
-            {/* Settings Modal Button */}
-            <TouchableOpacity
-              onPress={() => setPlaybackSettingsVisible(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 42,
-                height: 42,
-                borderRadius: 21,
-                backgroundColor: p.bgAlt,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="sliders" size={18} color={p.ink} />
-            </TouchableOpacity>
-
-            {/* Previous Ayah Button */}
-            <TouchableOpacity
-              onPress={() => skipAyah(-1)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: p.bgAlt,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="skip-back" size={20} color={p.ink} />
-            </TouchableOpacity>
-
-            {/* Center: Primary Play / Pause Button */}
-            <TouchableOpacity
-              onPress={toggleAudioPlayback}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                width: 54,
-                height: 54,
-                borderRadius: 27,
-                backgroundColor: p.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                ...makeShadow('0 4px 12px rgba(140,94,60,0.35)', p.primary, 0.35, 6)
-              }}
-            >
-              {isAudioLoading ? (
-                <ActivityIndicator size="small" color={p.onPrimary} />
-              ) : (
-                <Feather
-                  name={isAudioPlaying ? 'pause' : 'play'}
-                  size={26}
-                  color={p.onPrimary}
-                  style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
-                />
-              )}
-            </TouchableOpacity>
-
-            {/* Next Ayah Button */}
-            <TouchableOpacity
-              onPress={() => skipAyah(1)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: p.bgAlt,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="skip-forward" size={20} color={p.ink} />
-            </TouchableOpacity>
-
-            {/* Direct Playback Speed Toggle Button (1x, 1.25x, 1.5x, 2x) */}
-            <TouchableOpacity
-              onPress={cyclePlaybackSpeed}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 10,
-                height: 42,
-                borderRadius: 21,
-                backgroundColor: (playbackSettings.speed && playbackSettings.speed > 1) ? p.primary : p.bgAlt,
-                borderWidth: 1,
-                borderColor: (playbackSettings.speed && playbackSettings.speed > 1) ? p.primary : p.border
-              }}
-            >
-              <TextUI
-                size={12.5}
-                weight="bold"
-                color={(playbackSettings.speed && playbackSettings.speed > 1) ? p.onPrimary : p.ink}
-              >
-                {`${playbackSettings.speed || 1}×`}
-              </TextUI>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ReaderPlayer
+          reciterName={currentReciterObj.nameAr}
+          ayahNumber={currentAyahNum}
+          totalAyahs={totalSurahVerses}
+          ayahRepeats={playbackSettings.ayahRepeats}
+          speed={playbackSettings.speed || 1}
+          isPlaying={isAudioPlaying}
+          isLoading={isAudioLoading}
+          progressRatio={surahProgressRatio}
+          elapsedLabel={formatAudioTime(surahElapsedSeconds)}
+          remainingLabel={formatAudioTime(surahRemainingSeconds)}
+          autoScroll={autoScroll}
+          scrollSpeedIndex={scrollSpeedIndex}
+          onScrollSpeed={setScrollSpeedIndex}
+          onStopAutoScroll={() => setAutoScroll(false)}
+          onSeek={handleSurahProgressPress}
+          onTogglePlay={toggleAudioPlayback}
+          onSkip={skipAyah}
+          onCycleSpeed={cyclePlaybackSpeed}
+          onOpenRepeat={() => setPlaybackSettingsVisible(true)}
+          onOpenTafsir={() => openAyahTafsir(parsedSurah.verses.find((v) => v.ayahNumber === currentAyahNum) || activeAyah)}
+          onOpenReciter={() => setReciterModalVisible(true)}
+          onStop={() => { stopAudio(); setReaderControlsVisible(false); }}
+        />
       ) : null}
 
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
@@ -2071,7 +1710,7 @@ export const QuranReaderScreen: React.FC = () => {
       <AyahNoteSheet ayahNoteModalVisible={ayahNoteModalVisible} setAyahNoteModalVisible={setAyahNoteModalVisible} activeAyah={activeAyah} ayahNoteText={ayahNoteText} setAyahNoteText={setAyahNoteText} saveAyahNote={saveAyahNote} />
 
       {/* Reading settings menu (header "Tt" button) */}
-      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setModeModalVisible={setModeModalVisible} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} setIsImmersive={setIsImmersive} />
+      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setModeModalVisible={setModeModalVisible} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} setIsImmersive={setIsImmersive} autoScroll={autoScroll} setAutoScroll={setAutoScroll} />
 
       {/* Reciter Selection Modal */}
       <ReciterSheet reciterModalVisible={reciterModalVisible} setReciterModalVisible={setReciterModalVisible} stopAudio={stopAudio} setSelectedReciter={setSelectedReciter} selectedReciter={selectedReciter} />
