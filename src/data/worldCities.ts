@@ -1,6 +1,6 @@
 // Generated from GeoNames cities15000 (https://www.geonames.org, CC BY 4.0):
 // coordinates and IANA time zones. Arabic names were added by hand.
-// Regenerate with the build script rather than editing rows one by one.
+// Regenerate with scripts/build-world-cities.mjs rather than editing rows one by one.
 
 /** Country code -> [Arabic name, English name]. */
 export const COUNTRY_NAMES: Record<string, [string, string]> = {
