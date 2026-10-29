@@ -1237,21 +1237,28 @@ export const QuranReaderScreen: React.FC = () => {
     const wordsByLine = new Map(layout.lines.map((line) => [line.line, line.words]));
     const extras = new Map<number, { kind: 'banner' | 'basmala'; surah: any }>();
     const placeOpening = (surah: any, firstLine: number) => {
+      // Lines before the first verse line; a banner line that falls before line 1 is on the previous page.
       const hasBasmala = surah.id !== 1 && surah.id !== 9;
-      if (hasBasmala) extras.set(firstLine - 1, { kind: 'basmala', surah });
-      extras.set(firstLine - (hasBasmala ? 2 : 1), { kind: 'banner', surah });
+      const bannerLine = firstLine - (hasBasmala ? 2 : 1);
+      if (hasBasmala && !wordsByLine.has(firstLine - 1)) extras.set(firstLine - 1, { kind: 'basmala', surah });
+      if (bannerLine >= 1 && !wordsByLine.has(bannerLine)) extras.set(bannerLine, { kind: 'banner', surah });
     };
     sections.forEach(({ section, surah }) => {
       if (section.startAyah !== 1) return;
       const first = layout.lines.find((line) => line.words.some((word) => word.verseKey === `${surah.id}:1`));
       if (first) placeOpening(surah, first.line);
     });
-    // A surah whose opening lines end this page while its verses start on the next one.
+    // A surah whose opening starts in this page's empty last lines: the banner comes right after
+    // the last verse line, then the basmala if a line is left (otherwise it opens the next page,
+    // e.g. An-Nisa: banner on page 76 line 15, basmala on page 77 line 1).
     const lastLine = layout.lines[layout.lines.length - 1]?.line || 15;
     if (pageNumber > 2 && lastLine < 15) {
       const lastKey = layout.lines[layout.lines.length - 1].words.slice(-1)[0]?.verseKey || '';
       const nextSurah = QURAN_DATA.find((s: any) => s.id === Number(lastKey.split(':')[0]) + 1);
-      if (nextSurah) placeOpening(nextSurah, 16);
+      if (nextSurah) {
+        extras.set(lastLine + 1, { kind: 'banner', surah: nextSurah });
+        if (lastLine + 2 <= 15 && nextSurah.id !== 9) extras.set(lastLine + 2, { kind: 'basmala', surah: nextSurah });
+      }
     }
     const lineNumbers = pageNumber <= 2
       ? [...new Set([...extras.keys(), ...wordsByLine.keys()])].filter((n) => n >= 1).sort((a, b) => a - b)
