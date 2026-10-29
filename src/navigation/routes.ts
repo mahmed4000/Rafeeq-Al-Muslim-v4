@@ -25,6 +25,7 @@ export const SCREEN_PATHS: Record<string, string> = {
   tahfeez: '/tahfeez',
   prayer_month: '/prayer-month',
   adhan_settings: '/adhan-settings',
+  all_services: '/services',
   onboarding: '/onboarding'
 };
 

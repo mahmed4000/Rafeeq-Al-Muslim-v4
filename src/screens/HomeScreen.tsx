@@ -40,7 +40,7 @@ const prayerName = (k: PrayerKey) => tr(PRAYER_NAMES_AR[k], PRAYER_NAMES_EN[k]);
 
 type Service = { screen: string; title: string; titleEn: string; icon: keyof typeof Feather.glyphMap };
 
-// The first seven show on Home; "More" opens the rest in place.
+// Seven shortcuts on Home; the eighth tile opens the All services screen.
 const SERVICES: Service[] = [
   { screen: 'quran_index', title: 'المصحف', titleEn: 'Quran', icon: 'book-open' },
   { screen: 'azkar_categories', title: 'الأذكار', titleEn: 'Adhkar', icon: 'heart' },
@@ -49,14 +49,6 @@ const SERVICES: Service[] = [
   { screen: 'khatma', title: 'الختمة', titleEn: 'Khatma', icon: 'award' },
   { screen: 'haramain_lessons', title: 'الحرمين', titleEn: 'Haramain', icon: 'headphones' },
   { screen: 'tahfeez', title: 'الحفظ', titleEn: 'Memorize', icon: 'repeat' }
-];
-const MORE_SERVICES: Service[] = [
-  { screen: 'prayer_month', title: 'مواقيت الشهر', titleEn: 'Monthly times', icon: 'calendar' },
-  { screen: 'allah_names', title: 'أسماء الله', titleEn: 'Names of Allah', icon: 'star' },
-  { screen: 'hadith_40', title: 'الأربعون', titleEn: "Nawawi's 40", icon: 'bookmark' },
-  { screen: 'ruqyah', title: 'الرقية', titleEn: 'Ruqyah', icon: 'shield' },
-  { screen: 'zakat_calculator', title: 'الزكاة', titleEn: 'Zakat', icon: 'percent' },
-  { screen: 'imsakiah', title: 'الإمساكية', titleEn: 'Imsakiah', icon: 'moon' }
 ];
 
 const AZKAR_PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
@@ -164,11 +156,10 @@ const SCENE_SHADOW = { textShadowColor: 'rgba(30,20,14,0.45)', textShadowOffset:
 const SCENE_BUTTON = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.32)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.35)' };
 
 // Four per row; a round icon with an inner ring.
-const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tone: Tone; expanded?: boolean; onPress: () => void }> = ({ p, icon, label, tone, expanded, onPress }) => (
+const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tone: Tone; onPress: () => void }> = ({ p, icon, label, tone, onPress }) => (
   <TouchableOpacity
     activeOpacity={0.85}
     accessibilityRole="button"
-    aria-expanded={expanded}
     onPress={onPress}
     style={{ width: '25%', minHeight: 84, alignItems: 'center', gap: 6 }}
   >
@@ -197,7 +188,6 @@ export const HomeScreen: React.FC = () => {
   const [azkarProgress, setAzkarProgress] = useState<AzkarProgress>({});
   const [wirdItems, setWirdItems] = useState<WirdItem[]>([]);
   const [wirdMarked, setWirdMarked] = useState<{ day: string; ids: string[] }>({ day: '', ids: [] });
-  const [showMore, setShowMore] = useState(false);
   // Days from the city's today in the times card; back to today when Home is opened again.
   const [dayOffset, setDayOffset] = useState(0);
 
@@ -497,15 +487,26 @@ export const HomeScreen: React.FC = () => {
         <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextUI font="amiri" size={24} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={t('الإعدادات', 'Settings')}
-              onPress={() => navigate('settings')}
-              style={SCENE_BUTTON}
-            >
-              <Feather name="sliders" size={18} color={SCENE_INK} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('كل الخدمات', 'All services')}
+                onPress={() => navigate('all_services')}
+                style={SCENE_BUTTON}
+              >
+                <Feather name="grid" size={18} color={SCENE_INK} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('الإعدادات', 'Settings')}
+                onPress={() => navigate('settings')}
+                style={SCENE_BUTTON}
+              >
+                <Feather name="sliders" size={18} color={SCENE_INK} />
+              </TouchableOpacity>
+            </View>
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -595,17 +596,10 @@ export const HomeScreen: React.FC = () => {
       <View style={{ gap: 10 }}>
         <TextUI size={17} weight="bold" color={p.ink}>{t('الخدمات', 'Services')}</TextUI>
         <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 }}>
-          {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item) => (
+          {SERVICES.map((item) => (
             <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tone={tone} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
           ))}
-          <ServiceTile
-            p={p}
-            icon={showMore ? 'chevron-up' : 'grid'}
-            label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
-            tone={tone}
-            expanded={showMore}
-            onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
-          />
+          <ServiceTile p={p} icon="grid" label={t('كل الخدمات', 'All services')} tone={tone} onPress={() => { triggerHaptic('light'); navigate('all_services'); }} />
         </View>
       </View>
 
