@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { SkyArch, skyPhase } from '../components/home/SkyArch';
 import { SceneBackdrop, SCENE_HEIGHT } from '../components/home/SceneHeader';
+import { OpenMushaf } from '../components/home/OpenMushaf';
 import { usePalette, Palette, PALETTE } from '../theme/palette';
 import { getFullDateInfo, weekdayName, hijriDayShift } from '../services/hijriDate';
 import { toArabicNumber, PrayerTimeValues, calculateAccuratePrayerTimes, computeNightTimes } from '../services/prayerCalculation';
@@ -376,7 +377,8 @@ export const HomeScreen: React.FC = () => {
             <TextUI size={15} weight="bold" color="#2D1E16">{t('ابدأ', 'Start')}</TextUI>
           </TouchableOpacity>
         </View>
-        <SkyArch phase={skyPhase(prayerTimes, now)} />
+        {/* Quran suggestions show an open mushaf; adhkar keep the sky window */}
+        {nowCard.kind === 'adhkar' ? <SkyArch phase={skyPhase(prayerTimes, now)} /> : <OpenMushaf />}
       </View>
     );
   };
