@@ -54,6 +54,13 @@ const PLAYBACK_SETTINGS_KEY = 'quran.playback-settings.v1';
 const AYAH_NOTES_KEY = 'quran.ayah-notes.v1';
 const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
 
+/**
+ * A mushaf page that re-renders only when its page number or `version` changes; the render
+ * function itself is ignored in the comparison (it is a fresh closure on every parent render).
+ */
+const MushafPage: React.FC<{ pageNumber: number; version: string; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
+const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber === next.pageNumber && prev.version === next.version);
+
 export const QuranReaderScreen: React.FC = () => {
   const {
     goBack,
@@ -1146,6 +1153,52 @@ export const QuranReaderScreen: React.FC = () => {
     );
   };
 
+  // One mushaf page (its surah sections, verses and page-end ornament). Wrapped in MushafPageBlock
+  // so scrolling (which updates the active page) and audio progress do not re-render the text:
+  // on iOS that re-layout briefly showed the Uthmani text stretched before it settled.
+  const renderMushafPage = (pageNumber: number) => {
+    const sections = getPageSections(pageNumber);
+    return (
+      <View
+        onLayout={(event) => {
+          pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
+          if (pendingScrollPageRef.current === pageNumber) {
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
+            pendingScrollPageRef.current = 0;
+          }
+        }}
+        style={{ paddingVertical: 5 }}
+      >
+        {sections.map(({ section, surah, verses }, sectionIndex) => {
+          const sectionVerses = verses.filter(matchesSearch);
+          if (sectionVerses.length === 0) return null;
+          return (
+            <View key={`page-${pageNumber}-surah-${surah.id}`}>
+              {section.startAyah === 1 ? (
+                renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
+              ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
+              {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
+              <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
+            </View>
+          );
+        })}
+        <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+          <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
+          <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
+          <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
+          <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+        </View>
+      </View>
+    );
+  };
+  // Everything the page text depends on; a page re-renders only when this changes.
+  const pageVersion = [
+    quranFontSize, p.ink, p.surface, lang, playingSurahId, playingAyahNum, searchQuery,
+    bookmarks.map((b) => `${b.surahId}:${b.ayah}`).join(','), Object.keys(tajweedTexts).length,
+    screenParams?.startSurahId, screenParams?.startAyah
+  ].join('|');
+
   const renderSurahNameFrame = (surahName: string, topOffset: number) => {
     const ornament = (mirrored: boolean) => (
       <View pointerEvents="none" style={{ position: 'absolute', [mirrored ? 'right' : 'left']: -1 }}>
@@ -1406,41 +1459,9 @@ export const QuranReaderScreen: React.FC = () => {
             flexGrow: 1
           }}
         >
-          {readingMode === 'page' ? renderedPages.map((pageNumber) => {
-            const sections = getPageSections(pageNumber);
-            return <View
-              key={`mushaf-page-${pageNumber}`}
-              onLayout={(event) => {
-                pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
-                if (pendingScrollPageRef.current === pageNumber) {
-                  scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
-                  pendingScrollPageRef.current = 0;
-                }
-              }}
-              style={{ paddingVertical: 5 }}
-            >
-              {sections.map(({ section, surah, verses }, sectionIndex) => {
-                const sectionVerses = verses.filter(matchesSearch);
-                if (sectionVerses.length === 0) return null;
-                return (
-                  <View key={`page-${pageNumber}-surah-${surah.id}`}>
-                    {section.startAyah === 1 ? (
-                      renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
-                    ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
-                    {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
-                    <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
-                  </View>
-                );
-              })}
-              <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
-                <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
-                <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
-                <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
-                <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
-              </View>
-            </View>;
-          }) : readingMode === 'tafsir' ? (
+          {readingMode === 'page' ? renderedPages.map((pageNumber) => (
+            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={pageVersion} render={renderMushafPage} />
+          )) : readingMode === 'tafsir' ? (
             <View style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
               {displayedVerses.map((verse) => {
                 const isPlaying = playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
