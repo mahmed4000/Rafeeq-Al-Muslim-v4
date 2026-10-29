@@ -1,254 +1,209 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useApp } from '../context/AppContext';
-import { Header } from '../components/common/Header';
+import { useApp, ThemePreference } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { usePalette } from '../theme/palette';
+import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
 import { NotificationService } from '../services/notificationService';
+import { toArabicNumber } from '../services/prayerCalculation';
+import { ScreenHeader } from '../ui/ScreenHeader';
+import { SettingsList } from '../ui/SettingsList';
+import { Stepper } from '../ui/Stepper';
+import { usePalette } from '../theme/palette';
+
+const THEMES: { id: ThemePreference; labelAr: string }[] = [
+  { id: 'auto', labelAr: 'تلقائي حسب الجهاز' },
+  { id: 'light', labelAr: 'أندلسي نهاري' },
+  { id: 'dark', labelAr: 'أندلسي ليلي' }
+];
+
+const LANGS: { id: 'ar' | 'en'; labelAr: string }[] = [
+  { id: 'ar', labelAr: 'العربية' },
+  { id: 'en', labelAr: 'English' }
+];
+
+// Same bounds the Quran reader accepts for pinch zoom.
+const FONT_MIN = 17;
+const FONT_MAX = 48;
+const FONT_STEP = 2;
+
+// Only sources that can be confirmed from the app's own code and packages.
+const SOURCES: { title: string; detail: string }[] = [
+  { title: 'المدن ومناطقها الزمنية', detail: 'GeoNames (geonames.org) · رخصة CC BY 4.0' },
+  { title: 'حساب مواقيت الصلاة', detail: 'مكتبة adhan مفتوحة المصدر · رخصة MIT' },
+  { title: 'التاريخ الهجري', detail: 'تقويم أم القرى من نظام الجهاز' },
+  { title: 'الخطوط', detail: 'Amiri و Tajawal و Cairo · رخصة SIL Open Font License 1.1' }
+];
+
+type ChoiceSheet = 'theme' | 'lang';
 
 export const SettingsScreen: React.FC = () => {
   const {
     goBack,
     navigate,
-    themeMode,
+    themePreference,
     setThemeMode,
     lang,
     setLang,
-    t,
     currentCity,
     calculationMethod,
-    setCalculationMethod,
     asrMethod,
-    setAsrMethod,
+    prayerOffsets,
+    prayerBells,
+    quranFontSize,
+    setQuranFontSize,
     triggerHaptic
   } = useApp();
-
   const p = usePalette();
+
+  const [prayerSheet, setPrayerSheet] = useState<PrayerSheet | null>(null);
+  const [choice, setChoice] = useState<ChoiceSheet | null>(null);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
+  const open = (s: PrayerSheet) => { triggerHaptic('light'); setPrayerSheet(s); };
+  const openChoice = (c: ChoiceSheet) => { triggerHaptic('light'); setChoice(c); };
+  const changeFont = (delta: number) => {
+    triggerHaptic('light');
+    setQuranFontSize((s) => Math.max(FONT_MIN, Math.min(FONT_MAX, s + delta)));
+  };
+
+  const choiceOptions = choice === 'theme'
+    ? THEMES.map((o) => ({ id: o.id, label: o.labelAr, selected: o.id === themePreference, pick: () => setThemeMode(o.id) }))
+    : LANGS.map((o) => ({ id: o.id, label: o.labelAr, selected: o.id === lang, pick: () => setLang(o.id) }));
 
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
-      <Header
-        title={t('الإعدادات والتفضيلات', 'Settings & Preferences')}
-        subtitle={t('تخصيص المظهر والحسابات والتنبيهات', 'Theme, Calculations & Audio')}
-        onBack={goBack}
-      />
+      <ScreenHeader title="الإعدادات" onBack={goBack} />
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 18, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40, gap: 18 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Theme Setting */}
-        <View style={{ backgroundColor: p.surface, borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: p.border }}>
-          <TextUI variant="h4" color={p.ink} style={{ marginBottom: 12 }}>
-            {t('المظهر العام', 'Appearance')}
-          </TextUI>
+        <SettingsList
+          title="المواقيت"
+          rows={[
+            { key: 'calc', label: 'طريقة الحساب', value: values.calc, onPress: () => open('calc') },
+            { key: 'asr', label: 'حساب العصر', value: values.asr, onPress: () => open('asr') },
+            { key: 'offsets', label: 'تعديل يدوي للأوقات', value: values.offsets, onPress: () => open('offsets') }
+          ]}
+        />
 
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setThemeMode('light');
-              }}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                paddingVertical: 12,
-                borderRadius: 12,
-                backgroundColor: themeMode === 'light' ? p.soft : p.bgAlt,
-                borderWidth: 1,
-                borderColor: themeMode === 'light' ? p.primary : p.border
-              }}
-            >
-              <Feather name="sun" size={16} color={themeMode === 'light' ? p.primary : p.muted} />
-              <TextUI variant="bodyMedium" weight="bold" color={themeMode === 'light' ? p.primaryInk : p.ink}>
-                أندلسي نهاري
-              </TextUI>
-            </TouchableOpacity>
+        <SettingsList
+          title="الموقع"
+          rows={[{ key: 'city', label: 'المدينة', value: `${currentCity.nameAr} · ${currentCity.countryAr}`, onPress: () => open('city') }]}
+        />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setThemeMode('dark');
-              }}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                paddingVertical: 12,
-                borderRadius: 12,
-                backgroundColor: themeMode === 'dark' ? p.soft : p.bgAlt,
-                borderWidth: 1,
-                borderColor: themeMode === 'dark' ? p.primary : p.border
-              }}
-            >
-              <Feather name="moon" size={16} color={themeMode === 'dark' ? p.primary : p.muted} />
-              <TextUI variant="bodyMedium" weight="bold" color={themeMode === 'dark' ? p.primaryInk : p.ink}>
-                أندلسي ليلي
-              </TextUI>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <SettingsList
+          title="التنبيهات"
+          rows={[
+            { key: 'alerts', label: 'الأذان والإقامة', value: values.alerts, onPress: () => navigate('adhan_settings') },
+            {
+              key: 'test',
+              label: 'إرسال تنبيه أذان تجريبي',
+              onPress: async () => {
+                triggerHaptic('medium');
+                await NotificationService.sendTestNotification(currentCity.nameAr);
+              }
+            }
+          ]}
+        />
 
-        {/* 2. Language Setting */}
-        <View style={{ backgroundColor: p.surface, borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: p.border }}>
-          <TextUI variant="h4" color={p.ink} style={{ marginBottom: 12 }}>
-            {t('لغة التطبيق', 'App Language')}
-          </TextUI>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setLang('ar');
-              }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 12,
-                alignItems: 'center',
-                backgroundColor: lang === 'ar' ? p.soft : p.bgAlt,
-                borderWidth: 1,
-                borderColor: lang === 'ar' ? p.primary : p.border
-              }}
-            >
-              <TextUI variant="bodyMedium" weight="bold" color={lang === 'ar' ? p.primaryInk : p.ink}>
-                العربية (افتراضي)
-              </TextUI>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setLang('en');
-              }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 12,
-                alignItems: 'center',
-                backgroundColor: lang === 'en' ? p.soft : p.bgAlt,
-                borderWidth: 1,
-                borderColor: lang === 'en' ? p.primary : p.border
-              }}
-            >
-              <TextUI variant="bodyMedium" weight="bold" color={lang === 'en' ? p.primaryInk : p.ink}>
-                English
-              </TextUI>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 3. Notification Test */}
-        <View style={{ backgroundColor: p.surface, borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: p.border }}>
-          <TextUI variant="h4" color={p.ink} style={{ marginBottom: 12 }}>
-            {t('تنبيهات الأذان والصلوات', 'Adhan Notifications')}
-          </TextUI>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            onPress={() => navigate('adhan_settings')}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginBottom: 10 }}
-          >
-            <Feather name="sliders" size={18} color={p.primary} />
-            <TextUI variant="h4" color={p.ink} style={{ flex: 1 }}>
-              {t('الأذان والإقامة لكل صلاة', 'Adhan & iqama per prayer')}
-            </TextUI>
-            <Feather name="chevron-left" size={18} color={p.muted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={async () => {
-              triggerHaptic('medium');
-              await NotificationService.sendTestNotification(currentCity.nameAr);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              backgroundColor: p.soft,
-              paddingVertical: 12,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: p.accent
-            }}
-          >
-            <Feather name="bell" size={16} color={p.primaryInk} />
-            <TextUI variant="bodyMedium" weight="bold" color={p.primaryInk}>
-              {t('إرسال تنبيه أذان تجريبي الآن', 'Send Test Adhan Alert')}
-            </TextUI>
-          </TouchableOpacity>
-        </View>
-
-        {/* 4. Offline Downloads Manager */}
-        <View style={{ backgroundColor: p.surface, borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: p.border }}>
-          <TextUI variant="h4" color={p.ink} style={{ marginBottom: 8 }}>
-            {t('التخزين والملفات المحملة', 'Storage & Downloads')}
-          </TextUI>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => navigate('downloads')}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingVertical: 10
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Feather name="download-cloud" size={18} color={p.primary} />
-              <View>
-                <TextUI variant="h4" color={p.ink}>
-                  {t('إدارة التنزيلات والمساحة', 'Manage Downloads & Space')}
-                </TextUI>
-                <TextUI variant="caption" color={p.muted}>
-                  {t('عرض الدروس المحملة وتفريغ ذاكرة الهاتف', 'View offline lessons and free storage')}
-                </TextUI>
-              </View>
-            </View>
-            <Feather name="chevron-left" size={18} color={p.muted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* 4. About & Waqf Note */}
-        <View
-          style={{
-            backgroundColor: p.soft,
-            borderRadius: 18,
-            padding: 18,
-            borderWidth: 1,
-            borderColor: p.primary,
-            alignItems: 'center'
-          }}
+        <SettingsList
+          title="القراءة والمظهر"
+          rows={[
+            { key: 'theme', label: 'المظهر', value: THEMES.find((o) => o.id === themePreference)?.labelAr, onPress: () => openChoice('theme') },
+            { key: 'lang', label: 'اللغة', value: LANGS.find((o) => o.id === lang)?.labelAr, onPress: () => openChoice('lang') }
+          ]}
         >
-          <TextUI size={16} weight="bold" color={p.primaryInk} style={{ marginBottom: 6 }}>
-            رفيق المسلم | Almosala Pro
-          </TextUI>
-          <TextUI size={12} color={p.muted} style={{ textAlign: 'center', lineHeight: 20 }}>
-            تطبيق إسلامي شامل وقف لله تعالى، خالٍ من الإعلانات تماماً وبأعلى معايير الخصوصية والجودة التقنية.
-          </TextUI>
-          <TextUI size={11} color={p.accentInk} style={{ marginTop: 8 }}>
-            الإصدار ٢٠٢٦ • الإصدار ٢.١.٠ المعماري
-          </TextUI>
-          <TextUI size={11} color={p.muted} style={{ marginTop: 6, textAlign: 'center' }}>
-            إحداثيات المدن ومناطقها الزمنية من GeoNames (geonames.org) برخصة CC BY 4.0
-          </TextUI>
+          <View style={{ borderTopWidth: 1, borderColor: p.border }}>
+            <Stepper
+              label="حجم خط القرآن"
+              sub="يمكن تغييره أيضًا بإصبعين داخل المصحف"
+              valueLabel={toArabicNumber(quranFontSize)}
+              onDecrement={() => changeFont(-FONT_STEP)}
+              onIncrement={() => changeFont(FONT_STEP)}
+              canDecrement={quranFontSize > FONT_MIN}
+              canIncrement={quranFontSize < FONT_MAX}
+            />
+          </View>
+        </SettingsList>
+
+        <View style={{ gap: 10 }}>
+          <SettingsList
+            title="البيانات"
+            rows={[{ key: 'downloads', label: 'التنزيلات', value: 'الدروس المحمّلة والمساحة', onPress: () => navigate('downloads') }]}
+          />
+
+          <SettingsList
+            rows={[{ key: 'sources', label: 'المصادر والتراخيص', expanded: sourcesOpen, onPress: () => setSourcesOpen((v) => !v) }]}
+          >
+            {sourcesOpen ? (
+              <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10, borderTopWidth: 1, borderColor: p.border, paddingTop: 12 }}>
+                {SOURCES.map((s) => (
+                  <View key={s.title}>
+                    <TextUI size={14} weight="bold" color={p.ink}>{s.title}</TextUI>
+                    <TextUI size={13} color={p.muted}>{s.detail}</TextUI>
+                  </View>
+                ))}
+                <TextUI size={13} color={p.muted}>مصادر المحتوى الديني (نص المصحف، التلاوات، الأذكار، الدروس) قيد التوثيق.</TextUI>
+              </View>
+            ) : null}
+          </SettingsList>
+
+          <SettingsList
+            rows={[{ key: 'about', label: 'عن رفيق المسلم', value: 'الإصدار ٢.١.٠', expanded: aboutOpen, onPress: () => setAboutOpen((v) => !v) }]}
+          >
+            {aboutOpen ? (
+              <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 12, gap: 6, alignItems: 'center', borderTopWidth: 1, borderColor: p.border }}>
+                <TextUI size={16} weight="bold" color={p.primaryInk}>رفيق المسلم | Almosala Pro</TextUI>
+                <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 21 }}>
+                  تطبيق إسلامي شامل وقف لله تعالى، خالٍ من الإعلانات تماماً وبأعلى معايير الخصوصية والجودة التقنية.
+                </TextUI>
+                <TextUI size={12} color={p.accentInk}>الإصدار ٢٠٢٦ • الإصدار ٢.١.٠ المعماري</TextUI>
+              </View>
+            ) : null}
+          </SettingsList>
         </View>
       </ScrollView>
+
+      <PrayerSettingsSheets open={prayerSheet} onClose={() => setPrayerSheet(null)} />
+
+      {/* Theme / language picker */}
+      <Modal visible={choice !== null} animationType="fade" transparent onRequestClose={() => setChoice(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <TextUI size={18} weight="bold" color={p.ink}>{choice === 'theme' ? 'المظهر' : 'اللغة'}</TextUI>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setChoice(null)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={20} color={p.ink} />
+              </TouchableOpacity>
+            </View>
+            {choiceOptions.map((o, i) => (
+              <TouchableOpacity
+                key={o.id}
+                activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: o.selected }}
+                onPress={() => {
+                  triggerHaptic('light');
+                  o.pick();
+                  setChoice(null);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
+              >
+                <TextUI size={15} weight="bold" color={o.selected ? p.primary : p.ink} style={{ flex: 1 }}>{o.label}</TextUI>
+                {o.selected ? <Feather name="check" size={18} color={p.primary} /> : null}
+              </TouchableOpacity>
+            ))}
+            {choice === 'lang' ? (
+              <TextUI size={12.5} color={p.muted} style={{ marginTop: 8 }}>الترجمة الإنجليزية جزئية حاليًا.</TextUI>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, useColorScheme } from 'react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { CITIES, City, normalizeCity } from '../constants/cities';
@@ -40,13 +40,16 @@ export interface ReadingBookmark {
 
 type CalculationMethod = 'umm_al_qura' | 'egypt' | 'mwl' | 'isna';
 type AsrMethod = 'standard' | 'hanafi';
+export type ThemePreference = 'auto' | 'light' | 'dark';
 
 interface AppContextType {
   screen: string;
   navigate: (screenName: string, params?: any) => void;
   goBack: () => void;
+  /** The theme in effect (follows the device when the preference is 'auto'). */
   themeMode: 'light' | 'dark';
-  setThemeMode: (mode: 'light' | 'dark') => void;
+  themePreference: ThemePreference;
+  setThemeMode: (mode: ThemePreference) => void;
   lang: 'ar' | 'en';
   setLang: (lang: 'ar' | 'en') => void;
   t: (ar: string, en: string) => string;
@@ -107,7 +110,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const router = useRouter();
   const pathname = usePathname();
   const screen = screenKeyForPath(pathname);
-  const [themeMode, setThemeModeState] = useState<'light' | 'dark'>('light');
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>('light');
+  const deviceScheme = useColorScheme();
+  const themeMode: 'light' | 'dark' = themePreference === 'auto' ? (deviceScheme === 'dark' ? 'dark' : 'light') : themePreference;
   const [lang, setLangState] = useState<'ar' | 'en'>('ar');
   const [currentCity, setCurrentCityState] = useState<City>(CITIES[0]);
 
@@ -169,7 +174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (async () => {
       try {
         const savedTheme = await StorageService.getItem('almosala_theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') setThemeModeState(savedTheme);
+        if (savedTheme === 'auto' || savedTheme === 'light' || savedTheme === 'dark') setThemePreferenceState(savedTheme);
 
         const savedLang = await StorageService.getItem('almosala_lang');
         if (savedLang === 'ar' || savedLang === 'en') setLangState(savedLang);
@@ -272,8 +277,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, [quranFontSize, prefsLoaded]);
 
-  const setThemeMode = (mode: 'light' | 'dark') => {
-    setThemeModeState(mode);
+  const setThemeMode = (mode: ThemePreference) => {
+    setThemePreferenceState(mode);
     StorageService.setItem('almosala_theme', mode);
   };
 
@@ -412,6 +417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         navigate,
         goBack,
         themeMode,
+        themePreference,
         setThemeMode,
         lang,
         setLang,

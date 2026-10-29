@@ -1,22 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, TextInput, FlatList, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { searchCities } from '../constants/cities';
-import {
-  calculateAccuratePrayerTimes,
-  computeNightTimes,
-  countOffsets,
-  toArabicNumber,
-  PrayerTimeValues,
-  PRAYER_OFFSET_LIMIT
-} from '../services/prayerCalculation';
-import { Stepper } from '../ui/Stepper';
+import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
+import { calculateAccuratePrayerTimes, computeNightTimes, countOffsets, toArabicNumber, PrayerTimeValues } from '../services/prayerCalculation';
 import { getFullDateInfo } from '../services/hijriDate';
 import { cityNow } from '../services/cityTime';
 import { useNextPrayer } from '../hooks/useNextPrayer';
+import { SettingsList } from '../ui/SettingsList';
 import { usePalette } from '../theme/palette';
 
 type RowKey = keyof PrayerTimeValues;
@@ -30,18 +23,6 @@ const ROWS: { key: RowKey; nameAr: string }[] = [
   { key: 'isha', nameAr: 'العشاء' }
 ];
 
-const CALC_METHODS = [
-  { id: 'umm_al_qura' as const, titleAr: 'أم القرى (المملكة العربية السعودية)', shortAr: 'أم القرى', note: 'الفجر 18.5° • العشاء 90 دقيقة بعد المغرب' },
-  { id: 'egypt' as const, titleAr: 'الهيئة المصرية العامة للمساحة', shortAr: 'الهيئة المصرية', note: 'الفجر 19.5° • العشاء 17.5°' },
-  { id: 'mwl' as const, titleAr: 'رابطة العالم الإسلامي (مكة المكرمة)', shortAr: 'رابطة العالم الإسلامي', note: 'الفجر 18° • العشاء 17°' },
-  { id: 'isna' as const, titleAr: 'الجمعية الإسلامية لأمريكا الشمالية (ISNA)', shortAr: 'ISNA', note: 'الفجر 15° • العشاء 15°' }
-];
-
-const ASR_METHODS = [
-  { id: 'standard' as const, titleAr: 'جمهور الفقهاء (الشافعي والمالكي وأحمد)', shortAr: 'الجمهور' },
-  { id: 'hanafi' as const, titleAr: 'المذهب الحنفي (مصير الظل مثليه)', shortAr: 'الحنفي' }
-];
-
 /** "بعد ٣١ دقيقة" / "بعد ٢ س ١٠ د" */
 function inAr(secs: number): string {
   const mins = Math.max(1, Math.ceil(secs / 60));
@@ -51,36 +32,21 @@ function inAr(secs: number): string {
   return m ? `بعد ${toArabicNumber(h)} س ${toArabicNumber(m)} د` : `بعد ${toArabicNumber(h)} س`;
 }
 
-/** "تأخير ٢ د" / "تقديم ٣ د" / "٠" (words, since +/− signs reorder in RTL text) */
-function offsetAr(mins: number): string {
-  if (!mins) return '٠';
-  return `${mins > 0 ? 'تأخير' : 'تقديم'} ${toArabicNumber(Math.abs(mins))} د`;
-}
-
 export const PrayerTimesScreen: React.FC = () => {
   const {
     navigate,
     t,
     currentCity,
-    setCurrentCity,
     prayerTimes,
     prayerBells,
     togglePrayerBell,
     calculationMethod,
-    setCalculationMethod,
     asrMethod,
-    setAsrMethod,
     prayerOffsets,
-    setPrayerOffsets,
-    refreshLocation,
     triggerHaptic
   } = useApp();
 
-  const [cityModalVisible, setCityModalVisible] = useState(false);
-  const [citySearch, setCitySearch] = useState('');
-  const [calcModalVisible, setCalcModalVisible] = useState(false);
-  const [asrModalVisible, setAsrModalVisible] = useState(false);
-  const [offsetsVisible, setOffsetsVisible] = useState(false);
+  const [sheet, setSheet] = useState<PrayerSheet | null>(null);
   // Days from the city's today; back to today whenever the tab is opened again.
   const [dayOffset, setDayOffset] = useState(0);
   useFocusEffect(useCallback(() => setDayOffset(0), []));
@@ -131,16 +97,15 @@ export const PrayerTimesScreen: React.FC = () => {
     return '';
   };
 
-  const bellCount = (['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'] as const).filter((k) => prayerBells[k]).length;
-  const filteredCities = searchCities(citySearch, currentCity.countryCode);
-
+  const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
+  const openSheet = (s: PrayerSheet) => { triggerHaptic('light'); setSheet(s); };
   const settingsRows = [
-    { key: 'city', label: 'المدينة', value: `${currentCity.nameAr} · ${currentCity.countryAr}`, onPress: () => setCityModalVisible(true) },
-    { key: 'calc', label: 'طريقة الحساب', value: CALC_METHODS.find((m) => m.id === calculationMethod)?.shortAr || '', onPress: () => setCalcModalVisible(true) },
-    { key: 'asr', label: 'حساب العصر', value: ASR_METHODS.find((m) => m.id === asrMethod)?.shortAr || '', onPress: () => setAsrModalVisible(true) },
-    { key: 'offsets', label: 'تعديل يدوي للأوقات', value: adjustedCount ? `${toArabicNumber(adjustedCount)} معدّلة` : 'بدون', onPress: () => setOffsetsVisible(true) },
-    { key: 'alerts', label: 'الأذان والإقامة', value: `${toArabicNumber(bellCount)} من ٥`, onPress: () => navigate('adhan_settings') },
-    { key: 'month', label: 'مواقيت الشهر', value: '', onPress: () => navigate('prayer_month') }
+    { key: 'city', label: 'المدينة', value: `${currentCity.nameAr} · ${currentCity.countryAr}`, onPress: () => openSheet('city') },
+    { key: 'calc', label: 'طريقة الحساب', value: values.calc, onPress: () => openSheet('calc') },
+    { key: 'asr', label: 'حساب العصر', value: values.asr, onPress: () => openSheet('asr') },
+    { key: 'offsets', label: 'تعديل يدوي للأوقات', value: values.offsets, onPress: () => openSheet('offsets') },
+    { key: 'alerts', label: 'الأذان والإقامة', value: values.alerts, onPress: () => navigate('adhan_settings') },
+    { key: 'month', label: 'مواقيت الشهر', onPress: () => navigate('prayer_month') }
   ];
 
   const shiftDay = (delta: number) => {
@@ -227,7 +192,7 @@ export const PrayerTimesScreen: React.FC = () => {
           })}
         </View>
         {adjustedCount ? (
-          <TouchableOpacity accessibilityRole="button" onPress={() => setOffsetsVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 32, marginTop: -4 }}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => openSheet('offsets')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 32, marginTop: -4 }}>
             <Feather name="sliders" size={13} color={p.muted} />
             <TextUI size={12.5} color={p.muted}>بعض الأوقات معدّلة يدويًا</TextUI>
           </TouchableOpacity>
@@ -247,249 +212,10 @@ export const PrayerTimesScreen: React.FC = () => {
         </View>
 
         {/* Calculation and alert settings */}
-        <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-          {settingsRows.map((row, i) => (
-            <TouchableOpacity
-              key={row.key}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={row.value ? `${row.label}: ${row.value}` : row.label}
-              onPress={() => { triggerHaptic('light'); row.onPress(); }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
-            >
-              <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{row.label}</TextUI>
-              {row.value ? <TextUI size={14} color={p.muted} numberOfLines={1} style={{ flexShrink: 1, maxWidth: '60%' }}>{row.value}</TextUI> : null}
-              <Feather name="chevron-left" size={16} color={p.muted} />
-            </TouchableOpacity>
-          ))}
-        </View>
+        <SettingsList rows={settingsRows} />
       </ScrollView>
 
-      {/* City Selector Modal */}
-      <Modal visible={cityModalVisible} animationType="slide" transparent onRequestClose={() => setCityModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View
-            style={{
-              height: '75%',
-              backgroundColor: p.bg,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 20
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <TextUI size={18} weight="bold" color={p.ink}>
-                {t('اختر المدينة', 'Select City')}
-              </TextUI>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setCityModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="x" size={22} color={p.ink} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              onPress={() => {
-                triggerHaptic('light');
-                refreshLocation();
-                setCityModalVisible(false);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, marginBottom: 12, backgroundColor: p.soft }}
-            >
-              <Feather name="navigation" size={16} color={p.primary} />
-              <TextUI size={15} weight="medium" color={p.primaryInk}>{t('استخدم موقعي الحالي', 'Use my location')}</TextUI>
-            </TouchableOpacity>
-
-            <TextInput
-              placeholder={t('ابحث عن دولة أو مدينة...', 'Search city or country...')}
-              placeholderTextColor={p.muted}
-              value={citySearch}
-              onChangeText={setCitySearch}
-              style={{
-                backgroundColor: p.surface,
-                borderRadius: 12,
-                padding: 12,
-                color: p.ink,
-                borderWidth: 1,
-                borderColor: p.border,
-                marginBottom: 14,
-                textAlign: 'right'
-              }}
-            />
-
-            <FlatList
-              data={filteredCities}
-              keyExtractor={(item) => item.id}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={
-                <TextUI size={13} color={p.muted} align="center" style={{ paddingVertical: 24, lineHeight: 22 }}>
-                  {t('لا توجد مدينة بهذا الاسم. جرّب اسمًا آخر أو استخدم موقعك الحالي.', 'No city found. Try another name or use your location.')}
-                </TextUI>
-              }
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    triggerHaptic('light');
-                    setCurrentCity(item);
-                    setCityModalVisible(false);
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingVertical: 14,
-                    borderBottomWidth: 1,
-                    borderColor: p.border
-                  }}
-                >
-                  <View>
-                    <TextUI size={15} weight="bold" color={p.ink}>
-                      {item.nameAr}
-                    </TextUI>
-                    <TextUI size={12} color={p.muted}>
-                      {item.country}
-                    </TextUI>
-                  </View>
-                  {item.id === currentCity.id && (
-                    <Feather name="check" size={18} color={p.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* Calculation Method Modal */}
-      <Modal visible={calcModalVisible} animationType="fade" transparent onRequestClose={() => setCalcModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20, maxHeight: '80%' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <TextUI size={18} weight="bold" color={p.ink}>
-                {t('طريقة الحساب الفلكي', 'Calculation Method')}
-              </TextUI>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setCalcModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="x" size={20} color={p.ink} />
-              </TouchableOpacity>
-            </View>
-
-            {CALC_METHODS.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                activeOpacity={0.8}
-                onPress={() => {
-                  triggerHaptic('light');
-                  setCalculationMethod(m.id);
-                  setCalcModalVisible(false);
-                }}
-                style={{
-                  paddingVertical: 14,
-                  borderBottomWidth: 1,
-                  borderColor: p.border
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flex: 1 }}>
-                    <TextUI size={14} weight="bold" color={m.id === calculationMethod ? p.primary : p.ink}>
-                      {m.titleAr}
-                    </TextUI>
-                    <TextUI size={12} color={p.muted} style={{ marginTop: 2 }}>
-                      {m.note}
-                    </TextUI>
-                  </View>
-                  {m.id === calculationMethod && (
-                    <Feather name="check" size={18} color={p.primary} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Manual adjustments sheet */}
-      <Modal visible={offsetsVisible} animationType="slide" transparent onRequestClose={() => setOffsetsVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, paddingBottom: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 }}>
-              <View style={{ flex: 1 }}>
-                <TextUI size={18} weight="bold" color={p.ink}>تعديل يدوي للأوقات</TextUI>
-                <TextUI size={12.5} color={p.muted}>{`تقديم أو تأخير حتى ${toArabicNumber(PRAYER_OFFSET_LIMIT)} دقيقة. يشمل التنبيهات والجدول الشهري.`}</TextUI>
-              </View>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setOffsetsVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="x" size={22} color={p.ink} />
-              </TouchableOpacity>
-            </View>
-            <View style={{ marginTop: 8, borderTopWidth: 1, borderColor: p.divider }}>
-              {ROWS.map((row) => {
-                const mins = prayerOffsets[row.key] || 0;
-                const change = (delta: number) => {
-                  triggerHaptic('light');
-                  setPrayerOffsets({ ...prayerOffsets, [row.key]: mins + delta });
-                };
-                return (
-                  <Stepper
-                    key={row.key}
-                    label={row.nameAr}
-                    sub={`اليوم ${prayerTimes[row.key].timeStr}`}
-                    valueLabel={offsetAr(mins)}
-                    onDecrement={() => change(-1)}
-                    onIncrement={() => change(1)}
-                    canDecrement={mins > -PRAYER_OFFSET_LIMIT}
-                    canIncrement={mins < PRAYER_OFFSET_LIMIT}
-                  />
-                );
-              })}
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              disabled={!adjustedCount}
-              onPress={() => { triggerHaptic('light'); setPrayerOffsets({}); }}
-              style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, marginTop: 12, borderRadius: 999, borderWidth: 1, borderColor: p.border, opacity: adjustedCount ? 1 : 0.45 }}
-            >
-              <TextUI size={14} weight="medium" color={p.primaryInk}>إعادة الكل إلى صفر</TextUI>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Asr Method Modal */}
-      <Modal visible={asrModalVisible} animationType="fade" transparent onRequestClose={() => setAsrModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <TextUI size={18} weight="bold" color={p.ink}>
-                {t('مذهب حساب صلاة العصر', 'Asr Juristic Method')}
-              </TextUI>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setAsrModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="x" size={20} color={p.ink} />
-              </TouchableOpacity>
-            </View>
-
-            {ASR_METHODS.map((m, i) => (
-              <TouchableOpacity
-                key={m.id}
-                activeOpacity={0.8}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: m.id === asrMethod }}
-                onPress={() => {
-                  triggerHaptic('light');
-                  setAsrMethod(m.id);
-                  setAsrModalVisible(false);
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
-              >
-                <TextUI size={14} weight="bold" color={m.id === asrMethod ? p.primary : p.ink} style={{ flex: 1 }}>
-                  {m.titleAr}
-                </TextUI>
-                {m.id === asrMethod && <Feather name="check" size={18} color={p.primary} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
+      <PrayerSettingsSheets open={sheet} onClose={() => setSheet(null)} />
     </View>
   );
 };
