@@ -44,6 +44,7 @@ export const PrayerTimesScreen: React.FC = () => {
     asrMethod,
     prayerOffsets,
     hijriAdjust,
+    alertsConfig,
     triggerHaptic
   } = useApp();
 
@@ -92,7 +93,10 @@ export const PrayerTimesScreen: React.FC = () => {
   const noteFor = (k: RowKey): string => {
     if (k === 'sunrise') return 'ليس وقت صلاة';
     if (!isToday) return '';
-    if (k === nextKey) return inAr(next.diffSeconds);
+    if (k === nextKey) {
+      const alert = alertsConfig.enabled ? alertsConfig.prayers[k] : null;
+      return alert?.before ? `${inAr(next.diffSeconds)} · تنبيه قبل ${toArabicNumber(alert.beforeMinutes)} د` : inAr(next.diffSeconds);
+    }
     if (k === currentKey) return 'الوقت الحالي';
     if (nowMins >= minsOf(k)) return 'انتهى';
     return '';

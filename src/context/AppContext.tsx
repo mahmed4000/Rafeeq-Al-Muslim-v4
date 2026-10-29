@@ -17,7 +17,9 @@ import {
   PrayerBellsConfig,
   PrayerAlertsConfig,
   defaultAlertsConfig,
-  bellsFromAlerts
+  bellsFromAlerts,
+  AzkarRemindersConfig,
+  defaultAzkarReminders
 } from '../services/notificationService';
 import { useRouter, usePathname } from 'expo-router';
 import { SCREEN_PATHS, TAB_SCREENS, screenKeyForPath, serializeParams } from '../navigation/routes';
@@ -80,6 +82,8 @@ interface AppContextType {
   /** Days added to the Hijri date only (local moon-sighting correction). */
   hijriAdjust: number;
   setHijriAdjust: (days: number) => void;
+  azkarReminders: AzkarRemindersConfig;
+  setAzkarReminders: (config: AzkarRemindersConfig) => void;
   bookmarks: BookmarkItem[];
   addBookmark: (b: BookmarkItem) => void;
   removeBookmark: (surahId: number, ayah: number) => void;
@@ -103,6 +107,7 @@ const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
 const BOOKMARKS_MIGRATION_KEY = 'rafeeq_bookmarks_migrated_v1';
 const HIJRI_ADJUST_KEY = 'rafeeq_hijri_adjust_v1';
+const AZKAR_REMINDERS_KEY = 'rafeeq_azkar_reminders_v1';
 const clampHijri = (n: number) => (Number.isFinite(n) ? Math.max(-HIJRI_ADJUST_LIMIT, Math.min(HIJRI_ADJUST_LIMIT, Math.round(n))) : 0);
 
 /** Keep only known keys with whole minutes inside the allowed range. */
@@ -130,6 +135,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [asrMethod, setAsrMethodState] = useState<AsrMethod>('standard');
   const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>({});
   const [hijriAdjust, setHijriAdjustState] = useState(0);
+  const [azkarReminders, setAzkarRemindersState] = useState<AzkarRemindersConfig>(() => defaultAzkarReminders());
   const [alertsConfig, setAlertsConfigState] = useState<PrayerAlertsConfig>(() => defaultAlertsConfig());
   const prayerBells = useMemo(() => bellsFromAlerts(alertsConfig), [alertsConfig]);
   // Existing installs (a saved city) skip onboarding; new installs see it once.
@@ -200,6 +206,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setPrayerOffsetsState(cleanOffsets(await StorageService.getObject<any>(OFFSETS_KEY, null)));
         setHijriAdjustState(clampHijri(Number(await StorageService.getItem(HIJRI_ADJUST_KEY))));
+
+        const savedReminders = await StorageService.getObject<AzkarRemindersConfig | null>(AZKAR_REMINDERS_KEY, null);
+        if (savedReminders?.morning && savedReminders?.evening) setAzkarRemindersState(savedReminders);
 
         // Per-prayer alert settings; older installs only had on/off bells.
         const savedAlerts = await StorageService.getObject<PrayerAlertsConfig | null>(ALERTS_KEY, null);
@@ -290,6 +299,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev]);
 
+  // Same rolling window for the adhkar reminders (after Fajr / after Asr).
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    const timer = setTimeout(() => {
+      NotificationService.scheduleAzkarReminders(
+        currentCity.lat,
+        currentCity.lng,
+        azkarReminders,
+        calculationMethod,
+        asrMethod,
+        currentCity.timeZone,
+        prayerOffsets
+      );
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [prefsLoaded, currentCity, azkarReminders, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev]);
+
   // Persist the Quran font size after pinch/zoom settles.
   useEffect(() => {
     if (!prefsLoaded) return;
@@ -344,6 +370,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const refreshNotifications = () => setNotifRev((n) => n + 1);
+
+  const setAzkarReminders = (config: AzkarRemindersConfig) => {
+    const turningOn = (config.morning.enabled && !azkarReminders.morning.enabled) || (config.evening.enabled && !azkarReminders.evening.enabled);
+    setAzkarRemindersState(config);
+    StorageService.setObject(AZKAR_REMINDERS_KEY, config);
+    // Ask from a user action; reschedule once the answer is known.
+    if (turningOn) NotificationService.requestPermissions().then(() => setNotifRev((n) => n + 1));
+  };
 
   const completeOnboarding = () => {
     setOnboarded(true);
@@ -470,6 +504,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPrayerOffsets,
         hijriAdjust,
         setHijriAdjust,
+        azkarReminders,
+        setAzkarReminders,
         bookmarks,
         addBookmark,
         removeBookmark,

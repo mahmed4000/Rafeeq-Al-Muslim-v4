@@ -64,11 +64,13 @@ const ThemedStack: React.FC = () => {
   const router = useRouter();
   const bg = themeMode === 'light' ? '#FAF6F0' : '#1C1511';
 
-  // Tapping a prayer alert opens the prayer times screen.
+  // Tapping a prayer alert opens the prayer times screen; an adhkar reminder opens its session.
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      if (response.notification.request.content.data?.prayer) router.push('/prayer-times');
+      const data = response.notification.request.content.data;
+      if (data?.prayer) router.push('/prayer-times');
+      else if (typeof data?.azkar === 'string') router.push({ pathname: '/azkar-session', params: { categoryId: data.azkar } });
     });
     return () => sub.remove();
   }, [router]);

@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useApp, ThemePreference } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
-import { NotificationService } from '../services/notificationService';
+import { NotificationService, AzkarRemindersConfig, AZKAR_REMINDER_MINUTES } from '../services/notificationService';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { getFullDateInfo, HIJRI_ADJUST_LIMIT } from '../services/hijriDate';
 import { cityNow } from '../services/cityTime';
@@ -63,6 +63,8 @@ export const SettingsScreen: React.FC = () => {
     setQuranFontSize,
     hijriAdjust,
     setHijriAdjust,
+    azkarReminders,
+    setAzkarReminders,
     triggerHaptic
   } = useApp();
   const p = usePalette();
@@ -72,6 +74,19 @@ export const SettingsScreen: React.FC = () => {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [hijriOpen, setHijriOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const remindersSummary = [
+    azkarReminders.morning.enabled ? 'بعد الفجر' : '',
+    azkarReminders.evening.enabled ? 'بعد العصر' : ''
+  ].filter(Boolean).join(' · ') || 'متوقف';
+  const reminderRows: { key: 'morning' | 'evening'; title: string; after: string }[] = [
+    { key: 'morning', title: 'أذكار الصباح', after: 'بعد الفجر' },
+    { key: 'evening', title: 'أذكار المساء', after: 'بعد العصر' }
+  ];
+  const updateReminder = (key: 'morning' | 'evening', patch: Partial<AzkarRemindersConfig['morning']>) => {
+    triggerHaptic('light');
+    setAzkarReminders({ ...azkarReminders, [key]: { ...azkarReminders[key], ...patch } });
+  };
   const todayInfo = getFullDateInfo(cityNow(currentCity.timeZone), hijriAdjust);
 
   const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
@@ -114,6 +129,7 @@ export const SettingsScreen: React.FC = () => {
           title="التنبيهات"
           rows={[
             { key: 'alerts', label: 'الأذان والإقامة', value: values.alerts, onPress: () => navigate('adhan_settings') },
+            { key: 'azkarReminders', label: 'تذكير الأذكار', value: remindersSummary, onPress: () => { triggerHaptic('light'); setRemindersOpen(true); } },
             {
               key: 'test',
               label: 'إرسال تنبيه أذان تجريبي',
@@ -184,6 +200,51 @@ export const SettingsScreen: React.FC = () => {
       </ScrollView>
 
       <PrayerSettingsSheets open={prayerSheet} onClose={() => setPrayerSheet(null)} />
+
+      {/* Adhkar reminders */}
+      <Modal visible={remindersOpen} animationType="fade" transparent onRequestClose={() => setRemindersOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 16, overflow: 'hidden' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 }}>
+              <View style={{ flex: 1 }}>
+                <TextUI size={18} weight="bold" color={p.ink}>تذكير الأذكار</TextUI>
+                <TextUI size={12.5} color={p.muted}>تنبيه يومي بعد الصلاة بعدد الدقائق الذي تختاره.</TextUI>
+              </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setRemindersOpen(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={20} color={p.ink} />
+              </TouchableOpacity>
+            </View>
+            {reminderRows.map((row) => {
+              const setting = azkarReminders[row.key];
+              return (
+                <View key={row.key} style={{ marginTop: 8, borderTopWidth: 1, borderColor: p.divider }}>
+                  <TouchableOpacity
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: setting.enabled }}
+                    onPress={() => updateReminder(row.key, { enabled: !setting.enabled })}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14 }}
+                  >
+                    <TextUI size={15} weight="bold" color={p.ink} style={{ flex: 1 }}>{row.title}</TextUI>
+                    <View style={{ minWidth: 64, minHeight: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: setting.enabled ? p.successBg : p.bgAlt, borderWidth: 1, borderColor: setting.enabled ? p.success : p.border }}>
+                      <TextUI size={13} weight="bold" color={setting.enabled ? p.successInk : p.muted}>{setting.enabled ? 'مفعّل' : 'متوقف'}</TextUI>
+                    </View>
+                  </TouchableOpacity>
+                  {setting.enabled ? (
+                    <Stepper
+                      label={row.after}
+                      valueLabel={`${toArabicNumber(setting.minutesAfter)} د`}
+                      onDecrement={() => updateReminder(row.key, { minutesAfter: setting.minutesAfter - AZKAR_REMINDER_MINUTES.step })}
+                      onIncrement={() => updateReminder(row.key, { minutesAfter: setting.minutesAfter + AZKAR_REMINDER_MINUTES.step })}
+                      canDecrement={setting.minutesAfter > AZKAR_REMINDER_MINUTES.min}
+                      canIncrement={setting.minutesAfter < AZKAR_REMINDER_MINUTES.max}
+                    />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       {/* Hijri date correction */}
       <Modal visible={hijriOpen} animationType="fade" transparent onRequestClose={() => setHijriOpen(false)}>

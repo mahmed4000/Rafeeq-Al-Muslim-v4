@@ -56,11 +56,29 @@ export function bellsFromAlerts(config: PrayerAlertsConfig): PrayerBellsConfig {
   return bells;
 }
 
+/** Daily adhkar reminders, placed a number of minutes after Fajr (morning) and Asr (evening). */
+export interface AzkarReminderSetting {
+  enabled: boolean;
+  minutesAfter: number;
+}
+export interface AzkarRemindersConfig {
+  morning: AzkarReminderSetting;
+  evening: AzkarReminderSetting;
+}
+export const AZKAR_REMINDER_MINUTES = { min: 5, max: 120, step: 5 };
+
+export function defaultAzkarReminders(): AzkarRemindersConfig {
+  return { morning: { enabled: false, minutesAfter: 15 }, evening: { enabled: false, minutesAfter: 15 } };
+}
+
 const PRAYER_ID_PREFIX = 'prayer-';
+const AZKAR_ID_PREFIX = 'azkar-';
 const CHANNEL_ADHAN = 'prayer-adhan';
 const CHANNEL_REMINDER = 'prayer-reminder';
-// iOS keeps at most 64 pending local notifications; leave room for other reminders.
+const CHANNEL_AZKAR = 'azkar-reminder';
+// iOS keeps at most 64 pending local notifications: 56 for prayers, 8 for adhkar reminders.
 const MAX_PRAYER_ALERTS = 56;
+const AZKAR_DAYS = 4;
 
 async function ensureChannels() {
   if (Platform.OS !== 'android') return;
@@ -71,6 +89,11 @@ async function ensureChannels() {
   });
   await Notifications.setNotificationChannelAsync(CHANNEL_REMINDER, {
     name: 'التذكير قبل الصلاة والإقامة',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default'
+  });
+  await Notifications.setNotificationChannelAsync(CHANNEL_AZKAR, {
+    name: 'تذكير الأذكار',
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default'
   });
@@ -218,6 +241,57 @@ export const NotificationService = {
       }
     } catch (e) {
       console.warn('schedulePrayerAlerts error:', e);
+    }
+  },
+
+  /**
+   * Replace the scheduled adhkar reminders (only ours, by prefix) for the coming
+   * days. Same rules as schedulePrayerAlerts: never prompts, runs on every start.
+   */
+  async scheduleAzkarReminders(
+    lat: number,
+    lng: number,
+    config: AzkarRemindersConfig,
+    method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
+    asrMethod: 'standard' | 'hanafi' = 'standard',
+    timeZone?: string,
+    offsets?: PrayerOffsets
+  ): Promise<void> {
+    if (Platform.OS === 'web') return;
+    try {
+      if (!(await this.hasPermission())) return;
+      await ensureChannels();
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      await Promise.all(
+        scheduled
+          .filter((item: any) => typeof item?.identifier === 'string' && item.identifier.startsWith(AZKAR_ID_PREFIX))
+          .map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier))
+      );
+      if (!config.morning.enabled && !config.evening.enabled) return;
+
+      const now = Date.now();
+      const cityToday = cityNow(timeZone);
+      for (let dayOffset = 0; dayOffset < AZKAR_DAYS; dayOffset++) {
+        const day = new Date(cityToday.getFullYear(), cityToday.getMonth(), cityToday.getDate() + dayOffset, 12);
+        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod, timeZone, offsets);
+        const reminders = [
+          { kind: 'morning', setting: config.morning, base: times.fajr.at, title: 'أذكار الصباح', categoryId: 'morning' },
+          { kind: 'evening', setting: config.evening, base: times.asr.at, title: 'أذكار المساء', categoryId: 'evening' }
+        ];
+        for (const r of reminders) {
+          if (!r.setting.enabled) continue;
+          const date = new Date(r.base.getTime() + r.setting.minutesAfter * 60000);
+          date.setSeconds(0, 0);
+          if (date.getTime() <= now) continue;
+          await Notifications.scheduleNotificationAsync({
+            identifier: `${AZKAR_ID_PREFIX}${dayOffset}-${r.kind}`,
+            content: { title: r.title, body: 'تذكير بقراءة الأذكار', sound: true, data: { azkar: r.categoryId } },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_AZKAR }
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('scheduleAzkarReminders error:', e);
     }
   },
 
