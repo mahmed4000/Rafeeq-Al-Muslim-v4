@@ -8,7 +8,7 @@
     "scheme": "almosala",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FAF6F0"
     },
