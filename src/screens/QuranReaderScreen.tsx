@@ -161,6 +161,7 @@ export const QuranReaderScreen: React.FC = () => {
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const pinchStartDistanceRef = useRef(0);
+  const scrollingRef = useRef(false);
   const pinchStartFontSizeRef = useRef(quranFontSize);
   const lastPinchFontSizeRef = useRef(quranFontSize);
   const pageOffsetsRef = useRef<Record<number, number>>({});
@@ -267,8 +268,12 @@ export const QuranReaderScreen: React.FC = () => {
     const dy = touches[0].pageY - touches[1].pageY;
     return Math.sqrt(dx * dx + dy * dy);
   };
+  // Pinch-to-zoom only with exactly two fingers while the page is not scrolling. On iOS a fast
+  // swipe can leave a stale touch in `touches`, which read as a pinch and resized the text
+  // for a moment (the letters looked stretched, then settled).
   const handleReaderTouchStart = (event: any) => {
-    const distance = touchDistance(event.nativeEvent.touches);
+    const touches = event.nativeEvent.touches;
+    const distance = !scrollingRef.current && touches?.length === 2 ? touchDistance(touches) : 0;
     if (distance > 0) {
       pinchStartDistanceRef.current = distance;
       pinchStartFontSizeRef.current = quranFontSize;
@@ -276,7 +281,12 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
   const handleReaderTouchMove = (event: any) => {
-    const distance = touchDistance(event.nativeEvent.touches);
+    const touches = event.nativeEvent.touches;
+    if (scrollingRef.current || touches?.length !== 2) {
+      pinchStartDistanceRef.current = 0;
+      return;
+    }
+    const distance = touchDistance(touches);
     if (!distance || !pinchStartDistanceRef.current) return;
     const nextSize = Math.max(17, Math.min(48, Math.round(pinchStartFontSizeRef.current * distance / pinchStartDistanceRef.current)));
     if (nextSize !== lastPinchFontSizeRef.current) {
@@ -1417,6 +1427,10 @@ export const QuranReaderScreen: React.FC = () => {
         onTouchMove={handleReaderTouchMove}
         onTouchEnd={handleReaderTouchEnd}
         onTouchCancel={handleReaderTouchEnd}
+        onScrollBeginDrag={() => { scrollingRef.current = true; pinchStartDistanceRef.current = 0; }}
+        onScrollEndDrag={() => { scrollingRef.current = false; }}
+        onMomentumScrollBegin={() => { scrollingRef.current = true; }}
+        onMomentumScrollEnd={() => { scrollingRef.current = false; }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
         onResponderRelease={() => {
           if (isImmersive) {
