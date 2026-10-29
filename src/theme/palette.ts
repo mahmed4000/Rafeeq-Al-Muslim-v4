@@ -1,9 +1,9 @@
-import { useApp } from '../context/AppContext';
+import { useThemeMode } from '../context/AppContext';
 
 /**
  * Visual Identity 2.0 colors ("قرطاس أندلسي" by day, "موكا" by night).
- * Values match the approved design canvas. New screens use these instead of
- * hardcoded hex values; older screens move over in the design-system phase.
+ * Values match the approved design canvas. Every screen reads its colors
+ * from here instead of hardcoded hex values.
  */
 export const PALETTE = {
   light: {
@@ -60,7 +60,7 @@ export const PALETTE = {
 
 export type Palette = typeof PALETTE.light;
 
+/** Safe outside AppProvider too (falls back to the light palette there). */
 export function usePalette(): Palette {
-  const { themeMode } = useApp();
-  return themeMode === 'dark' ? PALETTE.dark : PALETTE.light;
+  return useThemeMode() === 'dark' ? PALETTE.dark : PALETTE.light;
 }

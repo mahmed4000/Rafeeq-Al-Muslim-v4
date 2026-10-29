@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, Platform, StyleSheet, TextStyle, StyleProp, I18nManager } from 'react-native';
 import { TOKENS } from '../../constants/tokens';
+import { usePalette } from '../../theme/palette';
 
 export type TextUIVariant =
   | 'h1'
@@ -50,6 +51,7 @@ export const TextUI: React.FC<TextUIProps> = ({
   fontsLoaded = true,
   isRTL = true
 }) => {
+  const p = usePalette();
   const variantToken = variant ? TOKENS.typography[variant] : null;
   const resolvedSize = size ?? variantToken?.fontSize ?? 14;
   const resolvedWeight = weight ?? variantToken?.weight ?? 'regular';
@@ -109,7 +111,7 @@ export const TextUI: React.FC<TextUIProps> = ({
         {
           fontSize: resolvedSize,
           ...(resolvedLineHeight ? { lineHeight: resolvedLineHeight } : {}),
-          color: color || flatStyle.color || '#2D1E16',
+          color: color || flatStyle.color || p.ink,
           textAlign: resolvedAlign,
           fontFamily,
           fontWeight,

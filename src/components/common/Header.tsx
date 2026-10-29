@@ -10,8 +10,6 @@ interface HeaderProps {
   subtitle?: string;
   onBack?: () => void;
   rightAction?: React.ReactNode;
-  /** Ignored: colors come from the palette. Kept so older call sites still compile. */
-  theme?: any;
   isRTL?: boolean;
 }
 

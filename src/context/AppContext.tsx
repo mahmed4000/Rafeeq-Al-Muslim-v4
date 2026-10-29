@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { AppState, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { TOKENS } from '../constants/tokens';
 import { CITIES, City, normalizeCity } from '../constants/cities';
 import { StorageService } from '../services/storage';
 import { cityNow, deviceTimeZone } from '../services/cityTime';
@@ -46,7 +45,6 @@ interface AppContextType {
   goBack: () => void;
   themeMode: 'light' | 'dark';
   setThemeMode: (mode: 'light' | 'dark') => void;
-  theme: typeof TOKENS.colors.light;
   lang: 'ar' | 'en';
   setLang: (lang: 'ar' | 'en') => void;
   t: (ar: string, en: string) => string;
@@ -116,16 +114,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifRev, setNotifRev] = useState(0);
 
   const isRTL = lang === 'ar';
-  const theme = themeMode === 'light' ? TOKENS.colors.light : {
-    ...TOKENS.colors.light,
-    bg: '#1C1511',
-    bgSecondary: '#261E18',
-    surface: '#2A201A',
-    surfaceElevated: '#322620',
-    textPrimary: '#FAF6F0',
-    textSecondary: '#D4C3B3',
-    border: '#3D3028'
-  };
 
   const t = (ar: string, en: string) => (lang === 'ar' ? ar : en);
 
@@ -398,7 +386,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         goBack,
         themeMode,
         setThemeMode,
-        theme,
         lang,
         setLang,
         t,
@@ -443,3 +430,6 @@ export const useApp = () => {
   }
   return context;
 };
+
+/** Theme mode for components that may also render outside the provider (light there). */
+export const useThemeMode = (): 'light' | 'dark' => useContext(AppContext)?.themeMode ?? 'light';
