@@ -211,7 +211,7 @@ export const AzkarSessionScreen: React.FC = () => {
     try {
       triggerHaptic('light');
       await Share.share({
-        message: `${currentItem.ar}\n\n— من تطبيق المصلى`,
+        message: `${currentItem.ar}\n\n— من تطبيق رفيق المسلم`,
         title: category.titleAr
       });
     } catch (err) {}
