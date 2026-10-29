@@ -71,11 +71,11 @@
       "expo-font",
       "expo-router"
     ],
+    "owner": "mahmed4000",
     "extra": {
       "eas": {
-        "projectId": "4dd7909f-a0b8-4985-8ec5-dd25ace9babc"
+        "projectId": "52fa8569-b438-4ca1-9f01-de894689a90b"
       }
-    },
-    "owner": "saudiavisa2023"
+    }
   }
 }
