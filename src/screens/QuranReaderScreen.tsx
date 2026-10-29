@@ -31,9 +31,10 @@ import {
   saveSelectedTafsirId,
   DEFAULT_TAFSIR_ID
 } from '../services/tafsirService';
-import { TOKENS, makeShadow } from '../constants/tokens';
+import { makeShadow } from '../constants/tokens';
 import { useScreenParams } from '../navigation/routes';
 import { KhatmaService } from '../services/khatmaService';
+import { usePalette } from '../theme/palette';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 let allQuranVersesCache: QuranVerse[] | null = null;
@@ -67,7 +68,6 @@ export const SCROLL_SPEED_OPTIONS = [
 export const QuranReaderScreen: React.FC = () => {
   const {
     goBack,
-    theme,
     themeMode,
     t,
     selectedSurah,
@@ -80,9 +80,9 @@ export const QuranReaderScreen: React.FC = () => {
   } = useApp();
   const screenParams = useScreenParams();
 
-  const c = theme;
-  const tafsirCardBgColor = themeMode === 'light' ? TOKENS.colors.light.tafsirCardBg : TOKENS.colors.dark.tafsirCardBg;
-  const tafsirBorderColor = themeMode === 'light' ? TOKENS.colors.light.tafsirBorder : TOKENS.colors.dark.tafsirBorder;
+  const p = usePalette();
+  const tafsirCardBgColor = p.soft;
+  const tafsirBorderColor = p.border;
   // Opened from a link (or after a reload) the context may not hold the surah yet.
   const currentSurah = selectedSurah ||
     QURAN_DATA.find((item) => item.id === screenParams?.startSurahId) || QURAN_DATA[0];
@@ -956,7 +956,7 @@ export const QuranReaderScreen: React.FC = () => {
     if (rule.includes('ikhfa') || rule.includes('ghunnah') || rule.includes('idgham')) return '#438B63';
     if (rule.includes('iqlab')) return '#D47732';
     if (rule.includes('madda')) return '#C84D3D';
-    return c.textPrimary;
+    return p.ink;
   };
 
   const renderTajweedText = (markup: string, keyPrefix: string) => {
@@ -995,7 +995,7 @@ export const QuranReaderScreen: React.FC = () => {
         key={`${keyPrefix}-tj-${index}`}
         style={{
           fontFamily: 'Amiri_400Regular',
-          color: token.rule ? tajweedColor(token.rule) : c.textPrimary,
+          color: token.rule ? tajweedColor(token.rule) : p.ink,
         }}
       >
         {token.text}
@@ -1012,7 +1012,7 @@ export const QuranReaderScreen: React.FC = () => {
           style={{
             fontFamily: 'Amiri_700Bold',
             fontSize: Math.round(effectiveSize * 0.95),
-            color: isPlaying ? TOKENS.colors.primaryDark : TOKENS.colors.primary,
+            color: isPlaying ? p.primaryInk : p.primary,
           }}
         >
           {` ﴿${arabicNumber}﴾ `}
@@ -1044,7 +1044,7 @@ export const QuranReaderScreen: React.FC = () => {
             position: 'absolute',
             fontFamily: 'Amiri_400Regular',
             fontSize: rosetteSize,
-            color: isPlaying ? TOKENS.colors.primaryDark : TOKENS.colors.primary,
+            color: isPlaying ? p.primaryInk : p.primary,
             textAlign: 'center',
             includeFontPadding: false,
           }}
@@ -1067,7 +1067,7 @@ export const QuranReaderScreen: React.FC = () => {
             style={{
               fontFamily: 'Amiri_700Bold',
               fontSize: numSize,
-              color: isPlaying ? TOKENS.colors.primaryDark : c.textPrimary,
+              color: isPlaying ? p.primaryInk : p.ink,
               textAlign: 'center',
               includeFontPadding: false,
             }}
@@ -1090,7 +1090,7 @@ export const QuranReaderScreen: React.FC = () => {
           style={{
             fontFamily: 'Amiri_400Regular',
             fontSize: quranFontSize,
-            color: c.textPrimary,
+            color: p.ink,
             backgroundColor: isPlaying
               ? 'rgba(198, 146, 85, 0.35)'
               : isMarked
@@ -1121,22 +1121,22 @@ export const QuranReaderScreen: React.FC = () => {
         <Image
           source={require('../../assets/surah-frame-ornament.png')}
           resizeMode="stretch"
-          style={{ width: 48, height: 59, tintColor: c.textSecondary, transform: [{ scaleX: mirrored ? -1 : 1 }] }}
+          style={{ width: 48, height: 59, tintColor: p.muted, transform: [{ scaleX: mirrored ? -1 : 1 }] }}
         />
       </View>
     );
 
     return (
-      <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 9, marginTop: topOffset, marginBottom: 9, minHeight: 58, paddingHorizontal: 43, borderWidth: 1.5, borderColor: c.textSecondary, backgroundColor: c.surface }}>
+      <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 9, marginTop: topOffset, marginBottom: 9, minHeight: 58, paddingHorizontal: 43, borderWidth: 1.5, borderColor: p.muted, backgroundColor: p.surface }}>
         {ornament(false)}
-        <TextUI quran align="center" size={29} weight="bold" color={c.textPrimary} numberOfLines={1} style={{ flex: 1, textAlign: 'center', lineHeight: 48 }}>سُورَةُ {surahName}</TextUI>
+        <TextUI quran align="center" size={29} weight="bold" color={p.ink} numberOfLines={1} style={{ flex: 1, textAlign: 'center', lineHeight: 48 }}>سُورَةُ {surahName}</TextUI>
         {ornament(true)}
       </View>
     );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
       {isImmersive && (
         <TouchableOpacity
           activeOpacity={0.85}
@@ -1157,15 +1157,15 @@ export const QuranReaderScreen: React.FC = () => {
             paddingVertical: 7,
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: c.border,
+            borderColor: p.border,
             ...makeShadow('0 2px 10px rgba(0,0,0,0.1)', '#000', 0.1, 4)
           }}
         >
-          <Feather name="minimize-2" size={13} color={TOKENS.colors.primary} />
-          <TextUI size={12} weight="bold" color={c.textPrimary}>
+          <Feather name="minimize-2" size={13} color={p.primary} />
+          <TextUI size={12} weight="bold" color={p.ink}>
             سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}
           </TextUI>
-          <TextUI size={10.5} color={c.textSecondary}>
+          <TextUI size={10.5} color={p.muted}>
             (انقر للخروج)
           </TextUI>
         </TouchableOpacity>
@@ -1173,7 +1173,7 @@ export const QuranReaderScreen: React.FC = () => {
 
       {!isImmersive && (
         <>
-          <View style={{ minHeight: Platform.OS === 'ios' ? 98 : 54, paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 60 : (Platform.OS === 'web' ? 46 : 14), paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.surface, borderBottomWidth: 1, borderColor: c.border }}>
+          <View style={{ minHeight: Platform.OS === 'ios' ? 98 : 54, paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 60 : (Platform.OS === 'web' ? 46 : 14), paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
         {/* زر رجوع واضح وكبير بالاسم والأيقونة */}
         <TouchableOpacity 
           onPress={goBack} 
@@ -1187,13 +1187,13 @@ export const QuranReaderScreen: React.FC = () => {
             paddingHorizontal: 10, 
             paddingVertical: 6, 
             borderRadius: 20, 
-            backgroundColor: c.bgSecondary,
+            backgroundColor: p.bgAlt,
             borderWidth: 1,
-            borderColor: c.border
+            borderColor: p.border
           }}
         >
-          <Feather name="arrow-right" size={17} color={TOKENS.colors.primary} />
-          <TextUI size={13} weight="bold" color={TOKENS.colors.primary}>رجوع</TextUI>
+          <Feather name="arrow-right" size={17} color={p.primary} />
+          <TextUI size={13} weight="bold" color={p.primary}>رجوع</TextUI>
         </TouchableOpacity>
 
         {/* Center: Mode Switcher Dropdown [ 📖 المصحف الشريف ⌄ ] / [ 📚 التفسير والتدبر ⌄ ] */}
@@ -1208,18 +1208,18 @@ export const QuranReaderScreen: React.FC = () => {
             paddingHorizontal: 12,
             paddingVertical: 6,
             borderRadius: 20,
-            backgroundColor: readingMode === 'tafsir' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A') : c.bgSecondary,
+            backgroundColor: readingMode === 'tafsir' ? p.soft : p.bgAlt,
             borderWidth: 1,
-            borderColor: readingMode === 'tafsir' ? TOKENS.colors.primary : c.border
+            borderColor: readingMode === 'tafsir' ? p.primary : p.border
           }}
         >
           <TextUI size={13}>
             {readingMode === 'tafsir' ? '📚' : (readingMode === 'surah' ? '📜' : '📖')}
           </TextUI>
-          <TextUI size={12} weight="bold" color={readingMode === 'tafsir' ? TOKENS.colors.primaryDark : c.textPrimary}>
+          <TextUI size={12} weight="bold" color={readingMode === 'tafsir' ? p.primaryInk : p.ink}>
             {readingMode === 'tafsir' ? 'التفسير والتدبر' : (readingMode === 'surah' ? 'عرض السورة' : 'المصحف الشريف')}
           </TextUI>
-          <Feather name="chevron-down" size={12} color={readingMode === 'tafsir' ? TOKENS.colors.primaryDark : c.textSecondary} />
+          <Feather name="chevron-down" size={12} color={readingMode === 'tafsir' ? p.primaryInk : p.muted} />
         </TouchableOpacity>
 
         {/* Action icons: Font size [Tt], Audio Play/Pause, Reciter */}
@@ -1233,14 +1233,14 @@ export const QuranReaderScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: c.bgSecondary,
+              backgroundColor: p.bgAlt,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <TextUI size={12} weight="bold" color={c.textPrimary}>Tt</TextUI>
+            <TextUI size={12} weight="bold" color={p.ink}>Tt</TextUI>
           </TouchableOpacity>
 
           {/* Quick Audio Play / Pause */}
@@ -1252,20 +1252,20 @@ export const QuranReaderScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: isAudioPlaying ? TOKENS.colors.primary : c.bgSecondary,
+              backgroundColor: isAudioPlaying ? p.primary : p.bgAlt,
               borderWidth: 1,
-              borderColor: isAudioPlaying ? TOKENS.colors.primary : c.border,
+              borderColor: isAudioPlaying ? p.primary : p.border,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
             {isAudioLoading ? (
-              <ActivityIndicator size="small" color={isAudioPlaying ? '#FFFFFF' : TOKENS.colors.primary} />
+              <ActivityIndicator size="small" color={isAudioPlaying ? p.onPrimary : p.primary} />
             ) : (
               <Feather
                 name={isAudioPlaying ? 'pause' : 'play'}
                 size={14}
-                color={isAudioPlaying ? '#FFFFFF' : TOKENS.colors.primary}
+                color={isAudioPlaying ? p.onPrimary : p.primary}
                 style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
               />
             )}
@@ -1280,14 +1280,14 @@ export const QuranReaderScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: c.bgSecondary,
+              backgroundColor: p.bgAlt,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Feather name="mic" size={14} color={TOKENS.colors.primary} />
+            <Feather name="mic" size={14} color={p.primary} />
           </TouchableOpacity>
 
           {/* Immersive Mode Button */}
@@ -1299,21 +1299,21 @@ export const QuranReaderScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: c.bgSecondary,
+              backgroundColor: p.bgAlt,
               borderWidth: 1,
-              borderColor: c.border,
+              borderColor: p.border,
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Feather name="maximize-2" size={13} color={TOKENS.colors.primary} />
+            <Feather name="maximize-2" size={13} color={p.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Sub-header Bar */}
       {readingMode === 'tafsir' ? (
-        <View style={{ paddingHorizontal: 10, paddingVertical: 7, backgroundColor: c.bgSecondary, borderBottomWidth: 1, borderColor: c.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ paddingHorizontal: 10, paddingVertical: 7, backgroundColor: p.bgAlt, borderBottomWidth: 1, borderColor: p.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
             onPress={() => { triggerHaptic('light'); setTafsirPickerVisible(true); }}
             activeOpacity={0.75}
@@ -1324,24 +1324,24 @@ export const QuranReaderScreen: React.FC = () => {
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: 20,
-              backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A',
+              backgroundColor: p.soft,
               borderWidth: 1,
-              borderColor: TOKENS.colors.primary
+              borderColor: p.primary
             }}
           >
-            <Feather name="book-open" size={13} color={TOKENS.colors.primaryDark} />
-            <TextUI size={12} weight="bold" color={TOKENS.colors.primaryDark}>
+            <Feather name="book-open" size={13} color={p.primaryInk} />
+            <TextUI size={12} weight="bold" color={p.primaryInk}>
               {AVAILABLE_TAFSIR_EDITIONS.find((e) => e.id === selectedTafsirId)?.name || 'التفسير الميسر'}
             </TextUI>
-            <Feather name="chevron-down" size={12} color={TOKENS.colors.primaryDark} />
+            <Feather name="chevron-down" size={12} color={p.primaryInk} />
           </TouchableOpacity>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <TouchableOpacity
               onPress={() => openJump('page')}
-              style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
+              style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
-              <TextUI variant="captionBold" color={c.textPrimary}>
+              <TextUI variant="captionBold" color={p.ink}>
                 سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}
               </TextUI>
             </TouchableOpacity>
@@ -1353,7 +1353,7 @@ export const QuranReaderScreen: React.FC = () => {
                 disabled={activePage <= 1}
                 style={{ width: 28, height: 32, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}
               >
-                <Feather name="chevron-right" size={18} color={c.textPrimary} />
+                <Feather name="chevron-right" size={18} color={p.ink} />
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityLabel="الصفحة التالية"
@@ -1361,26 +1361,26 @@ export const QuranReaderScreen: React.FC = () => {
                 disabled={activePage >= QURAN_PAGE_INDEX.length}
                 style={{ width: 28, height: 32, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}
               >
-                <Feather name="chevron-left" size={18} color={c.textPrimary} />
+                <Feather name="chevron-left" size={18} color={p.ink} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
       ) : (
-        <View style={{ paddingHorizontal: 8, paddingVertical: 5, backgroundColor: c.bgSecondary, borderBottomWidth: 1, borderColor: c.border }}>
+        <View style={{ paddingHorizontal: 8, paddingVertical: 5, backgroundColor: p.bgAlt, borderBottomWidth: 1, borderColor: p.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity onPress={() => openJump('surah')} style={{ flex: 1.15, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={c.textPrimary} numberOfLines={1}>سورة {currentSurah.nameAr}</TextUI>
+            <TouchableOpacity onPress={() => openJump('surah')} style={{ flex: 1.15, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+              <TextUI variant="bodyMedium" weight="bold" color={p.ink} numberOfLines={1}>سورة {currentSurah.nameAr}</TextUI>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => openJump('page')} style={{ minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, paddingVertical: 6 }}>
-              <TextUI variant="h4" color={c.textPrimary}>{toArabicNumber(activePage)}</TextUI>
+              <TextUI variant="h4" color={p.ink}>{toArabicNumber(activePage)}</TextUI>
             </TouchableOpacity>
             {readingMode === 'page' ? <View style={{ flexDirection: 'row', gap: 2 }}>
-              <TouchableOpacity accessibilityLabel="الصفحة السابقة" onPress={() => movePage(-1)} disabled={activePage <= 1} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}><Feather name="chevron-right" size={20} color={c.textPrimary} /></TouchableOpacity>
-              <TouchableOpacity accessibilityLabel="الصفحة التالية" onPress={() => movePage(1)} disabled={activePage >= QURAN_PAGE_INDEX.length} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}><Feather name="chevron-left" size={20} color={c.textPrimary} /></TouchableOpacity>
+              <TouchableOpacity accessibilityLabel="الصفحة السابقة" onPress={() => movePage(-1)} disabled={activePage <= 1} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}><Feather name="chevron-right" size={20} color={p.ink} /></TouchableOpacity>
+              <TouchableOpacity accessibilityLabel="الصفحة التالية" onPress={() => movePage(1)} disabled={activePage >= QURAN_PAGE_INDEX.length} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}><Feather name="chevron-left" size={20} color={p.ink} /></TouchableOpacity>
             </View> : null}
-            <TouchableOpacity onPress={() => openJump('juz')} style={{ flex: 1.05, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={c.textPrimary}>الجزء {toArabicNumber(pageItem.juzNumbers[0] || 1)}</TextUI>
+            <TouchableOpacity onPress={() => openJump('juz')} style={{ flex: 1.05, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+              <TextUI variant="bodyMedium" weight="bold" color={p.ink}>الجزء {toArabicNumber(pageItem.juzNumbers[0] || 1)}</TextUI>
             </TouchableOpacity>
           </View>
         </View>
@@ -1390,29 +1390,29 @@ export const QuranReaderScreen: React.FC = () => {
 
       <Modal visible={jumpModalVisible} transparent animationType="fade" onRequestClose={() => setJumpModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.48)', justifyContent: 'center', padding: 22 }}>
-          <View style={{ backgroundColor: c.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: c.border }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><TextUI variant="h4" color={c.textPrimary}>الانتقال إلى موضع</TextUI><TouchableOpacity onPress={() => setJumpModalVisible(false)}><Feather name="x" size={20} color={c.textPrimary} /></TouchableOpacity></View>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 14 }}>{([{ id: 'surah', label: 'سورة' }, { id: 'juz', label: 'جزء' }, { id: 'page', label: 'صفحة' }] as const).map((item) => <TouchableOpacity key={item.id} onPress={() => { setJumpType(item.id); setJumpValue(''); }} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9, backgroundColor: jumpType === item.id ? TOKENS.colors.primary : c.bgSecondary }}><TextUI variant="badge" color={jumpType === item.id ? '#FFFFFF' : c.textPrimary}>{item.label}</TextUI></TouchableOpacity>)}</View>
-            {jumpType === 'page' ? <View><TextInput value={jumpValue} onChangeText={setJumpValue} keyboardType="number-pad" placeholder="رقم الصفحة ١ – ٦٠٤" placeholderTextColor={c.textSecondary} style={{ marginTop: 13, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: c.border, color: c.textPrimary, textAlign: 'center', fontSize: 16 }} /><TouchableOpacity onPress={executeJump} disabled={!jumpValue.trim()} style={{ marginTop: 11, backgroundColor: TOKENS.colors.primary, padding: 12, borderRadius: 10, alignItems: 'center', opacity: jumpValue.trim() ? 1 : 0.45 }}><TextUI variant="badge" color="#FFFFFF">انتقال للصفحة</TextUI></TouchableOpacity></View> : <ScrollView style={{ maxHeight: 420, marginTop: 9 }} keyboardShouldPersistTaps="handled"><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{jumpType === 'surah' ? QURAN_DATA.map((surah: any) => <TouchableOpacity key={`surah-${surah.id}`} onPress={() => { setSelectedSurah(surah); goToPage(surah.mushafPageStart || 1); setReadingMode('page'); setJumpModalVisible(false); }} style={{ width: '48%', minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 6, borderRadius: 9, backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.border }}><TextUI variant="caption" color={c.textSecondary}>{toArabicNumber(surah.id)}</TextUI><TextUI variant="bodyMedium" weight="bold" color={c.textPrimary} numberOfLines={1}>{surah.nameAr}</TextUI></TouchableOpacity>) : QURAN_JUZ_INDEX.map((juz) => <TouchableOpacity key={`juz-${juz.juz}`} onPress={() => { const target = QURAN_DATA.find((surah: any) => surah.id === juz.startSurahId); if (target) setSelectedSurah(target); goToPage(juz.startPage); setReadingMode('page'); setJumpModalVisible(false); }} style={{ width: '48%', minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 6, borderRadius: 9, backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.border }}><TextUI variant="caption" color={c.textSecondary}>{toArabicNumber(juz.juz)}</TextUI><TextUI variant="bodyMedium" weight="bold" color={c.textPrimary}>الجزء {toArabicNumber(juz.juz)}</TextUI></TouchableOpacity>)}</View></ScrollView>}
+          <View style={{ backgroundColor: p.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: p.border }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><TextUI variant="h4" color={p.ink}>الانتقال إلى موضع</TextUI><TouchableOpacity onPress={() => setJumpModalVisible(false)}><Feather name="x" size={20} color={p.ink} /></TouchableOpacity></View>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 14 }}>{([{ id: 'surah', label: 'سورة' }, { id: 'juz', label: 'جزء' }, { id: 'page', label: 'صفحة' }] as const).map((item) => <TouchableOpacity key={item.id} onPress={() => { setJumpType(item.id); setJumpValue(''); }} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9, backgroundColor: jumpType === item.id ? p.primary : p.bgAlt }}><TextUI variant="badge" color={jumpType === item.id ? p.onPrimary : p.ink}>{item.label}</TextUI></TouchableOpacity>)}</View>
+            {jumpType === 'page' ? <View><TextInput value={jumpValue} onChangeText={setJumpValue} keyboardType="number-pad" placeholder="رقم الصفحة ١ – ٦٠٤" placeholderTextColor={p.muted} style={{ marginTop: 13, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: p.border, color: p.ink, textAlign: 'center', fontSize: 16 }} /><TouchableOpacity onPress={executeJump} disabled={!jumpValue.trim()} style={{ marginTop: 11, backgroundColor: p.primary, padding: 12, borderRadius: 10, alignItems: 'center', opacity: jumpValue.trim() ? 1 : 0.45 }}><TextUI variant="badge" color={p.onPrimary}>انتقال للصفحة</TextUI></TouchableOpacity></View> : <ScrollView style={{ maxHeight: 420, marginTop: 9 }} keyboardShouldPersistTaps="handled"><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{jumpType === 'surah' ? QURAN_DATA.map((surah: any) => <TouchableOpacity key={`surah-${surah.id}`} onPress={() => { setSelectedSurah(surah); goToPage(surah.mushafPageStart || 1); setReadingMode('page'); setJumpModalVisible(false); }} style={{ width: '48%', minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 6, borderRadius: 9, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}><TextUI variant="caption" color={p.muted}>{toArabicNumber(surah.id)}</TextUI><TextUI variant="bodyMedium" weight="bold" color={p.ink} numberOfLines={1}>{surah.nameAr}</TextUI></TouchableOpacity>) : QURAN_JUZ_INDEX.map((juz) => <TouchableOpacity key={`juz-${juz.juz}`} onPress={() => { const target = QURAN_DATA.find((surah: any) => surah.id === juz.startSurahId); if (target) setSelectedSurah(target); goToPage(juz.startPage); setReadingMode('page'); setJumpModalVisible(false); }} style={{ width: '48%', minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 6, borderRadius: 9, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}><TextUI variant="caption" color={p.muted}>{toArabicNumber(juz.juz)}</TextUI><TextUI variant="bodyMedium" weight="bold" color={p.ink}>الجزء {toArabicNumber(juz.juz)}</TextUI></TouchableOpacity>)}</View></ScrollView>}
           </View>
         </View>
       </Modal>
 
       {/* In-Surah Search Bar */}
       {isSearching && (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: c.surface, borderBottomWidth: 1, borderColor: c.border }}>
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Feather name="search" size={16} color={c.textSecondary} />
+            <Feather name="search" size={16} color={p.muted} />
             <TextInput
               placeholder={readingMode === 'page' ? 'ابحث عن كلمة أو رقم الآية في الصفحة...' : 'ابحث عن كلمة أو رقم الآية في السورة...'}
-              placeholderTextColor={c.textSecondary}
+              placeholderTextColor={p.muted}
               value={searchWord}
               onChangeText={setSearchWord}
-              style={{ flex: 1, color: c.textPrimary, textAlign: 'right', fontSize: 13 }}
+              style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 13 }}
             />
             {searchWord ? (
               <TouchableOpacity onPress={() => setSearchWord('')}>
-                <Feather name="x" size={16} color={c.textSecondary} />
+                <Feather name="x" size={16} color={p.muted} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1464,7 +1464,7 @@ export const QuranReaderScreen: React.FC = () => {
           onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
           onResponderRelease={() => setReaderControlsVisible((visible) => !visible)}
           style={{
-            backgroundColor: c.surface,
+            backgroundColor: p.surface,
             paddingHorizontal: 8,
             paddingVertical: 4,
             minHeight: '100%',
@@ -1491,18 +1491,18 @@ export const QuranReaderScreen: React.FC = () => {
                   <View key={`page-${pageNumber}-surah-${surah.id}`}>
                     {section.startAyah === 1 ? (
                       renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
-                    ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={TOKENS.colors.primary} style={{ textAlign: 'center', marginBottom: 6 }}>سورة {surah.nameAr}</TextUI> : null}
-                    {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={TOKENS.colors.primaryDark} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
-                    <TextUI quran align="center" size={quranFontSize} color={c.textPrimary} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
+                    ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>سورة {surah.nameAr}</TextUI> : null}
+                    {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
+                    <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
                   </View>
                 );
               })}
               <View accessibilityLabel={`نهاية الصفحة ${toArabicNumber(pageNumber)}`} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
-                <TextUI quran size={24} color={c.textSecondary} style={{ paddingHorizontal: 7 }}>❧</TextUI>
-                <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: c.border, borderRadius: 22, backgroundColor: c.bgSecondary }}><TextUI quran size={22} weight="bold" color={c.textPrimary}>{toArabicNumber(pageNumber)}</TextUI></View>
-                <TextUI quran size={24} color={c.textSecondary} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
-                <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
+                <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+                <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
+                <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicNumber(pageNumber)}</TextUI></View>
+                <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
+                <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
               </View>
             </View>;
           }) : readingMode === 'tafsir' ? (
@@ -1519,20 +1519,20 @@ export const QuranReaderScreen: React.FC = () => {
                   <View
                     key={`tafsir-stream-${verse.surahId}-${verse.ayahNumber}`}
                     style={{
-                      backgroundColor: c.surface,
+                      backgroundColor: p.surface,
                       borderRadius: 16,
                       marginBottom: 14,
                       padding: 14,
                       borderWidth: 1,
-                      borderColor: isPlaying ? TOKENS.colors.primary : c.border,
+                      borderColor: isPlaying ? p.primary : p.border,
                       ...makeShadow('0 2px 8px rgba(0,0,0,0.04)', '#000', 0.04, 3)
                     }}
                   >
                     {/* Header of Ayah: Surah + Ayah number + quick actions */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderColor: c.border }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderColor: p.border }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: TOKENS.colors.primary }} />
-                        <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.primary }} />
+                        <TextUI size={12} weight="bold" color={p.primary}>
                           سورة {verseSurah.nameAr} • الآية {toArabicNumber(verse.ayahNumber)}
                         </TextUI>
                       </View>
@@ -1552,13 +1552,13 @@ export const QuranReaderScreen: React.FC = () => {
                             paddingHorizontal: 8,
                             paddingVertical: 4,
                             borderRadius: 10,
-                            backgroundColor: isPlaying ? TOKENS.colors.primary : c.bgSecondary,
+                            backgroundColor: isPlaying ? p.primary : p.bgAlt,
                             borderWidth: 1,
-                            borderColor: isPlaying ? TOKENS.colors.primary : c.border
+                            borderColor: isPlaying ? p.primary : p.border
                           }}
                         >
-                          <Feather name={isPlaying ? 'pause' : 'play'} size={12} color={isPlaying ? '#FFFFFF' : TOKENS.colors.primary} />
-                          <TextUI size={10.5} weight="bold" color={isPlaying ? '#FFFFFF' : c.textPrimary}>
+                          <Feather name={isPlaying ? 'pause' : 'play'} size={12} color={isPlaying ? p.onPrimary : p.primary} />
+                          <TextUI size={10.5} weight="bold" color={isPlaying ? p.onPrimary : p.ink}>
                             {isPlaying ? 'إيقاف' : 'استماع'}
                           </TextUI>
                         </TouchableOpacity>
@@ -1570,12 +1570,12 @@ export const QuranReaderScreen: React.FC = () => {
                           style={{
                             padding: 5,
                             borderRadius: 10,
-                            backgroundColor: isMarked ? 'rgba(212, 163, 115, 0.25)' : c.bgSecondary,
+                            backgroundColor: isMarked ? 'rgba(212, 163, 115, 0.25)' : p.bgAlt,
                             borderWidth: 1,
-                            borderColor: isMarked ? TOKENS.colors.primary : c.border
+                            borderColor: isMarked ? p.primary : p.border
                           }}
                         >
-                          <Feather name="bookmark" size={13} color={isMarked ? TOKENS.colors.primaryDark : c.textSecondary} />
+                          <Feather name="bookmark" size={13} color={isMarked ? p.primaryInk : p.muted} />
                         </TouchableOpacity>
 
                         {/* Direct Share Ayah & Tafsir */}
@@ -1589,13 +1589,13 @@ export const QuranReaderScreen: React.FC = () => {
                             paddingHorizontal: 8,
                             paddingVertical: 4,
                             borderRadius: 10,
-                            backgroundColor: c.bgSecondary,
+                            backgroundColor: p.bgAlt,
                             borderWidth: 1,
-                            borderColor: c.border
+                            borderColor: p.border
                           }}
                         >
-                          <Feather name="share-2" size={12} color={c.textSecondary} />
-                          <TextUI size={10.5} color={c.textSecondary}>
+                          <Feather name="share-2" size={12} color={p.muted} />
+                          <TextUI size={10.5} color={p.muted}>
                             مشاركة
                           </TextUI>
                         </TouchableOpacity>
@@ -1608,7 +1608,7 @@ export const QuranReaderScreen: React.FC = () => {
                         quran
                         align="center"
                         size={quranFontSize}
-                        color={c.textPrimary}
+                        color={p.ink}
                         style={{ lineHeight: Math.round(quranFontSize * 2), textAlign: 'center' }}
                       >
                         {verse.text}
@@ -1628,10 +1628,10 @@ export const QuranReaderScreen: React.FC = () => {
                         borderColor: tafsirBorderColor
                       }}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderColor: c.border }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderColor: p.border }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                          <Feather name="book" size={12} color={TOKENS.colors.primaryDark} />
-                          <TextUI size={11} weight="bold" color={TOKENS.colors.primaryDark}>
+                          <Feather name="book" size={12} color={p.primaryInk} />
+                          <TextUI size={11} weight="bold" color={p.primaryInk}>
                             {AVAILABLE_TAFSIR_EDITIONS.find((e) => e.id === selectedTafsirId)?.name || 'التفسير الميسر'}
                           </TextUI>
                         </View>
@@ -1640,7 +1640,7 @@ export const QuranReaderScreen: React.FC = () => {
                           onPress={() => shareAyahTafsir(verse, tafsirContent)}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
-                          <TextUI size={10.5} weight="bold" color={TOKENS.colors.primary}>
+                          <TextUI size={10.5} weight="bold" color={p.primary}>
                             مشاركة التفسير ↗
                           </TextUI>
                         </TouchableOpacity>
@@ -1648,13 +1648,13 @@ export const QuranReaderScreen: React.FC = () => {
 
                       {isLoadingTafsir ? (
                         <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          <ActivityIndicator size="small" color={TOKENS.colors.primary} />
-                          <TextUI size={11} color={c.textSecondary}>جارِ جلب التفسير المعتمد...</TextUI>
+                          <ActivityIndicator size="small" color={p.primary} />
+                          <TextUI size={11} color={p.muted}>جارِ جلب التفسير المعتمد...</TextUI>
                         </View>
                       ) : tafsirContent ? (
                         <TextUI
                           size={tafsirFontSize}
-                          color={c.textPrimary}
+                          color={p.ink}
                           style={{ lineHeight: Math.round(tafsirFontSize * 1.65), textAlign: 'right' }}
                         >
                           {tafsirContent}
@@ -1671,7 +1671,7 @@ export const QuranReaderScreen: React.FC = () => {
                           }}
                           style={{ paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }}
                         >
-                          <TextUI size={11} color={TOKENS.colors.primary} weight="bold">
+                          <TextUI size={11} color={p.primary} weight="bold">
                             اضغط لتحميل التفسير ↻
                           </TextUI>
                         </TouchableOpacity>
@@ -1682,7 +1682,7 @@ export const QuranReaderScreen: React.FC = () => {
               })}
             </View>
           ) : (
-            <TextUI quran align="center" size={quranFontSize} color={c.textPrimary} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
+            <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
           )}
         </View>
 
@@ -1690,21 +1690,21 @@ export const QuranReaderScreen: React.FC = () => {
         {readingMode === 'surah' && currentSurah.tafsir ? (
           <View
             style={{
-              backgroundColor: themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A',
+              backgroundColor: p.soft,
               borderRadius: 16,
               padding: 16,
               borderWidth: 1,
-              borderColor: TOKENS.colors.primary,
+              borderColor: p.primary,
               marginBottom: 20
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <Feather name="book" size={16} color={TOKENS.colors.primaryDark} />
-              <TextUI size={14} weight="bold" color={TOKENS.colors.primaryDark}>
+              <Feather name="book" size={16} color={p.primaryInk} />
+              <TextUI size={14} weight="bold" color={p.primaryInk}>
                 {t('مقاصد وتفسير السورة الميسر', 'Surah Objectives & Tafsir')}
               </TextUI>
             </View>
-            <TextUI size={13} color={c.textPrimary} style={{ lineHeight: 22 }}>
+            <TextUI size={13} color={p.ink} style={{ lineHeight: 22 }}>
               {currentSurah.tafsir}
             </TextUI>
           </View>
@@ -1721,15 +1721,15 @@ export const QuranReaderScreen: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              backgroundColor: c.surface,
+              backgroundColor: p.surface,
               paddingVertical: 14,
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: c.border
+              borderColor: p.border
             }}
           >
-            <Feather name="arrow-right" size={16} color={c.textPrimary} />
-            <TextUI size={13} weight="bold" color={c.textPrimary}>
+            <Feather name="arrow-right" size={16} color={p.ink} />
+            <TextUI size={13} weight="bold" color={p.ink}>
               السورة السابقة
             </TextUI>
           </TouchableOpacity>
@@ -1743,15 +1743,15 @@ export const QuranReaderScreen: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              backgroundColor: TOKENS.colors.primary,
+              backgroundColor: p.primary,
               paddingVertical: 14,
               borderRadius: 14
             }}
           >
-            <TextUI size={13} weight="bold" color="#FFFFFF">
+            <TextUI size={13} weight="bold" color={p.onPrimary}>
               السورة التالية
             </TextUI>
-            <Feather name="arrow-left" size={16} color="#FFFFFF" />
+            <Feather name="arrow-left" size={16} color={p.onPrimary} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1766,9 +1766,9 @@ export const QuranReaderScreen: React.FC = () => {
             paddingHorizontal: 14,
             paddingTop: 8,
             paddingBottom: Platform.OS === 'ios' ? 34 : 12,
-            backgroundColor: c.surfaceElevated,
+            backgroundColor: p.surface,
             borderTopWidth: 1,
-            borderColor: c.border,
+            borderColor: p.border,
             ...makeShadow('0 -6px 20px rgba(0,0,0,0.12)', '#000', 0.12, 8)
           }}
         >
@@ -1779,18 +1779,18 @@ export const QuranReaderScreen: React.FC = () => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: themeMode === 'light' ? '#F7F2EA' : '#231E18',
+                backgroundColor: p.bgAlt,
                 borderRadius: 12,
                 paddingHorizontal: 8,
                 paddingVertical: 6,
                 marginBottom: 8,
                 borderWidth: 1,
-                borderColor: themeMode === 'light' ? '#E8DFD3' : '#3A3228'
+                borderColor: p.border
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Feather name="chevrons-down" size={15} color={TOKENS.colors.primary} />
-                <TextUI size={11} weight="bold" color={TOKENS.colors.primary}>
+                <Feather name="chevrons-down" size={15} color={p.primary} />
+                <TextUI size={11} weight="bold" color={p.primary}>
                   سرعة التمرير:
                 </TextUI>
               </View>
@@ -1810,15 +1810,15 @@ export const QuranReaderScreen: React.FC = () => {
                         paddingHorizontal: 7,
                         paddingVertical: 3,
                         borderRadius: 8,
-                        backgroundColor: isSelected ? TOKENS.colors.primary : (themeMode === 'light' ? '#FFFFFF' : '#2D261E'),
+                        backgroundColor: isSelected ? p.primary : p.surface,
                         borderWidth: 1,
-                        borderColor: isSelected ? TOKENS.colors.primary : c.border
+                        borderColor: isSelected ? p.primary : p.border
                       }}
                     >
                       <TextUI
                         size={10.5}
                         weight={isSelected ? 'bold' : 'medium'}
-                        color={isSelected ? '#FFFFFF' : c.textSecondary}
+                        color={isSelected ? p.onPrimary : p.muted}
                       >
                         {opt.label}
                       </TextUI>
@@ -1837,10 +1837,10 @@ export const QuranReaderScreen: React.FC = () => {
                   paddingHorizontal: 7,
                   paddingVertical: 3,
                   borderRadius: 8,
-                  backgroundColor: themeMode === 'light' ? '#FEE2E2' : '#451A1A'
+                  backgroundColor: p.dangerBg
                 }}
               >
-                <TextUI size={10.5} weight="bold" color="#DC2626">
+                <TextUI size={10.5} weight="bold" color={p.danger}>
                   إيقاف
                 </TextUI>
               </TouchableOpacity>
@@ -1859,8 +1859,8 @@ export const QuranReaderScreen: React.FC = () => {
           >
             {/* Elapsed Time (الوقت الذي خلص) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Feather name="clock" size={11} color={TOKENS.colors.primary} />
-              <TextUI size={11} weight="bold" color={c.textPrimary}>
+              <Feather name="clock" size={11} color={p.primary} />
+              <TextUI size={11} weight="bold" color={p.ink}>
                 {formatAudioTime(surahElapsedSeconds)}
               </TextUI>
             </View>
@@ -1871,22 +1871,22 @@ export const QuranReaderScreen: React.FC = () => {
                 paddingHorizontal: 8,
                 paddingVertical: 2,
                 borderRadius: 10,
-                backgroundColor: c.bgSecondary,
+                backgroundColor: p.bgAlt,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <TextUI size={10.5} weight="bold" color={TOKENS.colors.primary}>
+              <TextUI size={10.5} weight="bold" color={p.primary}>
                 {`سورة ${currentSurah.nameAr} • الآية ${toArabicNumber(currentAyahNum)} من ${toArabicNumber(totalSurahVerses)}`}
               </TextUI>
             </View>
 
             {/* Remaining Time (الوقت المتبقي) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <TextUI size={10.5} color={c.textSecondary}>
+              <TextUI size={10.5} color={p.muted}>
                 متبقي:
               </TextUI>
-              <TextUI size={11} weight="bold" color={c.textSecondary}>
+              <TextUI size={11} weight="bold" color={p.muted}>
                 {`-${formatAudioTime(surahRemainingSeconds)}`}
               </TextUI>
             </View>
@@ -1904,11 +1904,11 @@ export const QuranReaderScreen: React.FC = () => {
             hitSlop={{ top: 8, bottom: 8 }}
             style={{ height: 14, justifyContent: 'center', marginBottom: 6 }}
           >
-            <View style={{ height: 5, borderRadius: 2.5, backgroundColor: c.border, overflow: 'hidden' }}>
+            <View style={{ height: 5, borderRadius: 2.5, backgroundColor: p.border, overflow: 'hidden' }}>
               <View
                 style={{
                   height: 5,
-                  backgroundColor: TOKENS.colors.primary,
+                  backgroundColor: p.primary,
                   width: `${Math.min(100, Math.max(0, surahProgressRatio * 100))}%`,
                   borderRadius: 2.5
                 }}
@@ -1937,16 +1937,16 @@ export const QuranReaderScreen: React.FC = () => {
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 borderRadius: 10,
-                backgroundColor: c.bgSecondary,
+                backgroundColor: p.bgAlt,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <Feather name="mic" size={12} color={TOKENS.colors.primary} />
-              <TextUI size={11} weight="medium" color={c.textPrimary} numberOfLines={1}>
+              <Feather name="mic" size={12} color={p.primary} />
+              <TextUI size={11} weight="medium" color={p.ink} numberOfLines={1}>
                 {currentReciterObj.nameAr}
               </TextUI>
-              <Feather name="chevron-down" size={11} color={c.textSecondary} />
+              <Feather name="chevron-down" size={11} color={p.muted} />
             </TouchableOpacity>
 
             {/* Left: Auto-scroll, Bookmark, Stop */}
@@ -1964,20 +1964,20 @@ export const QuranReaderScreen: React.FC = () => {
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                   borderRadius: 10,
-                  backgroundColor: autoScroll ? TOKENS.colors.primaryLight : c.bgSecondary,
+                  backgroundColor: autoScroll ? p.soft : p.bgAlt,
                   borderWidth: 1,
-                  borderColor: autoScroll ? TOKENS.colors.primary : c.border
+                  borderColor: autoScroll ? p.primary : p.border
                 }}
               >
                 <Feather
                   name="chevrons-down"
                   size={13}
-                  color={autoScroll ? TOKENS.colors.primary : c.textSecondary}
+                  color={autoScroll ? p.primary : p.muted}
                 />
                 <TextUI
                   size={10.5}
                   weight={autoScroll ? 'bold' : 'regular'}
-                  color={autoScroll ? TOKENS.colors.primary : c.textSecondary}
+                  color={autoScroll ? p.primary : p.muted}
                 >
                   {autoScroll ? `تمرير (${SCROLL_SPEED_OPTIONS[scrollSpeedIndex]?.label || '١×'})` : 'تمرير'}
                 </TextUI>
@@ -1990,14 +1990,14 @@ export const QuranReaderScreen: React.FC = () => {
                   width: 30,
                   height: 30,
                   borderRadius: 15,
-                  backgroundColor: c.bgSecondary,
+                  backgroundColor: p.bgAlt,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}
               >
-                <Feather name="bookmark" size={14} color={TOKENS.colors.secondary} />
+                <Feather name="bookmark" size={14} color={p.accentInk} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2007,14 +2007,14 @@ export const QuranReaderScreen: React.FC = () => {
                   width: 30,
                   height: 30,
                   borderRadius: 15,
-                  backgroundColor: c.bgSecondary,
+                  backgroundColor: p.bgAlt,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}
               >
-                <Feather name="x" size={14} color={c.textSecondary} />
+                <Feather name="x" size={14} color={p.muted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -2038,12 +2038,12 @@ export const QuranReaderScreen: React.FC = () => {
                 width: 42,
                 height: 42,
                 borderRadius: 21,
-                backgroundColor: c.bgSecondary,
+                backgroundColor: p.bgAlt,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <Feather name="sliders" size={18} color={c.textPrimary} />
+              <Feather name="sliders" size={18} color={p.ink} />
             </TouchableOpacity>
 
             {/* Previous Ayah Button */}
@@ -2056,12 +2056,12 @@ export const QuranReaderScreen: React.FC = () => {
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: c.bgSecondary,
+                backgroundColor: p.bgAlt,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <Feather name="skip-back" size={20} color={c.textPrimary} />
+              <Feather name="skip-back" size={20} color={p.ink} />
             </TouchableOpacity>
 
             {/* Center: Primary Play / Pause Button */}
@@ -2073,19 +2073,19 @@ export const QuranReaderScreen: React.FC = () => {
                 width: 54,
                 height: 54,
                 borderRadius: 27,
-                backgroundColor: TOKENS.colors.primary,
+                backgroundColor: p.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
-                ...makeShadow('0 4px 12px rgba(140,94,60,0.35)', TOKENS.colors.primary, 0.35, 6)
+                ...makeShadow('0 4px 12px rgba(140,94,60,0.35)', p.primary, 0.35, 6)
               }}
             >
               {isAudioLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={p.onPrimary} />
               ) : (
                 <Feather
                   name={isAudioPlaying ? 'pause' : 'play'}
                   size={26}
-                  color="#FFFFFF"
+                  color={p.onPrimary}
                   style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
                 />
               )}
@@ -2101,12 +2101,12 @@ export const QuranReaderScreen: React.FC = () => {
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: c.bgSecondary,
+                backgroundColor: p.bgAlt,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <Feather name="skip-forward" size={20} color={c.textPrimary} />
+              <Feather name="skip-forward" size={20} color={p.ink} />
             </TouchableOpacity>
 
             {/* Direct Playback Speed Toggle Button (1x, 1.25x, 1.5x, 2x) */}
@@ -2119,15 +2119,15 @@ export const QuranReaderScreen: React.FC = () => {
                 paddingHorizontal: 10,
                 height: 42,
                 borderRadius: 21,
-                backgroundColor: (playbackSettings.speed && playbackSettings.speed > 1) ? TOKENS.colors.primary : c.bgSecondary,
+                backgroundColor: (playbackSettings.speed && playbackSettings.speed > 1) ? p.primary : p.bgAlt,
                 borderWidth: 1,
-                borderColor: (playbackSettings.speed && playbackSettings.speed > 1) ? TOKENS.colors.primary : c.border
+                borderColor: (playbackSettings.speed && playbackSettings.speed > 1) ? p.primary : p.border
               }}
             >
               <TextUI
                 size={12.5}
                 weight="bold"
-                color={(playbackSettings.speed && playbackSettings.speed > 1) ? '#FFFFFF' : c.textPrimary}
+                color={(playbackSettings.speed && playbackSettings.speed > 1) ? p.onPrimary : p.ink}
               >
                 {`${playbackSettings.speed || 1}×`}
               </TextUI>
@@ -2138,16 +2138,16 @@ export const QuranReaderScreen: React.FC = () => {
 
       <Modal visible={playbackSettingsVisible} animationType="slide" transparent onRequestClose={() => setPlaybackSettingsVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.48)', justifyContent: 'flex-end' }}>
-          <View style={{ maxHeight: '88%', backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}><View><TextUI size={18} weight="bold" color={c.textPrimary}>إعدادات التلاوة</TextUI><TextUI size={11} color={c.textSecondary} style={{ marginTop: 3 }}>اختر النطاق وطريقة التكرار والسرعة</TextUI></View><TouchableOpacity onPress={() => setPlaybackSettingsVisible(false)}><Feather name="x" size={21} color={c.textPrimary} /></TouchableOpacity></View>
+          <View style={{ maxHeight: '88%', backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}><View><TextUI size={18} weight="bold" color={p.ink}>إعدادات التلاوة</TextUI><TextUI size={11} color={p.muted} style={{ marginTop: 3 }}>اختر النطاق وطريقة التكرار والسرعة</TextUI></View><TouchableOpacity onPress={() => setPlaybackSettingsVisible(false)}><Feather name="x" size={21} color={p.ink} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-              <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 10 }}>
-                <TextUI size={14} weight="bold" color={c.textPrimary}>نطاق التلاوة</TextUI>
-                <TextUI size={11} color={c.textSecondary} style={{ marginTop: 3, marginBottom: 11 }}>يبدأ من الآية المحددة ويتابع حتى نهاية النطاق.</TextUI>
+              <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10 }}>
+                <TextUI size={14} weight="bold" color={p.ink}>نطاق التلاوة</TextUI>
+                <TextUI size={11} color={p.muted} style={{ marginTop: 3, marginBottom: 11 }}>يبدأ من الآية المحددة ويتابع حتى نهاية النطاق.</TextUI>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
                   {([{ id: 'page', label: 'الصفحة' }, { id: 'surah', label: 'السورة' }, { id: 'juz', label: 'الجزء' }, { id: 'quran', label: 'القرآن كاملًا' }] as const).map((item) => {
                     const active = playbackSettings.range === item.id;
-                    return <TouchableOpacity key={item.id} onPress={() => updatePlaybackSettings({ range: item.id })} style={{ paddingHorizontal: 13, paddingVertical: 9, borderRadius: 11, backgroundColor: active ? TOKENS.colors.primary : c.bgSecondary }}><TextUI size={12} weight="bold" color={active ? '#FFFFFF' : c.textPrimary}>{item.label}</TextUI></TouchableOpacity>;
+                    return <TouchableOpacity key={item.id} onPress={() => updatePlaybackSettings({ range: item.id })} style={{ paddingHorizontal: 13, paddingVertical: 9, borderRadius: 11, backgroundColor: active ? p.primary : p.bgAlt }}><TextUI size={12} weight="bold" color={active ? p.onPrimary : p.ink}>{item.label}</TextUI></TouchableOpacity>;
                   })}
                 </View>
               </View>
@@ -2155,22 +2155,22 @@ export const QuranReaderScreen: React.FC = () => {
               {([
                 { key: 'rangeRepeats' as const, label: 'تكرار النطاق', helper: 'عدد مرات تشغيل النطاق بما فيها المرة الأولى' },
                 { key: 'ayahRepeats' as const, label: 'تكرار كل آية', helper: 'عدد مرات تشغيل الآية قبل الانتقال' }
-              ]).map((item) => <View key={item.key} style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}><TextUI size={13} weight="bold" color={c.textPrimary}>{item.label}</TextUI><TextUI size={10} color={c.textSecondary} style={{ marginTop: 3 }}>{item.helper}</TextUI></View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><TouchableOpacity onPress={() => updatePlaybackSettings({ [item.key]: Math.max(1, playbackSettings[item.key] - 1) })} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' }}><Feather name="minus" size={15} color={c.textPrimary} /></TouchableOpacity><TextUI size={13} weight="bold" color={TOKENS.colors.primary}>{toArabicNumber(playbackSettings[item.key])}×</TextUI><TouchableOpacity onPress={() => updatePlaybackSettings({ [item.key]: Math.min(10, playbackSettings[item.key] + 1) })} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' }}><Feather name="plus" size={15} color={c.textPrimary} /></TouchableOpacity></View>
+              ]).map((item) => <View key={item.key} style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}><TextUI size={13} weight="bold" color={p.ink}>{item.label}</TextUI><TextUI size={10} color={p.muted} style={{ marginTop: 3 }}>{item.helper}</TextUI></View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><TouchableOpacity onPress={() => updatePlaybackSettings({ [item.key]: Math.max(1, playbackSettings[item.key] - 1) })} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center' }}><Feather name="minus" size={15} color={p.ink} /></TouchableOpacity><TextUI size={13} weight="bold" color={p.primary}>{toArabicNumber(playbackSettings[item.key])}×</TextUI><TouchableOpacity onPress={() => updatePlaybackSettings({ [item.key]: Math.min(10, playbackSettings[item.key] + 1) })} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center' }}><Feather name="plus" size={15} color={p.ink} /></TouchableOpacity></View>
               </View>)}
 
-              <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 10 }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary}>الوقف بين الآيات</TextUI>
-                <View style={{ flexDirection: 'row', gap: 7, marginTop: 10 }}>{([0, 2, 5, 10] as const).map((seconds) => <TouchableOpacity key={seconds} onPress={() => updatePlaybackSettings({ pauseSeconds: seconds })} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: playbackSettings.pauseSeconds === seconds ? TOKENS.colors.primary : c.bgSecondary }}><TextUI size={11} weight="bold" color={playbackSettings.pauseSeconds === seconds ? '#FFFFFF' : c.textPrimary}>{seconds === 0 ? 'بدون' : `${seconds} ث`}</TextUI></TouchableOpacity>)}</View>
+              <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10 }}>
+                <TextUI size={13} weight="bold" color={p.ink}>الوقف بين الآيات</TextUI>
+                <View style={{ flexDirection: 'row', gap: 7, marginTop: 10 }}>{([0, 2, 5, 10] as const).map((seconds) => <TouchableOpacity key={seconds} onPress={() => updatePlaybackSettings({ pauseSeconds: seconds })} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10, backgroundColor: playbackSettings.pauseSeconds === seconds ? p.primary : p.bgAlt }}><TextUI size={11} weight="bold" color={playbackSettings.pauseSeconds === seconds ? p.onPrimary : p.ink}>{seconds === 0 ? 'بدون' : `${seconds} ث`}</TextUI></TouchableOpacity>)}</View>
               </View>
 
-              <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 10 }}>
-                <TextUI size={13} weight="bold" color={c.textPrimary}>سرعة التشغيل</TextUI>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>{([0.75, 1, 1.25, 1.5, 2] as const).map((speed) => <TouchableOpacity key={speed} onPress={() => { updatePlaybackSettings({ speed }); audioPlayerRef.current?.setPlaybackRate(speed); if (webAudioRef.current) webAudioRef.current.playbackRate = speed; }} style={{ minWidth: 52, alignItems: 'center', paddingVertical: 9, paddingHorizontal: 10, borderRadius: 10, backgroundColor: playbackSettings.speed === speed ? TOKENS.colors.primary : c.bgSecondary }}><TextUI size={11} weight="bold" color={playbackSettings.speed === speed ? '#FFFFFF' : c.textPrimary}>{speed}×</TextUI></TouchableOpacity>)}</View>
+              <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10 }}>
+                <TextUI size={13} weight="bold" color={p.ink}>سرعة التشغيل</TextUI>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>{([0.75, 1, 1.25, 1.5, 2] as const).map((speed) => <TouchableOpacity key={speed} onPress={() => { updatePlaybackSettings({ speed }); audioPlayerRef.current?.setPlaybackRate(speed); if (webAudioRef.current) webAudioRef.current.playbackRate = speed; }} style={{ minWidth: 52, alignItems: 'center', paddingVertical: 9, paddingHorizontal: 10, borderRadius: 10, backgroundColor: playbackSettings.speed === speed ? p.primary : p.bgAlt }}><TextUI size={11} weight="bold" color={playbackSettings.speed === speed ? p.onPrimary : p.ink}>{speed}×</TextUI></TouchableOpacity>)}</View>
               </View>
 
-              <TouchableOpacity onPress={() => updatePlaybackSettings({ stopAtRangeEnd: !playbackSettings.stopAtRangeEnd })} style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><View style={{ flex: 1 }}><TextUI size={13} weight="bold" color={c.textPrimary}>التوقف بعد نهاية النطاق</TextUI><TextUI size={10} color={c.textSecondary} style={{ marginTop: 3 }}>أوقف التلاوة عند نهاية الصفحة أو السورة أو الجزء</TextUI></View><View style={{ width: 43, height: 25, borderRadius: 13, backgroundColor: playbackSettings.stopAtRangeEnd ? TOKENS.colors.success : c.border, padding: 3, justifyContent: 'center', alignItems: playbackSettings.stopAtRangeEnd ? 'flex-end' : 'flex-start' }}><View style={{ width: 19, height: 19, borderRadius: 10, backgroundColor: '#FFFFFF' }} /></View></TouchableOpacity>
+              <TouchableOpacity onPress={() => updatePlaybackSettings({ stopAtRangeEnd: !playbackSettings.stopAtRangeEnd })} style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><View style={{ flex: 1 }}><TextUI size={13} weight="bold" color={p.ink}>التوقف بعد نهاية النطاق</TextUI><TextUI size={10} color={p.muted} style={{ marginTop: 3 }}>أوقف التلاوة عند نهاية الصفحة أو السورة أو الجزء</TextUI></View><View style={{ width: 43, height: 25, borderRadius: 13, backgroundColor: playbackSettings.stopAtRangeEnd ? p.success : p.border, padding: 3, justifyContent: 'center', alignItems: playbackSettings.stopAtRangeEnd ? 'flex-end' : 'flex-start' }}><View style={{ width: 19, height: 19, borderRadius: 10, backgroundColor: p.onPrimary }} /></View></TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -2181,33 +2181,33 @@ export const QuranReaderScreen: React.FC = () => {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View
             style={{
-              backgroundColor: c.bg,
+              backgroundColor: p.bg,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               padding: 20
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <TextUI size={16} weight="bold" color={c.textPrimary}>
+              <TextUI size={16} weight="bold" color={p.ink}>
                 خيارات الآية {toArabicNumber(activeAyah?.ayahNumber || 1)} • سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr}
               </TextUI>
               <TouchableOpacity onPress={() => setActionModalVisible(false)}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
             {/* Verse text snippet */}
             <View
               style={{
-                backgroundColor: c.surface,
+                backgroundColor: p.surface,
                 borderRadius: 14,
                 padding: 14,
                 marginBottom: 16,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
             >
-              <TextUI quran size={16} color={c.textPrimary} style={{ textAlign: 'center', lineHeight: 26 }}>
+              <TextUI quran size={16} color={p.ink} style={{ textAlign: 'center', lineHeight: 26 }}>
                 ﴿ {activeAyah?.text} ﴾
               </TextUI>
             </View>
@@ -2217,11 +2217,11 @@ export const QuranReaderScreen: React.FC = () => {
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => openAyahTafsir()}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
               >
-                <Feather name="book-open" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={14} weight="bold" color={c.textPrimary}>تفسير الآية • اختر من عدة تفاسير</TextUI>
-                <Feather name="chevron-left" size={16} color={c.textSecondary} />
+                <Feather name="book-open" size={18} color={p.primary} />
+                <TextUI size={14} weight="bold" color={p.ink}>تفسير الآية • اختر من عدة تفاسير</TextUI>
+                <Feather name="chevron-left" size={16} color={p.muted} />
               </TouchableOpacity>
 
               {/* Play Audio */}
@@ -2235,13 +2235,13 @@ export const QuranReaderScreen: React.FC = () => {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
-                  backgroundColor: TOKENS.colors.primary,
+                  backgroundColor: p.primary,
                   padding: 14,
                   borderRadius: 14
                 }}
               >
-                <Feather name="play" size={18} color="#FFFFFF" />
-                <TextUI size={14} weight="bold" color="#FFFFFF">
+                <Feather name="play" size={18} color={p.onPrimary} />
+                <TextUI size={14} weight="bold" color={p.onPrimary}>
                   استمع للآية بصوت {currentReciterObj.nameAr}
                 </TextUI>
               </TouchableOpacity>
@@ -2249,11 +2249,11 @@ export const QuranReaderScreen: React.FC = () => {
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => { setActionModalVisible(false); setReciterModalVisible(true); }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
               >
-                <Feather name="mic" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={14} weight="medium" color={c.textPrimary}>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</TextUI>
-                <Feather name="chevron-left" size={16} color={c.textSecondary} />
+                <Feather name="mic" size={18} color={p.primary} />
+                <TextUI size={14} weight="medium" color={p.ink}>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</TextUI>
+                <Feather name="chevron-left" size={16} color={p.muted} />
               </TouchableOpacity>
 
               {/* Set Bookmark */}
@@ -2264,15 +2264,15 @@ export const QuranReaderScreen: React.FC = () => {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   padding: 14,
                   borderRadius: 14,
                   borderWidth: 1,
-                  borderColor: c.border
+                  borderColor: p.border
                 }}
               >
-                <Feather name="bookmark" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={14} weight="medium" color={c.textPrimary}>
+                <Feather name="bookmark" size={18} color={p.primary} />
+                <TextUI size={14} weight="medium" color={p.ink}>
                   حفظ علامة القراءة عند هذه الآية
                 </TextUI>
               </TouchableOpacity>
@@ -2285,15 +2285,15 @@ export const QuranReaderScreen: React.FC = () => {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   padding: 14,
                   borderRadius: 14,
                   borderWidth: 1,
-                  borderColor: c.border
+                  borderColor: p.border
                 }}
               >
-                <Feather name="share-2" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={14} weight="medium" color={c.textPrimary}>
+                <Feather name="share-2" size={18} color={p.primary} />
+                <TextUI size={14} weight="medium" color={p.ink}>
                   مشاركة الآية الكريمة
                 </TextUI>
               </TouchableOpacity>
@@ -2305,10 +2305,10 @@ export const QuranReaderScreen: React.FC = () => {
                   setActionModalVisible(false);
                   setAyahNoteModalVisible(true);
                 }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
               >
-                <Feather name="edit-3" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={14} weight="medium" color={c.textPrimary}>{activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? 'عرض أو تعديل ملاحظتي على الآية' : 'إضافة ملاحظة على الآية'}</TextUI>
+                <Feather name="edit-3" size={18} color={p.primary} />
+                <TextUI size={14} weight="medium" color={p.ink}>{activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? 'عرض أو تعديل ملاحظتي على الآية' : 'إضافة ملاحظة على الآية'}</TextUI>
               </TouchableOpacity>
             </View>
           </View>
@@ -2317,18 +2317,18 @@ export const QuranReaderScreen: React.FC = () => {
 
       <Modal visible={tafsirModalVisible} animationType="slide" transparent onRequestClose={() => setTafsirModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
-          <View style={{ maxHeight: '90%', backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 28 : 18 }}>
+          <View style={{ maxHeight: '90%', backgroundColor: p.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 28 : 18 }}>
             {/* Grab handle */}
-            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 12 }} />
+            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 12 }} />
 
             {/* Header Title & Controls */}
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <View style={{ alignItems: 'flex-end', flex: 1 }}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                  <Feather name="book-open" size={17} color={TOKENS.colors.primary} />
-                  <TextUI size={17} weight="bold" color={c.textPrimary}>تفسير الآية الكريمة</TextUI>
+                  <Feather name="book-open" size={17} color={p.primary} />
+                  <TextUI size={17} weight="bold" color={p.ink}>تفسير الآية الكريمة</TextUI>
                 </View>
-                <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                   سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr} • الآية {toArabicNumber(Number(activeAyah?.ayahNumber) || 1)} • صفحة {toArabicNumber(activeAyah?.pageNum || activePage)} • جزء {toArabicNumber(activeAyah?.juzNum || currentSurah.juz || 1)}
                 </TextUI>
               </View>
@@ -2338,41 +2338,41 @@ export const QuranReaderScreen: React.FC = () => {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => handleChangeTafsirFontSize(-1)}
-                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center' }}
                   accessibilityLabel="تصغير خط التفسير"
                 >
-                  <TextUI size={12} weight="bold" color={c.textPrimary}>-A</TextUI>
+                  <TextUI size={12} weight="bold" color={p.ink}>-A</TextUI>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => handleChangeTafsirFontSize(1)}
-                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center' }}
                   accessibilityLabel="تكبير خط التفسير"
                 >
-                  <TextUI size={12} weight="bold" color={c.textPrimary}>+A</TextUI>
+                  <TextUI size={12} weight="bold" color={p.ink}>+A</TextUI>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setTafsirModalVisible(false)}
-                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
+                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
                   accessibilityLabel="إغلاق التفسير"
                 >
-                  <Feather name="x" size={18} color={c.textPrimary} />
+                  <Feather name="x" size={18} color={p.ink} />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Ayah Card */}
-            <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 10 }}>
-              <TextUI quran size={18} color={c.textPrimary} style={{ textAlign: 'center', lineHeight: 32 }}>
+            <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10 }}>
+              <TextUI quran size={18} color={p.ink} style={{ textAlign: 'center', lineHeight: 32 }}>
                 {activeAyah?.text}{' '}
                 {activeAyah ? renderAyahMarker(toArabicNumber(activeAyah.ayahNumber), false, activeAyah, 18) : null}
               </TextUI>
 
               {/* Action Toolbar */}
-              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border }}>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: p.border }}>
                 {/* Audio Listen */}
                 <TouchableOpacity
                   activeOpacity={0.75}
@@ -2392,20 +2392,20 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? TOKENS.colors.primary : c.bg,
+                    backgroundColor: playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? p.primary : p.bg,
                     borderWidth: 1,
-                    borderColor: playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? TOKENS.colors.primary : c.border
+                    borderColor: playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? p.primary : p.border
                   }}
                 >
                   <Feather
                     name={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? 'square' : 'volume-2'}
                     size={13}
-                    color={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? '#FFFFFF' : TOKENS.colors.primary}
+                    color={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? p.onPrimary : p.primary}
                   />
                   <TextUI
                     size={11}
                     weight="bold"
-                    color={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? '#FFFFFF' : c.textPrimary}
+                    color={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? p.onPrimary : p.ink}
                   >
                     {playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? 'إيقاف' : 'استماع'}
                   </TextUI>
@@ -2422,20 +2422,20 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? 'rgba(212, 163, 115, 0.25)' : c.bg,
+                    backgroundColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? 'rgba(212, 163, 115, 0.25)' : p.bg,
                     borderWidth: 1,
-                    borderColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? TOKENS.colors.primary : c.border
+                    borderColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primary : p.border
                   }}
                 >
                   <Feather
                     name="bookmark"
                     size={13}
-                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? TOKENS.colors.primaryDark : c.textSecondary}
+                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primaryInk : p.muted}
                   />
                   <TextUI
                     size={11}
                     weight="medium"
-                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? TOKENS.colors.primaryDark : c.textPrimary}
+                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primaryInk : p.ink}
                   >
                     {(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? 'محفوظة' : 'علامة'}
                   </TextUI>
@@ -2452,13 +2452,13 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: c.bg,
+                    backgroundColor: p.bg,
                     borderWidth: 1,
-                    borderColor: c.border
+                    borderColor: p.border
                   }}
                 >
-                  <Feather name="share-2" size={13} color={TOKENS.colors.primary} />
-                  <TextUI size={11} weight="medium" color={c.textPrimary}>مشاركة</TextUI>
+                  <Feather name="share-2" size={13} color={p.primary} />
+                  <TextUI size={11} weight="medium" color={p.ink}>مشاركة</TextUI>
                 </TouchableOpacity>
 
                 {/* Note */}
@@ -2475,20 +2475,20 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? 'rgba(74, 158, 107, 0.2)' : c.bg,
+                    backgroundColor: activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? 'rgba(74, 158, 107, 0.2)' : p.bg,
                     borderWidth: 1,
-                    borderColor: activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? '#4A9E6B' : c.border
+                    borderColor: activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? p.success : p.border
                   }}
                 >
                   <Feather
                     name="edit-3"
                     size={13}
-                    color={activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? '#4A9E6B' : c.textSecondary}
+                    color={activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? p.success : p.muted}
                   />
                   <TextUI
                     size={11}
                     weight="medium"
-                    color={activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? '#4A9E6B' : c.textPrimary}
+                    color={activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? p.success : p.ink}
                   >
                     تدبر
                   </TextUI>
@@ -2508,13 +2508,13 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 9,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: c.bg,
+                    backgroundColor: p.bg,
                     borderWidth: 1,
-                    borderColor: c.border
+                    borderColor: p.border
                   }}
                 >
-                  <Feather name="more-horizontal" size={13} color={c.textSecondary} />
-                  <TextUI size={11} weight="medium" color={c.textSecondary}>المزيد</TextUI>
+                  <Feather name="more-horizontal" size={13} color={p.muted} />
+                  <TextUI size={11} weight="medium" color={p.muted}>المزيد</TextUI>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2522,8 +2522,8 @@ export const QuranReaderScreen: React.FC = () => {
             {/* Tafsir Selector Horizontal Bar */}
             <View style={{ marginBottom: 6 }}>
               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                <TextUI size={12} weight="bold" color={c.textSecondary}>اختر كتاب التفسير ({toArabicNumber(tafsirEditions.length)} تفاسير):</TextUI>
-                <TextUI size={11} color={TOKENS.colors.primary} weight="bold">
+                <TextUI size={12} weight="bold" color={p.muted}>اختر كتاب التفسير ({toArabicNumber(tafsirEditions.length)} تفاسير):</TextUI>
+                <TextUI size={11} color={p.primary} weight="bold">
                   {tafsirEditions.find((e) => e.id === selectedTafsirId)?.badge}
                 </TextUI>
               </View>
@@ -2544,16 +2544,16 @@ export const QuranReaderScreen: React.FC = () => {
                         paddingHorizontal: 12,
                         paddingVertical: 7,
                         borderRadius: 12,
-                        backgroundColor: selected ? TOKENS.colors.primary : c.surface,
+                        backgroundColor: selected ? p.primary : p.surface,
                         borderWidth: 1,
-                        borderColor: selected ? TOKENS.colors.primaryDark : c.border,
+                        borderColor: selected ? p.primary : p.border,
                         flexDirection: 'row-reverse',
                         alignItems: 'center',
                         gap: 6
                       }}
                     >
-                      {selected && <Feather name="check" size={13} color="#FFFFFF" />}
-                      <TextUI size={12} weight="bold" color={selected ? '#FFFFFF' : c.textPrimary}>
+                      {selected && <Feather name="check" size={13} color={p.onPrimary} />}
+                      <TextUI size={12} weight="bold" color={selected ? p.onPrimary : p.ink}>
                         {edition.name}
                       </TextUI>
                     </TouchableOpacity>
@@ -2564,7 +2564,7 @@ export const QuranReaderScreen: React.FC = () => {
 
             {/* Selected Book Info */}
             <View style={{ paddingHorizontal: 2, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
-              <TextUI size={11} color={c.textSecondary} numberOfLines={1} style={{ flexShrink: 1 }}>
+              <TextUI size={11} color={p.muted} numberOfLines={1} style={{ flexShrink: 1 }}>
                 المؤلف: {tafsirEditions.find((e) => e.id === selectedTafsirId)?.author}
               </TextUI>
             </View>
@@ -2574,30 +2574,30 @@ export const QuranReaderScreen: React.FC = () => {
               style={{
                 minHeight: 140,
                 maxHeight: 290,
-                backgroundColor: c.surface,
+                backgroundColor: p.surface,
                 borderRadius: 14,
                 padding: 12,
                 borderWidth: 1,
-                borderColor: c.border
+                borderColor: p.border
               }}
               showsVerticalScrollIndicator
             >
               {tafsirLoading ? (
                 <View style={{ paddingVertical: 36, alignItems: 'center', gap: 10 }}>
-                  <ActivityIndicator color={TOKENS.colors.primary} size="small" />
-                  <TextUI size={12} color={c.textSecondary}>جارٍ جلب التفسير من المصدر المعتمد...</TextUI>
+                  <ActivityIndicator color={p.primary} size="small" />
+                  <TextUI size={12} color={p.muted}>جارٍ جلب التفسير من المصدر المعتمد...</TextUI>
                 </View>
               ) : tafsirError ? (
                 <View style={{ alignItems: 'center', paddingVertical: 24, gap: 10 }}>
-                  <Feather name="alert-circle" size={24} color="#D9534F" />
-                  <TextUI size={12} color={c.textSecondary} align="center" style={{ lineHeight: 20 }}>
+                  <Feather name="alert-circle" size={24} color={p.danger} />
+                  <TextUI size={12} color={p.muted} align="center" style={{ lineHeight: 20 }}>
                     {tafsirError}
                   </TextUI>
                   <TouchableOpacity
                     onPress={() => loadAyahTafsir(selectedTafsirId)}
-                    style={{ backgroundColor: TOKENS.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 }}
+                    style={{ backgroundColor: p.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 }}
                   >
-                    <TextUI size={12} weight="bold" color="#FFFFFF">إعادة المحاولة</TextUI>
+                    <TextUI size={12} weight="bold" color={p.onPrimary}>إعادة المحاولة</TextUI>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -2607,7 +2607,7 @@ export const QuranReaderScreen: React.FC = () => {
                       key={`tafsir-p-${pIdx}`}
                       align="right"
                       size={tafsirFontSize}
-                      color={c.textPrimary}
+                      color={p.ink}
                       style={{
                         width: '100%',
                         alignSelf: 'stretch',
@@ -2635,17 +2635,17 @@ export const QuranReaderScreen: React.FC = () => {
                   paddingHorizontal: 10,
                   paddingVertical: 7,
                   borderRadius: 10,
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   opacity: (activeAyah ? activeAyah.ayahNumber <= 1 : true) ? 0.35 : 1
                 }}
               >
-                <Feather name="chevron-right" size={16} color={c.textPrimary} />
-                <TextUI size={11} weight="medium" color={c.textPrimary}>الآية السابقة</TextUI>
+                <Feather name="chevron-right" size={16} color={p.ink} />
+                <TextUI size={11} weight="medium" color={p.ink}>الآية السابقة</TextUI>
               </TouchableOpacity>
 
-              <TextUI size={11} color={c.textSecondary}>
+              <TextUI size={11} color={p.muted}>
                 الآية {toArabicNumber(activeAyah?.ayahNumber || 1)} من {toArabicNumber(parsedSurah.verses.length)}
               </TextUI>
 
@@ -2659,14 +2659,14 @@ export const QuranReaderScreen: React.FC = () => {
                   paddingHorizontal: 10,
                   paddingVertical: 7,
                   borderRadius: 10,
-                  backgroundColor: c.surface,
+                  backgroundColor: p.surface,
                   borderWidth: 1,
-                  borderColor: c.border,
+                  borderColor: p.border,
                   opacity: (activeAyah ? activeAyah.ayahNumber >= parsedSurah.verses.length : true) ? 0.35 : 1
                 }}
               >
-                <Feather name="chevron-left" size={16} color={c.textPrimary} />
-                <TextUI size={11} weight="medium" color={c.textPrimary}>الآية التالية</TextUI>
+                <Feather name="chevron-left" size={16} color={p.ink} />
+                <TextUI size={11} weight="medium" color={p.ink}>الآية التالية</TextUI>
               </TouchableOpacity>
             </View>
           </View>
@@ -2675,12 +2675,12 @@ export const QuranReaderScreen: React.FC = () => {
 
       <Modal visible={ayahNoteModalVisible} animationType="fade" transparent onRequestClose={() => setAyahNoteModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 22 }}>
-          <View style={{ backgroundColor: c.surface, borderRadius: 20, padding: 18 }}>
-            <TextUI size={16} weight="bold" color={c.textPrimary}>ملاحظة على الآية {toArabicNumber(activeAyah?.ayahNumber || 1)}</TextUI>
-            <TextInput value={ayahNoteText} onChangeText={setAyahNoteText} placeholder="اكتب فائدة أو تدبرًا أو مرجعًا" placeholderTextColor={c.textSecondary} multiline textAlign="right" style={{ minHeight: 110, marginTop: 14, padding: 12, borderWidth: 1, borderColor: c.border, borderRadius: 12, color: c.textPrimary, textAlignVertical: 'top' }} />
+          <View style={{ backgroundColor: p.surface, borderRadius: 20, padding: 18 }}>
+            <TextUI size={16} weight="bold" color={p.ink}>ملاحظة على الآية {toArabicNumber(activeAyah?.ayahNumber || 1)}</TextUI>
+            <TextInput value={ayahNoteText} onChangeText={setAyahNoteText} placeholder="اكتب فائدة أو تدبرًا أو مرجعًا" placeholderTextColor={p.muted} multiline textAlign="right" style={{ minHeight: 110, marginTop: 14, padding: 12, borderWidth: 1, borderColor: p.border, borderRadius: 12, color: p.ink, textAlignVertical: 'top' }} />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 18, marginTop: 14 }}>
-              <TouchableOpacity onPress={() => setAyahNoteModalVisible(false)}><TextUI size={13} color={c.textSecondary}>إلغاء</TextUI></TouchableOpacity>
-              <TouchableOpacity onPress={saveAyahNote}><TextUI size={13} weight="bold" color={TOKENS.colors.primary}>حفظ الملاحظة</TextUI></TouchableOpacity>
+              <TouchableOpacity onPress={() => setAyahNoteModalVisible(false)}><TextUI size={13} color={p.muted}>إلغاء</TextUI></TouchableOpacity>
+              <TouchableOpacity onPress={saveAyahNote}><TextUI size={13} weight="bold" color={p.primary}>حفظ الملاحظة</TextUI></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2689,13 +2689,13 @@ export const QuranReaderScreen: React.FC = () => {
       {/* Reciter Selection Modal */}
       <Modal visible={reciterModalVisible} animationType="fade" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: c.bg, borderRadius: 20, padding: 20, maxHeight: '82%' }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20, maxHeight: '82%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <TextUI size={17} weight="bold" color={c.textPrimary}>
+              <TextUI size={17} weight="bold" color={p.ink}>
                 اختر القارئ
               </TextUI>
               <TouchableOpacity onPress={() => setReciterModalVisible(false)}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
@@ -2717,19 +2717,19 @@ export const QuranReaderScreen: React.FC = () => {
                   justifyContent: 'space-between',
                   paddingVertical: 14,
                   borderBottomWidth: 1,
-                  borderColor: c.border
+                  borderColor: p.border
                 }}
               >
                 <View>
-                  <TextUI size={14} weight="bold" color={r.id === selectedReciter ? TOKENS.colors.primary : c.textPrimary}>
+                  <TextUI size={14} weight="bold" color={r.id === selectedReciter ? p.primary : p.ink}>
                     {r.nameAr}
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary}>
+                  <TextUI size={11} color={p.muted}>
                     {r.nameEn}
                   </TextUI>
                 </View>
                 {r.id === selectedReciter && (
-                  <Feather name="check" size={18} color={TOKENS.colors.primary} />
+                  <Feather name="check" size={18} color={p.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -2741,12 +2741,12 @@ export const QuranReaderScreen: React.FC = () => {
       {/* 1. Mode Switcher Sheet */}
       <Modal visible={modeModalVisible} animationType="slide" transparent onRequestClose={() => setModeModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
-            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 14 }} />
+          <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
+            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <TextUI size={18} weight="bold" color={c.textPrimary}>طريقة عرض المصحف</TextUI>
+              <TextUI size={18} weight="bold" color={p.ink}>طريقة عرض المصحف</TextUI>
               <TouchableOpacity onPress={() => setModeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
@@ -2764,24 +2764,24 @@ export const QuranReaderScreen: React.FC = () => {
                   alignItems: 'center',
                   padding: 14,
                   borderRadius: 16,
-                  backgroundColor: readingMode === 'page' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A') : c.surface,
+                  backgroundColor: readingMode === 'page' ? p.soft : p.surface,
                   borderWidth: 1.5,
-                  borderColor: readingMode === 'page' ? TOKENS.colors.primary : c.border
+                  borderColor: readingMode === 'page' ? p.primary : p.border
                 }}
               >
-                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <TextUI size={20}>📖</TextUI>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <TextUI size={14} weight="bold" color={readingMode === 'page' ? TOKENS.colors.primaryDark : c.textPrimary}>
+                  <TextUI size={14} weight="bold" color={readingMode === 'page' ? p.primaryInk : p.ink}>
                     المصحف الشريف (صفحات مصورة)
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                  <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                     عرض صفحات المصحف المعتمدة والمطابقة للمصحف الورقي، مثالية للحفظ والمراجعة
                   </TextUI>
                 </View>
                 {readingMode === 'page' && (
-                  <Feather name="check-circle" size={20} color={TOKENS.colors.primary} />
+                  <Feather name="check-circle" size={20} color={p.primary} />
                 )}
               </TouchableOpacity>
 
@@ -2798,24 +2798,24 @@ export const QuranReaderScreen: React.FC = () => {
                   alignItems: 'center',
                   padding: 14,
                   borderRadius: 16,
-                  backgroundColor: readingMode === 'tafsir' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A') : c.surface,
+                  backgroundColor: readingMode === 'tafsir' ? p.soft : p.surface,
                   borderWidth: 1.5,
-                  borderColor: readingMode === 'tafsir' ? TOKENS.colors.primary : c.border
+                  borderColor: readingMode === 'tafsir' ? p.primary : p.border
                 }}
               >
-                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <TextUI size={20}>📚</TextUI>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <TextUI size={14} weight="bold" color={readingMode === 'tafsir' ? TOKENS.colors.primaryDark : c.textPrimary}>
+                  <TextUI size={14} weight="bold" color={readingMode === 'tafsir' ? p.primaryInk : p.ink}>
                     التفسير والتدبر (عرض عمودي)
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                  <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                     عرض كل آية مع بطاقة تفسيرها مباشرة ومشاركتها مع ٧ تفاسير معتمدة
                   </TextUI>
                 </View>
                 {readingMode === 'tafsir' && (
-                  <Feather name="check-circle" size={20} color={TOKENS.colors.primary} />
+                  <Feather name="check-circle" size={20} color={p.primary} />
                 )}
               </TouchableOpacity>
 
@@ -2832,24 +2832,24 @@ export const QuranReaderScreen: React.FC = () => {
                   alignItems: 'center',
                   padding: 14,
                   borderRadius: 16,
-                  backgroundColor: readingMode === 'surah' ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A') : c.surface,
+                  backgroundColor: readingMode === 'surah' ? p.soft : p.surface,
                   borderWidth: 1.5,
-                  borderColor: readingMode === 'surah' ? TOKENS.colors.primary : c.border
+                  borderColor: readingMode === 'surah' ? p.primary : p.border
                 }}
               >
-                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <TextUI size={20}>📜</TextUI>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <TextUI size={14} weight="bold" color={readingMode === 'surah' ? TOKENS.colors.primaryDark : c.textPrimary}>
+                  <TextUI size={14} weight="bold" color={readingMode === 'surah' ? p.primaryInk : p.ink}>
                     عرض السورة المتتابع
                   </TextUI>
-                  <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                  <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                     قراءة متصلة لآيات السورة كاملة في تدفق واحد مع بيان المقاصد
                   </TextUI>
                 </View>
                 {readingMode === 'surah' && (
-                  <Feather name="check-circle" size={20} color={TOKENS.colors.primary} />
+                  <Feather name="check-circle" size={20} color={p.primary} />
                 )}
               </TouchableOpacity>
             </View>
@@ -2860,27 +2860,27 @@ export const QuranReaderScreen: React.FC = () => {
       {/* 2. Font Size Adjustment Modal */}
       <Modal visible={fontSizeModalVisible} animationType="slide" transparent onRequestClose={() => setFontSizeModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
-            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 14 }} />
+          <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
+            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="type" size={18} color={TOKENS.colors.primary} />
-                <TextUI size={17} weight="bold" color={c.textPrimary}>إعدادات حجم الخط</TextUI>
+                <Feather name="type" size={18} color={p.primary} />
+                <TextUI size={17} weight="bold" color={p.ink}>إعدادات حجم الخط</TextUI>
               </View>
               <TouchableOpacity onPress={() => setFontSizeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
             {/* Quran Font Size Section */}
-            <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, marginBottom: 14 }}>
+            <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 14 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <TextUI size={14} weight="bold" color={c.textPrimary}>خط آيات المصحف الشريف</TextUI>
-                <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>{toArabicNumber(quranFontSize)} نقطة</TextUI>
+                <TextUI size={14} weight="bold" color={p.ink}>خط آيات المصحف الشريف</TextUI>
+                <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(quranFontSize)} نقطة</TextUI>
               </View>
 
-              <View style={{ backgroundColor: c.bgSecondary, borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 65, borderWidth: 1, borderColor: c.border }}>
-                <TextUI quran size={quranFontSize} color={c.textPrimary} align="center">
+              <View style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 65, borderWidth: 1, borderColor: p.border }}>
+                <TextUI quran size={quranFontSize} color={p.ink} align="center">
                   بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
                 </TextUI>
               </View>
@@ -2891,10 +2891,10 @@ export const QuranReaderScreen: React.FC = () => {
                     triggerHaptic('light');
                     setQuranFontSize(Math.max(18, quranFontSize - 2));
                   }}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.border }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}
                 >
-                  <Feather name="minus" size={16} color={c.textPrimary} />
-                  <TextUI size={13} weight="bold" color={c.textPrimary}>تصغير (A-)</TextUI>
+                  <Feather name="minus" size={16} color={p.ink} />
+                  <TextUI size={13} weight="bold" color={p.ink}>تصغير (A-)</TextUI>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2902,23 +2902,23 @@ export const QuranReaderScreen: React.FC = () => {
                     triggerHaptic('light');
                     setQuranFontSize(Math.min(44, quranFontSize + 2));
                   }}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: TOKENS.colors.primary }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.primary }}
                 >
-                  <Feather name="plus" size={16} color="#FFFFFF" />
-                  <TextUI size={13} weight="bold" color="#FFFFFF">تكبير (A+)</TextUI>
+                  <Feather name="plus" size={16} color={p.onPrimary} />
+                  <TextUI size={13} weight="bold" color={p.onPrimary}>تكبير (A+)</TextUI>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Tafsir Font Size Section */}
-            <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border }}>
+            <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <TextUI size={14} weight="bold" color={c.textPrimary}>خط نصوص التفسير والتدبر</TextUI>
-                <TextUI size={12} weight="bold" color={TOKENS.colors.primary}>{toArabicNumber(tafsirFontSize)} نقطة</TextUI>
+                <TextUI size={14} weight="bold" color={p.ink}>خط نصوص التفسير والتدبر</TextUI>
+                <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(tafsirFontSize)} نقطة</TextUI>
               </View>
 
               <View style={{ backgroundColor: tafsirCardBgColor, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: tafsirBorderColor }}>
-                <TextUI size={tafsirFontSize} color={c.textPrimary} style={{ lineHeight: Math.round(tafsirFontSize * 1.6), textAlign: 'right' }}>
+                <TextUI size={tafsirFontSize} color={p.ink} style={{ lineHeight: Math.round(tafsirFontSize * 1.6), textAlign: 'right' }}>
                   تفسير واضح وميسر لآيات الذكر الحكيم يعين على التدبر والفهم.
                 </TextUI>
               </View>
@@ -2929,10 +2929,10 @@ export const QuranReaderScreen: React.FC = () => {
                     triggerHaptic('light');
                     handleChangeTafsirFontSize(-1);
                   }}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.border }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}
                 >
-                  <Feather name="minus" size={16} color={c.textPrimary} />
-                  <TextUI size={13} weight="bold" color={c.textPrimary}>تصغير (A-)</TextUI>
+                  <Feather name="minus" size={16} color={p.ink} />
+                  <TextUI size={13} weight="bold" color={p.ink}>تصغير (A-)</TextUI>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2940,10 +2940,10 @@ export const QuranReaderScreen: React.FC = () => {
                     triggerHaptic('light');
                     handleChangeTafsirFontSize(1);
                   }}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: TOKENS.colors.primary }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.primary }}
                 >
-                  <Feather name="plus" size={16} color="#FFFFFF" />
-                  <TextUI size={13} weight="bold" color="#FFFFFF">تكبير (A+)</TextUI>
+                  <Feather name="plus" size={16} color={p.onPrimary} />
+                  <TextUI size={13} weight="bold" color={p.onPrimary}>تكبير (A+)</TextUI>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2954,17 +2954,17 @@ export const QuranReaderScreen: React.FC = () => {
       {/* 3. Tafsir Edition Picker Sheet */}
       <Modal visible={tafsirPickerVisible} animationType="slide" transparent onRequestClose={() => setTafsirPickerVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ maxHeight: '85%', backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
-            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 14 }} />
+          <View style={{ maxHeight: '85%', backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
+            <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <View>
-                <TextUI size={18} weight="bold" color={c.textPrimary}>اختيار كتاب التفسير</TextUI>
-                <TextUI size={11} color={c.textSecondary} style={{ marginTop: 2 }}>
+                <TextUI size={18} weight="bold" color={p.ink}>اختيار كتاب التفسير</TextUI>
+                <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
                   اختر من بين ٧ تفاسير معتمدة ومحققة
                 </TextUI>
               </View>
               <TouchableOpacity onPress={() => setTafsirPickerVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x" size={20} color={c.textPrimary} />
+                <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
 
@@ -2984,30 +2984,30 @@ export const QuranReaderScreen: React.FC = () => {
                     style={{
                       padding: 14,
                       borderRadius: 16,
-                      backgroundColor: isSelected ? (themeMode === 'light' ? TOKENS.colors.primaryLight : '#2A201A') : c.surface,
+                      backgroundColor: isSelected ? p.soft : p.surface,
                       borderWidth: 1.5,
-                      borderColor: isSelected ? TOKENS.colors.primary : c.border
+                      borderColor: isSelected ? p.primary : p.border
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <TextUI size={14} weight="bold" color={isSelected ? TOKENS.colors.primaryDark : c.textPrimary}>
+                        <TextUI size={14} weight="bold" color={isSelected ? p.primaryInk : p.ink}>
                           {edition.name}
                         </TextUI>
-                        <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: c.bgSecondary }}>
-                          <TextUI size={10} weight="bold" color={TOKENS.colors.primary}>
+                        <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: p.bgAlt }}>
+                          <TextUI size={10} weight="bold" color={p.primary}>
                             {edition.badge}
                           </TextUI>
                         </View>
                       </View>
                       {isSelected && (
-                        <Feather name="check-circle" size={18} color={TOKENS.colors.primary} />
+                        <Feather name="check-circle" size={18} color={p.primary} />
                       )}
                     </View>
-                    <TextUI size={11} color={c.textSecondary} style={{ marginBottom: 4 }}>
+                    <TextUI size={11} color={p.muted} style={{ marginBottom: 4 }}>
                       {edition.author}
                     </TextUI>
-                    <TextUI size={10.5} color={c.textSecondary} numberOfLines={2}>
+                    <TextUI size={10.5} color={p.muted} numberOfLines={2}>
                       {edition.description}
                     </TextUI>
                   </TouchableOpacity>
