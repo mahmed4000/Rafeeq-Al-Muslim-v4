@@ -5,7 +5,8 @@ import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { SkyArch, skyPhase } from '../components/home/SkyArch';
-import { usePalette, Palette } from '../theme/palette';
+import { SceneBackdrop, SCENE_HEIGHT } from '../components/home/SceneHeader';
+import { usePalette, Palette, PALETTE } from '../theme/palette';
 import { getFullDateInfo, weekdayName } from '../services/hijriDate';
 import { toArabicNumber, PrayerTimeValues, calculateAccuratePrayerTimes, computeNightTimes } from '../services/prayerCalculation';
 import { DailyWirdCard, WirdRow } from '../components/home/DailyWirdCard';
@@ -145,17 +146,44 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
   </View>
 );
 
-// Four per row; the icon sits in a small Andalusian arch.
-const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tint: boolean; expanded?: boolean; onPress: () => void }> = ({ p, icon, label, tint, expanded, onPress }) => (
+type Tone = { bg: string; fg: string; ring: string };
+
+// Service and time-of-day icon colours: parchment, night blue, mocha, olive.
+const TONES: Record<'light' | 'dark', Tone[]> = {
+  light: [
+    { bg: '#F2E3CF', fg: '#8C5E3C', ring: '#FBF3E8' },
+    { bg: '#2E3A5C', fg: '#F4D9A8', ring: '#43507A' },
+    { bg: '#5D3A22', fg: '#F4D9A8', ring: '#7A4E2F' },
+    { bg: '#E3EBDD', fg: '#4E7D5B', ring: '#F1F5EE' }
+  ],
+  dark: [
+    { bg: '#3A2C22', fg: '#D6A877', ring: '#4A3A2E' },
+    { bg: '#2E3A5C', fg: '#F4D9A8', ring: '#3B4870' },
+    { bg: '#4A2E1C', fg: '#F0B77F', ring: '#5E3B25' },
+    { bg: '#2F3B2F', fg: '#B9D3A6', ring: '#3C4B3C' }
+  ]
+};
+
+const STRIP_ICONS: Record<keyof PrayerTimeValues, keyof typeof Feather.glyphMap> = {
+  fajr: 'sunrise', sunrise: 'sunrise', dhuhr: 'sun', asr: 'sun', maghrib: 'sunset', isha: 'moon'
+};
+
+// Light text over the scene header, whatever the sky.
+const SCENE_INK = '#FFF6EA';
+const SCENE_SHADOW = { textShadowColor: 'rgba(30,20,14,0.45)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 };
+const SCENE_BUTTON = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.32)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.35)' };
+
+// Four per row; a round icon with an inner ring.
+const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tone: Tone; expanded?: boolean; onPress: () => void }> = ({ p, icon, label, tone, expanded, onPress }) => (
   <TouchableOpacity
     activeOpacity={0.85}
     accessibilityRole="button"
     aria-expanded={expanded}
     onPress={onPress}
-    style={{ width: '25%', minHeight: 80, alignItems: 'center', gap: 6 }}
+    style={{ width: '25%', minHeight: 84, alignItems: 'center', gap: 6 }}
   >
-    <View style={{ width: 52, height: 52, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tint ? p.soft : p.bg, borderWidth: 1, borderColor: p.border }}>
-      <Feather name={icon} size={21} color={p.primary} />
+    <View style={{ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: tone.bg, borderWidth: 3, borderColor: tone.ring }}>
+      <Feather name={icon} size={22} color={tone.fg} />
     </View>
     <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={1}>{label}</TextUI>
   </TouchableOpacity>
@@ -164,6 +192,7 @@ const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; l
 export const HomeScreen: React.FC = () => {
   const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
+  const tones = p.bg === PALETTE.dark.bg ? TONES.dark : TONES.light;
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
   // Everything time-based on Home follows the selected city's clock.
@@ -344,17 +373,26 @@ export const HomeScreen: React.FC = () => {
       action = () => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
     }
     return (
-      <Card p={p} tone="soft" style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface }}>
-          <Feather name={icon} size={22} color={p.primary} />
+      <View style={{ borderRadius: 22, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: p.hero, shadowColor: '#5D3A22', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 5 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Feather name={icon} size={14} color="#E8C79A" />
+            <TextUI size={12.5} weight="bold" color="#E8C79A">{t('الآن', 'Now')}</TextUI>
+          </View>
+          <TextUI size={19} weight="bold" color={p.onHero}>{title}</TextUI>
+          <TextUI size={13} color={p.onHeroMuted} numberOfLines={2}>{subtitle}</TextUI>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('ابدأ', 'Start')}: ${title}`}
+            onPress={() => { triggerHaptic('light'); action(); }}
+            style={{ alignSelf: 'flex-start', marginTop: 6, minHeight: 44, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', backgroundColor: p.accent }}
+          >
+            <TextUI size={15} weight="bold" color="#2D1E16">{t('ابدأ', 'Start')}</TextUI>
+          </TouchableOpacity>
         </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('الآن', 'Now')}</TextUI>
-          <TextUI size={17} weight="bold" color={p.ink}>{title}</TextUI>
-          <TextUI size={13} color={p.muted} numberOfLines={2}>{subtitle}</TextUI>
-        </View>
-        <PrimaryButton p={p} label={t('ابدأ', 'Start')} onPress={() => { triggerHaptic('light'); action(); }} />
-      </Card>
+        <SkyArch phase={skyPhase(prayerTimes, now)} />
+      </View>
     );
   };
 
@@ -460,62 +498,110 @@ export const HomeScreen: React.FC = () => {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: p.bg }}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 104, gap: 16 }}
+      contentContainerStyle={{ paddingBottom: 104 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header: name, city, settings, dates */}
-      <View style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <TextUI font="amiri" size={26} weight="bold" color={p.primaryInk}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={t(`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`, `City: ${cityName}. Tap to update location`)}
-              onPress={() => { triggerHaptic('light'); refreshLocation(); }}
-              style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-            >
-              <Feather name="map-pin" size={15} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1}>{cityName}</TextUI>
-            </TouchableOpacity>
+      {/* Scene header: sky for the time of day over an Andalusian skyline, with the countdown */}
+      <View style={{ height: SCENE_HEIGHT }}>
+        <SceneBackdrop phase={skyPhase(prayerTimes, now)} />
+        <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <TextUI font="amiri" size={24} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
             <TouchableOpacity
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={t('الإعدادات', 'Settings')}
               onPress={() => navigate('settings')}
-              style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+              style={SCENE_BUTTON}
             >
-              <Feather name="sliders" size={18} color={p.ink} />
+              <Feather name="sliders" size={18} color={SCENE_INK} />
             </TouchableOpacity>
           </View>
-        </View>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1, height: 1, backgroundColor: p.accent, opacity: 0.45 }} />
-          <View style={{ width: 26, height: 13, borderWidth: 1.5, borderBottomWidth: 0, borderColor: p.accent, borderTopLeftRadius: 13, borderTopRightRadius: 13 }} />
-          <View style={{ flex: 1, height: 1, backgroundColor: p.accent, opacity: 0.45 }} />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
+            onPress={() => navigate('prayer_times')}
+            style={{ alignSelf: 'flex-start', alignItems: 'flex-start', gap: 2 }}
+          >
+            <TextUI size={15} color={SCENE_INK} style={SCENE_SHADOW}>
+              {next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد`, `${nextName} (tomorrow) in`) : t(`${next.nameAr} بعد`, `${nextName} in`)}
+            </TextUI>
+            <TextUI size={44} weight="bold" color={SCENE_INK} style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{countdown}</TextUI>
+            <TextUI size={14} color={SCENE_INK} style={SCENE_SHADOW}>
+              {otherZone ? t(`الأذان ${next.time} بتوقيت ${currentCity.nameAr}`, `Adhan ${next.time} (${cityName} time)`) : t(`الأذان ${next.time}`, `Adhan ${next.time}`)}
+            </TextUI>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t(`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`, `City: ${cityName}. Tap to update location`)}
+            onPress={() => { triggerHaptic('light'); refreshLocation(); }}
+            style={{ alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(30,20,14,0.38)' }}
+          >
+            <Feather name="map-pin" size={14} color={SCENE_INK} />
+            <TextUI size={14} weight="medium" color={SCENE_INK} numberOfLines={1}>{cityName}</TextUI>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Hero: next prayer with the sky for the current time of day */}
-      <TouchableOpacity
-        activeOpacity={0.92}
-        accessibilityRole="button"
-        accessibilityLabel={t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
-        onPress={() => navigate('prayer_times')}
-        style={{ borderRadius: 24, padding: 18, flexDirection: 'row', gap: 16, backgroundColor: p.hero, shadowColor: '#5D3A22', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 5 }}
-      >
-        <SkyArch phase={skyPhase(prayerTimes, now)} />
-        <View style={{ flex: 1, gap: 4, justifyContent: 'center' }}>
-          <TextUI size={14} color={p.onHeroMuted}>{next.isTomorrow ? t('الصلاة القادمة (غدًا)', 'Next prayer (tomorrow)') : t('الصلاة القادمة', 'Next prayer')}</TextUI>
-          {otherZone ? <TextUI size={12.5} color={p.onHeroMuted}>{t(`بتوقيت ${currentCity.nameAr}`, `${cityName} time`)}</TextUI> : null}
-          <TextUI size={22} weight="bold" color={p.onHero}>{t(`${next.nameAr} بعد`, `${nextName} in`)}</TextUI>
-          <TextUI size={36} weight="bold" color={p.onHero} style={{ lineHeight: 44, letterSpacing: 1 }}>{countdown}</TextUI>
-          <TextUI size={14} color={p.onHeroMuted}>{t(`الأذان ${next.time}`, `Adhan ${next.time}`)}</TextUI>
-          <View style={{ marginTop: 8, height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: 'rgba(250,241,230,0.18)' }}>
-            <View style={{ width: `${next.progress}%`, height: '100%', backgroundColor: p.accent }} />
+      {/* Sheet over the scene */}
+      <View style={{ marginTop: -26, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: p.bg, paddingHorizontal: 16, paddingTop: 18, gap: 16 }}>
+
+      {/* Your week: the private prayer log for the last seven days, and today's marks */}
+      <View style={{ borderRadius: 22, padding: 14, gap: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <TextUI size={16} weight="bold" color={p.ink}>{t('أسبوعك', 'Your week')}</TextUI>
+          <TextUI size={12.5} color={p.muted} numberOfLines={1} style={{ flexShrink: 1 }}>{t('اختياري · يبقى على جهازك فقط', 'Optional · stays on your device only')}</TextUI>
+        </View>
+        <View>
+          <View style={{ position: 'absolute', left: '7%', right: '7%', top: 16, height: 2, backgroundColor: p.border }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {weekStrip.map((d) => {
+              const full = d.count >= PRAYER_KEYS.length;
+              return (
+                <View
+                  key={d.key}
+                  accessible
+                  accessibilityLabel={t(`${d.name}: ${toArabicNumber(d.count)} من ٥`, `${d.name}: ${toArabicNumber(d.count)} of 5`)}
+                  style={{ flex: 1, alignItems: 'center', gap: 6 }}
+                >
+                  <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: full ? p.accent : d.count ? p.soft : p.surface, borderWidth: 1.5, borderColor: d.isToday ? p.primary : full ? p.accent : p.border }}>
+                    {full
+                      ? <Feather name="star" size={15} color="#2D1E16" />
+                      : <TextUI size={13} weight="bold" color={p.ink}>{d.count ? toArabicNumber(d.count) : ''}</TextUI>}
+                  </View>
+                  <TextUI size={11} weight={d.isToday ? 'bold' : 'regular'} color={d.isToday ? p.primary : p.muted} numberOfLines={1}>{lang === 'en' ? d.name.slice(0, 3) : d.name}</TextUI>
+                </View>
+              );
+            })}
           </View>
         </View>
-      </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 14, paddingHorizontal: 4, backgroundColor: p.soft }}>
+          <TextUI size={12.5} color={p.muted} style={{ paddingHorizontal: 8 }}>{t('اليوم', 'Today')}</TextUI>
+          {PRAYER_KEYS.map((key) => {
+            const done = prayedToday.includes(key);
+            const entered = nowMin >= toMin(prayerTimes[key]);
+            return (
+              <TouchableOpacity
+                key={key}
+                disabled={!entered && !done}
+                onPress={() => togglePrayed(key)}
+                role="checkbox"
+                aria-checked={done}
+                aria-disabled={!entered && !done}
+                accessibilityLabel={t(`صلاة ${PRAYER_NAMES_AR[key]}`, `${PRAYER_NAMES_EN[key]} prayer`)}
+                style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 3, opacity: !entered && !done ? 0.45 : 1 }}
+              >
+                <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? p.success : p.surface, borderWidth: 1.5, borderColor: done ? p.success : p.border }}>
+                  {done ? <Feather name="check" size={13} color="#FFFDF9" /> : null}
+                </View>
+                <TextUI size={11} color={done ? p.successInk : p.muted} numberOfLines={1}>{prayerName(key)}</TextUI>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Times card: date with day arrows, the six times, and the night times */}
       <View style={{ borderRadius: 20, padding: 10, gap: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
@@ -546,9 +632,12 @@ export const HomeScreen: React.FC = () => {
               <View
                 key={s.key}
                 accessibilityLabel={`${label} ${shownTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
-                style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8, borderRadius: 12, backgroundColor: isNext ? p.soft : 'transparent' }}
+                style={{ flex: 1, alignItems: 'center', gap: 6, paddingVertical: 8, borderRadius: 14, backgroundColor: isNext ? p.soft : 'transparent' }}
               >
                 <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
+                <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: isNext ? p.hero : tones[0].bg }}>
+                  <Feather name={STRIP_ICONS[s.key]} size={17} color={isNext ? '#F4D9A8' : tones[0].fg} />
+                </View>
                 <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
               </View>
             );
@@ -567,70 +656,22 @@ export const HomeScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Your week: the private prayer log for the last seven days, and today's marks */}
-      <View style={{ borderRadius: 20, padding: 16, gap: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>{t('أسبوعك', 'Your week')}</TextUI>
-          <TextUI size={12.5} color={p.muted} numberOfLines={1} style={{ flexShrink: 1 }}>{t('اختياري · يبقى على جهازك فقط', 'Optional · stays on your device only')}</TextUI>
+      {/* Services: round shortcuts; "More" opens the rest in place */}
+      <View style={{ gap: 10 }}>
+        <TextUI size={17} weight="bold" color={p.ink}>{t('الخدمات', 'Services')}</TextUI>
+        <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 }}>
+          {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item, i) => (
+            <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tone={tones[i % tones.length]} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
+          ))}
+          <ServiceTile
+            p={p}
+            icon={showMore ? 'chevron-up' : 'grid'}
+            label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
+            tone={tones[0]}
+            expanded={showMore}
+            onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
+          />
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          {weekStrip.map((d) => {
-            const full = d.count >= PRAYER_KEYS.length;
-            return (
-              <View
-                key={d.key}
-                accessible
-                accessibilityLabel={t(`${d.name}: ${toArabicNumber(d.count)} من ٥`, `${d.name}: ${toArabicNumber(d.count)} of 5`)}
-                style={{ flex: 1, alignItems: 'center', gap: 6 }}
-              >
-                <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: full ? p.success : d.count ? p.soft : 'transparent', borderWidth: 1.5, borderColor: d.isToday ? p.accent : full ? p.success : p.border }}>
-                  <TextUI size={13} weight="bold" color={full ? '#FFFDF9' : p.ink}>{d.count ? toArabicNumber(d.count) : ''}</TextUI>
-                </View>
-                <TextUI size={11} weight={d.isToday ? 'bold' : 'regular'} color={d.isToday ? p.primary : p.muted} numberOfLines={1}>{lang === 'en' ? d.name.slice(0, 3) : d.name}</TextUI>
-              </View>
-            );
-          })}
-        </View>
-        <View style={{ height: 1, backgroundColor: p.border }} />
-        <TextUI size={13} color={p.muted}>{t('صلوات اليوم', "Today's prayers")}</TextUI>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          {PRAYER_KEYS.map((key) => {
-            const done = prayedToday.includes(key);
-            const entered = nowMin >= toMin(prayerTimes[key]);
-            return (
-              <TouchableOpacity
-                key={key}
-                disabled={!entered && !done}
-                onPress={() => togglePrayed(key)}
-                role="checkbox"
-                aria-checked={done}
-                aria-disabled={!entered && !done}
-                accessibilityLabel={t(`صلاة ${PRAYER_NAMES_AR[key]}`, `${PRAYER_NAMES_EN[key]} prayer`)}
-                style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, opacity: !entered && !done ? 0.45 : 1 }}
-              >
-                <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? p.success : 'transparent', borderWidth: 1.5, borderColor: done ? p.success : p.border }}>
-                  {done ? <Feather name="check" size={15} color="#FFFDF9" /> : null}
-                </View>
-                <TextUI size={11.5} color={done ? p.successInk : p.muted}>{prayerName(key)}</TextUI>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Services: arch-shaped shortcuts; "More" opens the rest in place */}
-      <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 4, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-        {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item, i) => (
-          <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tint={i % 2 === 0} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
-        ))}
-        <ServiceTile
-          p={p}
-          icon={showMore ? 'chevron-up' : 'grid'}
-          label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
-          tint={false}
-          expanded={showMore}
-          onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
-        />
       </View>
 
       {renderNowCard()}
@@ -657,14 +698,17 @@ export const HomeScreen: React.FC = () => {
         {renderListening()}
       </View>
 
-      {/* Ayah of the day */}
-      <Card p={p} style={{ gap: 8, alignItems: 'center', paddingVertical: 18 }}>
-        <TextUI size={12.5} weight="bold" color={p.accentInk} style={{ alignSelf: 'flex-start' }}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
-        <TextUI font="amiri" size={22} color={p.quranInk} align="center" style={{ lineHeight: 42 }}>
-          إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا
-        </TextUI>
-        <TextUI size={13} color={p.muted}>{t('مريم: ٩٦', 'Maryam: 96')}</TextUI>
-      </Card>
+      {/* Ayah of the day, in a framed cartouche like a mushaf heading */}
+      <View style={{ borderRadius: 22, padding: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        <View style={{ borderRadius: 17, borderWidth: 1.5, borderColor: p.accent, paddingVertical: 16, paddingHorizontal: 14, gap: 8, alignItems: 'center' }}>
+          <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
+          <TextUI font="amiri" size={22} color={p.quranInk} align="center" style={{ lineHeight: 42 }}>
+            إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا
+          </TextUI>
+          <TextUI size={13} color={p.muted}>{t('مريم: ٩٦', 'Maryam: 96')}</TextUI>
+        </View>
+      </View>
+      </View>
     </ScrollView>
   );
 };

@@ -3,7 +3,8 @@ import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { PrayerTimeValues } from '../../services/prayerCalculation';
 
-type Phase = 'night' | 'dawn' | 'day' | 'afternoon' | 'dusk';
+export type SkyPhase = 'night' | 'dawn' | 'day' | 'afternoon' | 'dusk';
+type Phase = SkyPhase;
 
 // Sky colors (top -> bottom), disk color and disk height for each part of the day.
 const SKY: Record<Phase, { colors: [string, string]; disk: string; diskTop: number; ground: string }> = {
