@@ -55,9 +55,11 @@ const AZKAR_PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
 type AzkarProgress = Record<string, { day: string; index: number; doneDay?: string }>;
 const WEEK_DAYS = 7;
 
-/** The last seven days ending at `end`, oldest first. */
-const weekDates = (end: Date) =>
-  Array.from({ length: WEEK_DAYS }, (_, i) => new Date(end.getFullYear(), end.getMonth(), end.getDate() - (WEEK_DAYS - 1 - i), 12));
+/** The week (Saturday to Friday) that contains `day`. */
+const weekDates = (day: Date) => {
+  const sinceSaturday = (day.getDay() + 1) % 7; // Sat 0 … Fri 6
+  return Array.from({ length: WEEK_DAYS }, (_, i) => new Date(day.getFullYear(), day.getMonth(), day.getDate() - sinceSaturday + i, 12));
+};
 
 const toMin = (t: { hours: number; minutes: number }) => t.hours * 60 + t.minutes;
 
@@ -322,12 +324,12 @@ export const HomeScreen: React.FC = () => {
     else navigate('quran_index');
   };
 
-  // Weekly strip: prayers marked on each of the last seven days.
+  // Weekly strip, Saturday to Friday: prayers marked on each day; days still ahead stay empty.
   const weekStrip = weekDates(now).map((d) => {
     const key = localDateKey(d);
     const count = (key === today ? prayedToday : week[key] || []).length;
     const name = weekdayName(d.getDay());
-    return { key, count, name, isToday: key === today };
+    return { key, count, name, isToday: key === today, isFuture: key > today };
   });
 
   const renderNowCard = () => {
@@ -629,8 +631,10 @@ export const HomeScreen: React.FC = () => {
                 <View
                   key={d.key}
                   accessible
-                  accessibilityLabel={t(`${d.name}: ${toArabicNumber(d.count)} من ٥`, `${d.name}: ${toArabicNumber(d.count)} of 5`)}
-                  style={{ flex: 1, alignItems: 'center', gap: 6 }}
+                  accessibilityLabel={d.isFuture
+                    ? t(`${d.name}: لم يأتِ بعد`, `${d.name}: not yet`)
+                    : t(`${d.name}: ${toArabicNumber(d.count)} من ٥`, `${d.name}: ${toArabicNumber(d.count)} of 5`)}
+                  style={{ flex: 1, alignItems: 'center', gap: 6, opacity: d.isFuture ? 0.45 : 1 }}
                 >
                   <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: full ? p.accent : d.count ? p.soft : p.surface, borderWidth: 1.5, borderColor: d.isToday ? p.primary : full ? p.accent : p.border }}>
                     {full
