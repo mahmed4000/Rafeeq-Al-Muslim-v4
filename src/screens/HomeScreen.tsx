@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -6,8 +6,11 @@ import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { SkyArch, skyPhase } from '../components/home/SkyArch';
 import { usePalette, Palette } from '../theme/palette';
-import { getFullDateInfo } from '../services/hijriDate';
-import { toArabicNumber, PrayerTimeValues } from '../services/prayerCalculation';
+import { getFullDateInfo, weekdayName } from '../services/hijriDate';
+import { toArabicNumber, PrayerTimeValues, calculateAccuratePrayerTimes, computeNightTimes } from '../services/prayerCalculation';
+import { DailyWirdCard, WirdRow } from '../components/home/DailyWirdCard';
+import { DailyWirdService, WirdAuto, WirdItem } from '../services/dailyWird';
+import { StorageService } from '../services/storage';
 import { AZKAR_CATEGORIES } from '../data/azkarData';
 import { useNextPrayer } from '../hooks/useNextPrayer';
 import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaService';
@@ -34,14 +37,34 @@ const STRIP: { key: keyof PrayerTimeValues; label: string; labelEn: string }[] =
 const PRAYER_NAMES_EN: Record<PrayerKey, string> = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
 const prayerName = (k: PrayerKey) => tr(PRAYER_NAMES_AR[k], PRAYER_NAMES_EN[k]);
 
-const MORE: { screen: string; title: string; titleEn: string; icon: keyof typeof Feather.glyphMap }[] = [
+type Service = { screen: string; title: string; titleEn: string; icon: keyof typeof Feather.glyphMap };
+
+// The first seven show on Home; "More" opens the rest in place.
+const SERVICES: Service[] = [
+  { screen: 'quran_index', title: 'المصحف', titleEn: 'Quran', icon: 'book-open' },
+  { screen: 'azkar_categories', title: 'الأذكار', titleEn: 'Adhkar', icon: 'heart' },
   { screen: 'tasbih', title: 'المسبحة', titleEn: 'Tasbih', icon: 'circle' },
   { screen: 'qibla', title: 'القبلة', titleEn: 'Qibla', icon: 'compass' },
-  { screen: 'allah_names', title: 'أسماء الله الحسنى', titleEn: 'Names of Allah', icon: 'star' },
-  { screen: 'hadith_40', title: 'الأربعون النووية', titleEn: "Nawawi's Forty", icon: 'award' },
-  { screen: 'ruqyah', title: 'الرقية الشرعية', titleEn: 'Ruqyah', icon: 'shield' },
-  { screen: 'zakat_calculator', title: 'حاسبة الزكاة', titleEn: 'Zakat Calculator', icon: 'percent' }
+  { screen: 'khatma', title: 'الختمة', titleEn: 'Khatma', icon: 'award' },
+  { screen: 'haramain_lessons', title: 'الحرمين', titleEn: 'Haramain', icon: 'headphones' },
+  { screen: 'tahfeez', title: 'الحفظ', titleEn: 'Memorize', icon: 'repeat' }
 ];
+const MORE_SERVICES: Service[] = [
+  { screen: 'prayer_month', title: 'مواقيت الشهر', titleEn: 'Monthly times', icon: 'calendar' },
+  { screen: 'allah_names', title: 'أسماء الله', titleEn: 'Names of Allah', icon: 'star' },
+  { screen: 'hadith_40', title: 'الأربعون', titleEn: "Nawawi's 40", icon: 'bookmark' },
+  { screen: 'ruqyah', title: 'الرقية', titleEn: 'Ruqyah', icon: 'shield' },
+  { screen: 'zakat_calculator', title: 'الزكاة', titleEn: 'Zakat', icon: 'percent' },
+  { screen: 'imsakiah', title: 'الإمساكية', titleEn: 'Imsakiah', icon: 'moon' }
+];
+
+const AZKAR_PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
+type AzkarProgress = Record<string, { day: string; index: number; doneDay?: string }>;
+const WEEK_DAYS = 7;
+
+/** The last seven days ending at `end`, oldest first. */
+const weekDates = (end: Date) =>
+  Array.from({ length: WEEK_DAYS }, (_, i) => new Date(end.getFullYear(), end.getMonth(), end.getDate() - (WEEK_DAYS - 1 - i), 12));
 
 const toMin = (t: { hours: number; minutes: number }) => t.hours * 60 + t.minutes;
 
@@ -122,31 +145,62 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
   </View>
 );
 
+// Four per row; the icon sits in a small Andalusian arch.
+const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tint: boolean; expanded?: boolean; onPress: () => void }> = ({ p, icon, label, tint, expanded, onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    accessibilityRole="button"
+    aria-expanded={expanded}
+    onPress={onPress}
+    style={{ width: '25%', minHeight: 80, alignItems: 'center', gap: 6 }}
+  >
+    <View style={{ width: 52, height: 52, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tint ? p.soft : p.bg, borderWidth: 1, borderColor: p.border }}>
+      <Feather name={icon} size={21} color={p.primary} />
+    </View>
+    <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={1}>{label}</TextUI>
+  </TouchableOpacity>
+);
+
 export const HomeScreen: React.FC = () => {
-  const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust } = useApp();
+  const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
   // Everything time-based on Home follows the selected city's clock.
   const now = cityNow(timeZone);
   const otherZone = differsFromDevice(timeZone);
-  const dateInfo = getFullDateInfo(now, hijriAdjust);
 
   const [khatma, setKhatma] = useState<Khatma | null>(null);
   const [prayed, setPrayed] = useState<PrayerKey[]>([]);
   const [prayedDay, setPrayedDay] = useState(localDateKey());
+  const [week, setWeek] = useState<Record<string, PrayerKey[]>>({});
   const [listening, setListening] = useState<LessonResumeRecord | null>(null);
+  const [azkarProgress, setAzkarProgress] = useState<AzkarProgress>({});
+  const [wirdItems, setWirdItems] = useState<WirdItem[]>([]);
+  const [wirdMarked, setWirdMarked] = useState<{ day: string; ids: string[] }>({ day: '', ids: [] });
+  const [showMore, setShowMore] = useState(false);
+  // Days from the city's today in the times card; back to today when Home is opened again.
+  const [dayOffset, setDayOffset] = useState(0);
 
-  // Reload when Home regains focus (after reading or listening, or on a new day).
+  // Reload when Home regains focus (after reading, listening or a session, or on a new day).
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      const day = localDateKey(cityNow(timeZone));
+      const cityToday = cityNow(timeZone);
+      const day = localDateKey(cityToday);
+      setDayOffset(0);
       KhatmaService.getActive().then((k) => { if (alive) setKhatma(k); });
       AudioService.getLatestUnfinished().then((r) => { if (alive) setListening(r); });
-      PrayerLogService.getDay(day).then((list) => {
+      StorageService.getObject<AzkarProgress>(AZKAR_PROGRESS_KEY, {}).then((a) => { if (alive) setAzkarProgress(a || {}); });
+      DailyWirdService.get(day).then((w) => {
         if (!alive) return;
-        setPrayed(list);
+        setWirdItems(w.items);
+        setWirdMarked({ day, ids: w.marked });
+      });
+      PrayerLogService.getDays(weekDates(cityToday).map((d) => localDateKey(d))).then((days) => {
+        if (!alive) return;
+        setWeek(days);
+        setPrayed(days[day] || []);
         setPrayedDay(day);
       });
       return () => { alive = false; };
@@ -162,6 +216,29 @@ export const HomeScreen: React.FC = () => {
     const list = await PrayerLogService.toggle(key, today);
     setPrayed(list);
     setPrayedDay(today);
+    setWeek((w) => ({ ...w, [today]: list }));
+  };
+
+  // Times card: today by default, or a nearby day picked with the arrows.
+  const isToday = dayOffset === 0;
+  const shownDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 12);
+  const shownKey = shownDay.toDateString();
+  const shownTimes = useMemo(
+    () => (isToday ? prayerTimes : calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, shownDay, calculationMethod, asrMethod, timeZone, prayerOffsets)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isToday, prayerTimes, currentCity.lat, currentCity.lng, shownKey, calculationMethod, asrMethod, timeZone, prayerOffsets]
+  );
+  const night = useMemo(
+    () => computeNightTimes(currentCity.lat, currentCity.lng, shownDay, calculationMethod, asrMethod, timeZone, prayerOffsets),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentCity.lat, currentCity.lng, shownKey, calculationMethod, asrMethod, timeZone, prayerOffsets]
+  );
+  const dateInfo = getFullDateInfo(shownDay, hijriAdjust);
+  const dayLabel = dayOffset === 0 ? t('اليوم', 'Today') : dayOffset === 1 ? t('غدًا', 'Tomorrow') : dayOffset === -1 ? t('أمس', 'Yesterday') : '';
+  const dayTitle = dayLabel ? `${dayLabel} · ${dateInfo.gregorianDayName}` : dateInfo.gregorianDayName;
+  const shiftDay = (delta: number) => {
+    triggerHaptic('light');
+    setDayOffset((d) => d + delta);
   };
 
   const openReaderAt = (surahId: number, page?: number, ayah?: number) => {
@@ -181,6 +258,65 @@ export const HomeScreen: React.FC = () => {
   const bookmarkSurah = readingBookmark
     ? (lang === 'en' ? surahById(readingBookmark.surahId).nameEn || readingBookmark.surahName : readingBookmark.surahName)
     : '';
+
+  // Daily wird: built-in items tick themselves from the app's records.
+  const deviceDay = new Date().toDateString(); // adhkar sessions are kept by the device's day
+  const wirdMarkedToday = wirdMarked.day === today ? wirdMarked.ids : [];
+  const autoLabel = (kind: WirdAuto) => {
+    if (kind === 'morning' || kind === 'evening') {
+      const c = AZKAR_CATEGORIES.find((x) => x.id === kind)!;
+      return t(c.titleAr, c.titleEn);
+    }
+    return kind === 'quran' ? t('وِرد القرآن', 'Daily Quran reading') : t('الصلوات الخمس', 'The five prayers');
+  };
+  const autoStatus = (kind: WirdAuto): { done: boolean; note: string } => {
+    if (kind === 'morning' || kind === 'evening') {
+      const s = azkarProgress[kind];
+      if (s?.doneDay === deviceDay) return { done: true, note: t('أتممتها', 'Finished') };
+      if (s?.day === deviceDay && s.index > 0) return { done: false, note: t(`توقفت عند ${toArabicNumber(s.index + 1)}`, `Stopped at ${toArabicNumber(s.index + 1)}`) };
+      return { done: false, note: '' };
+    }
+    if (kind === 'quran') {
+      if (!progress || progress.isComplete || progress.todayTarget <= 0) return { done: false, note: '' };
+      return {
+        done: progress.readToday >= progress.todayTarget,
+        note: t(`${toArabicNumber(Math.min(progress.readToday, progress.todayTarget))} من ${pagesText(progress.todayTarget)}`, `${toArabicNumber(Math.min(progress.readToday, progress.todayTarget))} of ${pagesText(progress.todayTarget)}`)
+      };
+    }
+    return { done: prayedToday.length >= PRAYER_KEYS.length, note: t(`${toArabicNumber(prayedToday.length)} من ٥`, `${toArabicNumber(prayedToday.length)} of 5`) };
+  };
+  const wirdRows: WirdRow[] = wirdItems.map((item) => {
+    const auto = item.auto ? autoStatus(item.auto) : null;
+    const marked = wirdMarkedToday.includes(item.id);
+    return {
+      item,
+      label: item.auto ? autoLabel(item.auto) : item.label || '',
+      done: !!auto?.done || marked,
+      autoDone: !!auto?.done,
+      note: auto?.note || ''
+    };
+  });
+  const toggleWird = async (id: string) => {
+    triggerHaptic('light');
+    const ids = await DailyWirdService.toggleMark(id, today);
+    setWirdMarked({ day: today, ids });
+  };
+  const openWird = (kind: WirdAuto) => {
+    triggerHaptic('light');
+    if (kind === 'morning' || kind === 'evening') navigate('azkar_session', { categoryId: kind });
+    else if (kind === 'prayers') navigate('prayer_times');
+    else if (progress && !progress.isComplete) openReaderAtPage(progress.nextPage);
+    else if (readingBookmark) openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
+    else navigate('quran_index');
+  };
+
+  // Weekly strip: prayers marked on each of the last seven days.
+  const weekStrip = weekDates(now).map((d) => {
+    const key = localDateKey(d);
+    const count = (key === today ? prayedToday : week[key] || []).length;
+    const name = weekdayName(d.getDay());
+    return { key, count, name, isToday: key === today };
+  });
 
   const renderNowCard = () => {
     let icon: keyof typeof Feather.glyphMap = 'book-open';
@@ -353,7 +489,6 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-        <TextUI size={14} color={p.muted}>{`${dateInfo.gregorianDayName} ${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ flex: 1, height: 1, backgroundColor: p.accent, opacity: 0.45 }} />
           <View style={{ width: 26, height: 13, borderWidth: 1.5, borderBottomWidth: 0, borderColor: p.accent, borderTopLeftRadius: 13, borderTopRightRadius: 13 }} />
@@ -382,31 +517,82 @@ export const HomeScreen: React.FC = () => {
         </View>
       </TouchableOpacity>
 
-      {/* Today's times strip */}
-      <View accessibilityLabel={t('مواقيت اليوم', "Today's prayer times")} style={{ flexDirection: 'row', gap: 2, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-        {STRIP.map((s) => {
-          const isNext = s.key === next.id;
-          const time = prayerTimes[s.key].timeStr.split(' ')[0];
-          const label = t(s.label, s.labelEn);
-          return (
-            <View
-              key={s.key}
-              accessibilityLabel={`${label} ${prayerTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
-              style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8, borderRadius: 12, backgroundColor: isNext ? p.soft : 'transparent' }}
-            >
-              <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
-              <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
+      {/* Times card: date with day arrows, the six times, and the night times */}
+      <View style={{ borderRadius: 20, padding: 10, gap: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم السابق', 'Previous day')} onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={isToday ? `${dayTitle}، ${dateInfo.hijriFormatted}` : t(`${dayTitle}، ${dateInfo.hijriFormatted}. اضغط للعودة إلى اليوم`, `${dayTitle}, ${dateInfo.hijriFormatted}. Tap to return to today`)}
+            disabled={isToday}
+            onPress={() => shiftDay(-dayOffset)}
+            style={{ flex: 1, alignItems: 'center' }}
+          >
+            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{dayTitle}</TextUI>
+            <TextUI size={13} color={p.muted} numberOfLines={1}>{`${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم التالي', 'Next day')} onPress={() => shiftDay(1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.primary} />
+          </TouchableOpacity>
+        </View>
+        <View accessibilityLabel={t('مواقيت اليوم', "Today's prayer times")} style={{ flexDirection: 'row', gap: 2 }}>
+          {STRIP.map((s) => {
+            const isNext = isToday && !next.isTomorrow && s.key === next.id;
+            const time = shownTimes[s.key].timeStr.split(' ')[0];
+            const label = t(s.label, s.labelEn);
+            return (
+              <View
+                key={s.key}
+                accessibilityLabel={`${label} ${shownTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
+                style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8, borderRadius: 12, backgroundColor: isNext ? p.soft : 'transparent' }}
+              >
+                <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
+                <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
+              </View>
+            );
+          })}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[
+            { key: 'mid', label: t('منتصف الليل', 'Midnight'), value: night.midnight },
+            { key: 'third', label: t('الثلث الأخير', 'Last third'), value: night.lastThird }
+          ].map((n) => (
+            <View key={n.key} style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: p.soft }}>
+              <TextUI size={13} color={p.muted} numberOfLines={1}>{n.label}</TextUI>
+              <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{n.value}</TextUI>
             </View>
-          );
-        })}
+          ))}
+        </View>
       </View>
 
-      {/* Optional private prayer tracker */}
-      <View style={{ gap: 6, paddingHorizontal: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <TextUI size={15} weight="bold" color={p.ink}>{t('صلوات اليوم', "Today's prayers")}</TextUI>
-          <TextUI size={12.5} color={p.muted}>{t('اختياري · يبقى على جهازك فقط', 'Optional · stays on your device only')}</TextUI>
+      {/* Your week: the private prayer log for the last seven days, and today's marks */}
+      <View style={{ borderRadius: 20, padding: 16, gap: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <TextUI size={16} weight="bold" color={p.ink}>{t('أسبوعك', 'Your week')}</TextUI>
+          <TextUI size={12.5} color={p.muted} numberOfLines={1} style={{ flexShrink: 1 }}>{t('اختياري · يبقى على جهازك فقط', 'Optional · stays on your device only')}</TextUI>
         </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {weekStrip.map((d) => {
+            const full = d.count >= PRAYER_KEYS.length;
+            return (
+              <View
+                key={d.key}
+                accessible
+                accessibilityLabel={t(`${d.name}: ${toArabicNumber(d.count)} من ٥`, `${d.name}: ${toArabicNumber(d.count)} of 5`)}
+                style={{ flex: 1, alignItems: 'center', gap: 6 }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: full ? p.success : d.count ? p.soft : 'transparent', borderWidth: 1.5, borderColor: d.isToday ? p.accent : full ? p.success : p.border }}>
+                  <TextUI size={13} weight="bold" color={full ? '#FFFDF9' : p.ink}>{d.count ? toArabicNumber(d.count) : ''}</TextUI>
+                </View>
+                <TextUI size={11} weight={d.isToday ? 'bold' : 'regular'} color={d.isToday ? p.primary : p.muted} numberOfLines={1}>{lang === 'en' ? d.name.slice(0, 3) : d.name}</TextUI>
+              </View>
+            );
+          })}
+        </View>
+        <View style={{ height: 1, backgroundColor: p.border }} />
+        <TextUI size={13} color={p.muted}>{t('صلوات اليوم', "Today's prayers")}</TextUI>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           {PRAYER_KEYS.map((key) => {
             const done = prayedToday.includes(key);
@@ -432,32 +618,43 @@ export const HomeScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Services: arch-shaped shortcuts; "More" opens the rest in place */}
+      <View accessibilityLabel={t('الخدمات', 'Services')} style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 4, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+        {[...SERVICES, ...(showMore ? MORE_SERVICES : [])].map((item, i) => (
+          <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tint={i % 2 === 0} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
+        ))}
+        <ServiceTile
+          p={p}
+          icon={showMore ? 'chevron-up' : 'grid'}
+          label={showMore ? t('أقل', 'Less') : t('المزيد', 'More')}
+          tint={false}
+          expanded={showMore}
+          onPress={() => { triggerHaptic('light'); setShowMore((v) => !v); }}
+        />
+      </View>
+
       {renderNowCard()}
+
+      <DailyWirdCard
+        p={p}
+        t={t}
+        rows={wirdRows}
+        autoLabel={autoLabel}
+        onToggle={toggleWird}
+        onOpen={openWird}
+        onAdd={async (item) => { triggerHaptic('light'); setWirdItems(await DailyWirdService.add(item)); }}
+        onRemove={async (id) => {
+          triggerHaptic('light');
+          setWirdItems(await DailyWirdService.remove(id));
+          setWirdMarked((m) => ({ ...m, ids: m.ids.filter((x) => x !== id) }));
+        }}
+      />
 
       {/* Continue */}
       <View style={{ gap: 10 }}>
         <TextUI size={17} weight="bold" color={p.ink}>{t('تابع', 'Continue')}</TextUI>
         {renderContinue()}
         {renderListening()}
-      </View>
-
-      {/* More tools */}
-      <View style={{ gap: 10 }}>
-        <TextUI size={17} weight="bold" color={p.ink}>{t('المزيد', 'More')}</TextUI>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {MORE.map((item) => (
-            <TouchableOpacity
-              key={item.screen}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              onPress={() => { triggerHaptic('light'); navigate(item.screen); }}
-              style={{ width: '31%', flexGrow: 1, minHeight: 84, borderRadius: 14, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-            >
-              <Feather name={item.icon} size={20} color={p.primary} />
-              <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={2}>{t(item.title, item.titleEn)}</TextUI>
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
 
       {/* Ayah of the day */}

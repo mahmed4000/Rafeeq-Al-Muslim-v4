@@ -19,6 +19,14 @@ export const PrayerLogService = {
     return log[dateKey] || [];
   },
 
+  /** Several days at once (for the weekly strip); missing days come back empty. */
+  async getDays(dateKeys: string[]): Promise<Record<string, PrayerKey[]>> {
+    const log = await StorageService.getObject<PrayerLog>(LOG_KEY, {});
+    const out: Record<string, PrayerKey[]> = {};
+    dateKeys.forEach((k) => { out[k] = log[k] || []; });
+    return out;
+  },
+
   async toggle(key: PrayerKey, dateKey = localDateKey()): Promise<PrayerKey[]> {
     const log = await StorageService.getObject<PrayerLog>(LOG_KEY, {});
     const day = log[dateKey] || [];

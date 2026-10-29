@@ -21,7 +21,8 @@ const SHOW_UNSOURCED_VIRTUES = false;
 const PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
 // `counts` holds each dhikr's count so moving back and forth never clears it;
 // `counter` (the current dhikr's count) is kept for the adhkar list screen and older saves.
-type SessionProgress = Record<string, { day: string; index: number; counter: number; counts?: number[] }>;
+// `doneDay` is the last day the whole session was finished (read by Home's daily wird).
+type SessionProgress = Record<string, { day: string; index: number; counter: number; counts?: number[]; doneDay?: string }>;
 const todayKey = () => new Date().toDateString();
 
 const FONT_MIN = 16;
@@ -142,9 +143,10 @@ export const AzkarSessionScreen: React.FC = () => {
     if (!progressLoaded) return;
     (async () => {
       const progress = await StorageService.getObject<SessionProgress>(PROGRESS_KEY, {});
+      const doneDay = showCompletion ? todayKey() : progress[category.id]?.doneDay;
       progress[category.id] = showCompletion
-        ? { day: todayKey(), index: 0, counter: 0, counts: azkarList.map(() => 0) }
-        : { day: todayKey(), index: currentIndex, counter, counts };
+        ? { day: todayKey(), index: 0, counter: 0, counts: azkarList.map(() => 0), doneDay }
+        : { day: todayKey(), index: currentIndex, counter, counts, doneDay };
       await StorageService.setObject(PROGRESS_KEY, progress);
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
