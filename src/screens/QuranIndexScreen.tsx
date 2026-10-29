@@ -1,30 +1,64 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Modal, TextInput, TouchableOpacity, View, Platform, ScrollView } from 'react-native';
+import { FlatList, Modal, TextInput, TouchableOpacity, View, Platform, ScrollView, ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { makeShadow } from '../constants/tokens';
-import { usePalette } from '../theme/palette';
+import { Palette, usePalette } from '../theme/palette';
 import { QURAN_JUZ_INDEX, QURAN_HIZB_INDEX, QuranHizbIndexItem, QuranJuzIndexItem } from '../data/quranIndex';
 import { QURAN_RECITERS } from '../services/quranParser';
-import { toArabicNumber, toStandardNumber } from '../services/prayerCalculation';
+import { toArabicNumber } from '../services/prayerCalculation';
 import { searchQuranUniversal, splitTextForHighlight, VerseSearchResult } from '../services/quranSearch';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 const RECITER_STORAGE_KEY = 'quran.selected-reciter';
 type IndexTab = 'surah' | 'juz' | 'hizb';
-type JumpType = 'page' | 'surah' | 'juz';
+
+const TABS: { id: IndexTab; label: string }[] = [
+  { id: 'surah', label: 'السور' },
+  { id: 'juz', label: 'الأجزاء' },
+  { id: 'hizb', label: 'الأحزاب' }
+];
+
+/** "٧ آيات" / "٢٨٦ آية" (Arabic plural agreement for counts). */
+function versesAr(n: number): string {
+  if (n === 2) return 'آيتان';
+  const tail = n % 100;
+  return `${toArabicNumber(n)} ${tail >= 3 && tail <= 10 ? 'آيات' : 'آية'}`;
+}
+
+/** One row of a grouped card: rounded outer corners on the first and last rows only. */
+function rowFrame(p: Palette, index: number, count: number): ViewStyle {
+  const first = index === 0;
+  const last = index === count - 1;
+  return {
+    backgroundColor: p.surface,
+    borderColor: p.border,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderTopWidth: 1,
+    borderBottomWidth: last ? 1 : 0,
+    borderTopLeftRadius: first ? 20 : 0,
+    borderTopRightRadius: first ? 20 : 0,
+    borderBottomLeftRadius: last ? 20 : 0,
+    borderBottomRightRadius: last ? 20 : 0
+  };
+}
+
+/** Number inside a gold diamond, as in the design. */
+const NumberDiamond: React.FC<{ n: number; p: Palette }> = ({ n, p }) => (
+  <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ position: 'absolute', width: 30, height: 30, borderRadius: 8, borderWidth: 1.5, borderColor: p.accent, transform: [{ rotate: '45deg' }] }} />
+    <TextUI size={13} weight="bold" color={p.accentInk}>{toArabicNumber(n)}</TextUI>
+  </View>
+);
 
 export const QuranIndexScreen: React.FC = () => {
-  const { goBack, navigate, t, setSelectedSurah, readingBookmark, triggerHaptic } = useApp();
+  const { navigate, t, setSelectedSurah, readingBookmark, triggerHaptic } = useApp();
   const [activeTab, setActiveTab] = useState<IndexTab>('surah');
   const [search, setSearch] = useState('');
   const [selectedReciter, setSelectedReciter] = useState(QURAN_RECITERS[0].id);
   const [reciterModalVisible, setReciterModalVisible] = useState(false);
-  const [jumpModalVisible, setJumpModalVisible] = useState(false);
-  const [jumpType, setJumpType] = useState<JumpType>('page');
-  const [jumpValue, setJumpValue] = useState('');
   const p = usePalette();
 
   React.useEffect(() => {
@@ -68,302 +102,105 @@ export const QuranIndexScreen: React.FC = () => {
     });
   };
 
-  const executeJump = () => {
-    const value = Number(toStandardNumber(jumpValue));
-    if (!Number.isFinite(value) || value < 1) return;
-    if (jumpType === 'page') openPage(Math.min(604, value));
-    if (jumpType === 'surah') {
-      const surah = QURAN_DATA.find((item) => item.id === Math.min(114, value));
-      if (surah) openReader(surah, 'page');
-    }
-    if (jumpType === 'juz') {
-      const juz = QURAN_JUZ_INDEX.find((item) => item.juz === Math.min(30, value));
-      const surah = QURAN_DATA.find((item) => item.id === juz?.startSurahId) || QURAN_DATA[0];
-      if (juz) openReader(surah, 'page', juz.startPage);
-    }
-    setJumpModalVisible(false);
-    setJumpValue('');
-  };
-
   const chooseReciter = (reciterId: string) => {
     setSelectedReciter(reciterId);
     AsyncStorage.setItem(RECITER_STORAGE_KEY, reciterId).catch(() => {});
   };
 
-  // 1. Render Surah Card (Calm, spacious, high readability)
-  const renderSurah = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => openReader(item, 'page')}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 13,
-        paddingHorizontal: 16,
-        marginHorizontal: 12,
-        marginVertical: 4,
-        borderRadius: 16,
-        backgroundColor: p.surface,
-        borderWidth: 1,
-        borderColor: p.border,
-        ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
-      }}
+  const surahById = (id: number) => QURAN_DATA.find((entry) => entry.id === id) || QURAN_DATA[0];
+
+  // 1. Surah row
+  // The play button is a sibling of the row's main button (buttons must not nest).
+  const renderSurah = (item: any, index: number, count: number) => (
+    <View
+      key={`surah-${item.id}`}
+      style={[rowFrame(p, index, count), { flexDirection: 'row', alignItems: 'center', paddingEnd: 6, minHeight: 60 }]}
     >
-      {/* Right side: Surah Number Emblem + Names */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: p.soft,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: p.border
-          }}
-        >
-          <TextUI variant="captionBold" color={p.primary}>
-            {toArabicNumber(item.id)}
-          </TextUI>
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <TextUI variant="h4" color={p.ink}>
-            سورة {item.nameAr}
-          </TextUI>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
-            <View
-              style={{
-                paddingHorizontal: 6,
-                paddingVertical: 1.5,
-                borderRadius: 6,
-                backgroundColor: p.bgAlt
-              }}
-            >
-              <TextUI variant="badge" color={p.muted}>
-                {item.type}
-              </TextUI>
-            </View>
-            <TextUI variant="caption" color={p.muted}>
-              • {toArabicNumber(item.verses)} آية • صفحة {toArabicNumber(item.mushafPageStart || 1)}
-            </TextUI>
-          </View>
-        </View>
-      </View>
-
-      {/* Left side: Quick Play button + Chevron */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <TouchableOpacity
-          onPress={() => openReader(item, 'page', item.mushafPageStart || 1, 1, true)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: p.bgAlt,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: p.border
-          }}
-        >
-          <Feather name="play" size={15} color={p.primary} style={{ marginLeft: 2 }} />
-        </TouchableOpacity>
-
-        <Feather name="chevron-left" size={18} color={p.muted} />
-      </View>
-    </TouchableOpacity>
-  );
-
-  // 2. Render Juz Card (الأجزاء)
-  const renderJuz = ({ item }: { item: QuranJuzIndexItem }) => {
-    const includedHizbStart = (item.juz - 1) * 2 + 1;
-    const includedHizbEnd = includedHizbStart + 1;
-
-    return (
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => {
-          const surah = QURAN_DATA.find((entry) => entry.id === item.startSurahId) || QURAN_DATA[0];
-          openReader(surah, 'page', item.startPage);
-        }}
-        style={{
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          marginHorizontal: 12,
-          marginVertical: 4,
-          borderRadius: 16,
-          backgroundColor: p.surface,
-          borderWidth: 1,
-          borderColor: p.border,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
-        }}
+        accessibilityRole="button"
+        accessibilityLabel={`سورة ${item.nameAr}، ${item.type}، ${versesAr(item.verses)}، صفحة ${toArabicNumber(item.mushafPageStart || 1)}`}
+        onPress={() => openReader(item, 'page')}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingStart: 8 }}
       >
+        <NumberDiamond n={item.id} p={p} />
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View
-              style={{
-                paddingHorizontal: 9,
-                paddingVertical: 3,
-                borderRadius: 8,
-                backgroundColor: p.soft
-              }}
-            >
-              <TextUI variant="captionBold" color={p.primary}>
-                الجزء {toArabicNumber(item.juz)}
-              </TextUI>
-            </View>
-            <TextUI variant="caption" color={p.muted}>
-              يشمل الحزب {toArabicNumber(includedHizbStart)} و {toArabicNumber(includedHizbEnd)}
-            </TextUI>
-          </View>
+          <TextUI size={20} weight="bold" color={p.ink} style={{ fontFamily: 'Amiri_700Bold', lineHeight: 30 }}>{item.nameAr}</TextUI>
+          <TextUI size={12.5} color={p.muted}>{`${item.type} · ${versesAr(item.verses)}`}</TextUI>
+        </View>
+        <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.mushafPageStart || 1)}`}</TextUI>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`تشغيل سورة ${item.nameAr}`}
+        onPress={() => openReader(item, 'page', item.mushafPageStart || 1, 1, true)}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Feather name="play-circle" size={20} color={p.primary} />
+      </TouchableOpacity>
+    </View>
+  );
 
-          <TextUI variant="caption" color={p.muted} style={{ marginTop: 5 }}>
-            يبدأ من: <TextUI variant="bodyMedium" weight="bold" color={p.ink}>سورة {item.startSurahNameAr}</TextUI> • آية {toArabicNumber(item.startAyah)}
+  // 2. Juz row
+  const renderJuz = (item: QuranJuzIndexItem, index: number, count: number) => {
+    const hizbStart = (item.juz - 1) * 2 + 1;
+    return (
+      <TouchableOpacity
+        key={`juz-${item.juz}`}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        onPress={() => openReader(surahById(item.startSurahId), 'page', item.startPage)}
+        style={[rowFrame(p, index, count), { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 8, minHeight: 60 }]}
+      >
+        <NumberDiamond n={item.juz} p={p} />
+        <View style={{ flex: 1 }}>
+          <TextUI size={16} weight="bold" color={p.ink}>{`الجزء ${toArabicNumber(item.juz)}`}</TextUI>
+          <TextUI size={12.5} color={p.muted}>
+            {`من ${item.startSurahNameAr} · آية ${toArabicNumber(item.startAyah)} · الحزبان ${toArabicNumber(hizbStart)} و${toArabicNumber(hizbStart + 1)}`}
           </TextUI>
         </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View
-            style={{
-              paddingHorizontal: 9,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: p.bgAlt,
-              borderWidth: 1,
-              borderColor: p.border
-            }}
-          >
-            <TextUI variant="captionBold" color={p.primary}>
-              ص {toArabicNumber(item.startPage)}
-            </TextUI>
-          </View>
-          <Feather name="chevron-left" size={18} color={p.muted} />
-        </View>
+        <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`ص ${toArabicNumber(item.startPage)}`}</TextUI>
       </TouchableOpacity>
     );
   };
 
-  // 3. Render Hizb Card (الأحزاب - 60 حزباً)
-  const renderHizb = ({ item }: { item: QuranHizbIndexItem }) => (
+  // 3. Hizb row
+  const renderHizb = (item: QuranHizbIndexItem, index: number, count: number) => (
     <TouchableOpacity
+      key={`hizb-${item.hizb}`}
       activeOpacity={0.7}
-      onPress={() => {
-        const surah = QURAN_DATA.find((entry) => entry.id === item.startSurahId) || QURAN_DATA[0];
-        openReader(surah, 'page', item.startPage, item.startAyah);
-      }}
-      style={{
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        marginHorizontal: 12,
-        marginVertical: 4,
-        borderRadius: 16,
-        backgroundColor: p.surface,
-        borderWidth: 1,
-        borderColor: p.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
-      }}
+      accessibilityRole="button"
+      onPress={() => openReader(surahById(item.startSurahId), 'page', item.startPage, item.startAyah)}
+      style={[rowFrame(p, index, count), { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 8, minHeight: 60 }]}
     >
-      <View style={{ flex: 1, marginEnd: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-          <View
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 2.5,
-              borderRadius: 8,
-              backgroundColor: p.soft,
-              borderWidth: 1,
-              borderColor: p.accent
-            }}
-          >
-            <TextUI variant="captionBold" color={p.primary}>
-              الحزب {toArabicNumber(item.hizb)}
-            </TextUI>
-          </View>
-          <TextUI variant="caption" color={p.muted}>
-            الجزء {toArabicNumber(item.juz)} • سورة {item.startSurahNameAr} آية {toArabicNumber(item.startAyah)}
-          </TextUI>
-        </View>
-
-        <TextUI variant="quranVerse" size={16} color={p.ink} numberOfLines={1}>
+      <NumberDiamond n={item.hizb} p={p} />
+      <View style={{ flex: 1 }}>
+        <TextUI size={12.5} color={p.muted}>
+          {`الحزب ${toArabicNumber(item.hizb)} · الجزء ${toArabicNumber(item.juz)} · ${item.startSurahNameAr} ${toArabicNumber(item.startAyah)}`}
+        </TextUI>
+        <TextUI variant="quranVerse" size={17} color={p.ink} numberOfLines={1}>
           «{item.beginningSnippet}»
         </TextUI>
       </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View
-          style={{
-            paddingHorizontal: 9,
-            paddingVertical: 4,
-            borderRadius: 12,
-            backgroundColor: p.bgAlt,
-            borderWidth: 1,
-            borderColor: p.border
-          }}
-        >
-          <TextUI variant="captionBold" color={p.primary}>
-            ص {toArabicNumber(item.startPage)}
-          </TextUI>
-        </View>
-        <Feather name="chevron-left" size={18} color={p.muted} />
-      </View>
+      <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`ص ${toArabicNumber(item.startPage)}`}</TextUI>
     </TouchableOpacity>
   );
 
-  // 4. Render Verse Search Match with Highlighting
-  const renderVerseSearchResult = ({ item }: { item: VerseSearchResult }) => {
+  // 4. Verse search match with highlighting
+  const renderVerseSearchResult = (item: VerseSearchResult, index: number, count: number) => {
     const parts = splitTextForHighlight(item.text, search);
     return (
       <TouchableOpacity
+        key={`v-match-${item.surahId}-${item.ayahNumber}-${index}`}
         activeOpacity={0.7}
-        onPress={() => {
-          const surah = QURAN_DATA.find((entry) => entry.id === item.surahId) || QURAN_DATA[0];
-          openReader(surah, 'page', item.pageNum, item.ayahNumber);
-        }}
-        style={{
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          marginHorizontal: 12,
-          marginVertical: 5,
-          borderRadius: 16,
-          backgroundColor: p.surface,
-          borderWidth: 1,
-          borderColor: p.border,
-          ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
-        }}
+        accessibilityRole="button"
+        onPress={() => openReader(surahById(item.surahId), 'page', item.pageNum, item.ayahNumber)}
+        style={[rowFrame(p, index, count), { paddingVertical: 12, paddingHorizontal: 14, gap: 4 }]}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TextUI variant="h4" color={p.primary}>
-              سورة {item.surahNameAr}
-            </TextUI>
-            <TextUI variant="caption" color={p.muted}>
-              • الآية {toArabicNumber(item.ayahNumber)}
-            </TextUI>
-          </View>
-
-          <View
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: 10,
-              backgroundColor: p.bgAlt
-            }}
-          >
-            <TextUI variant="captionBold" color={p.muted}>
-              صفحة {toArabicNumber(item.pageNum)}
-            </TextUI>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TextUI size={14} weight="bold" color={p.primaryInk}>{`${item.surahNameAr} · الآية ${toArabicNumber(item.ayahNumber)}`}</TextUI>
+          <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.pageNum)}`}</TextUI>
         </View>
-
         <TextUI variant="quranVerse" size={17} color={p.ink} style={{ lineHeight: 30 }}>
           {parts.map((part, pIdx) => (
             <TextUI
@@ -372,9 +209,7 @@ export const QuranIndexScreen: React.FC = () => {
               size={17}
               weight={part.isMatch ? 'bold' : 'regular'}
               color={part.isMatch ? p.accentInk : p.ink}
-              style={{
-                backgroundColor: part.isMatch ? p.soft : 'transparent'
-              }}
+              style={{ backgroundColor: part.isMatch ? p.soft : 'transparent' }}
             >
               {part.text}
             </TextUI>
@@ -384,383 +219,194 @@ export const QuranIndexScreen: React.FC = () => {
     );
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor: p.bg }}>
-      {/* 1. Top Navigation Bar (iPhone Safe Area Aware) */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingTop: Platform.OS === 'ios' ? 56 : (Platform.OS === 'web' ? 42 : 14),
-          paddingBottom: 12,
-          backgroundColor: p.hero
-        }}
-      >
-        <TouchableOpacity
-          onPress={goBack}
-          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 5,
-            paddingHorizontal: 12,
-            paddingVertical: 5,
-            borderRadius: 16,
-            backgroundColor: 'rgba(255,255,255,0.18)'
-          }}
-        >
-          <Feather name="arrow-right" size={15} color={p.onHero} />
-          <TextUI variant="captionBold" color={p.onHero}>رجوع</TextUI>
-        </TouchableOpacity>
+  const sectionTitle = (text: string) => (
+    <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4, marginBottom: 8 }}>{text}</TextUI>
+  );
 
-        <TextUI variant="h3" color={p.onHero}>
-          {t('فهرس المصحف الشريف', 'Holy Quran Index')}
-        </TextUI>
+  const resumeCard = readingBookmark ? (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={`متابعة القراءة: ${readingBookmark.surahName}، الآية ${toArabicNumber(readingBookmark.ayah)}، صفحة ${toArabicNumber(readingBookmark.page)}`}
+      onPress={() => {
+        const surah = surahById(readingBookmark.surahId);
+        setSelectedSurah(surah);
+        navigate('quran_reader', {
+          readingMode: 'page',
+          startPage: readingBookmark.page,
+          startSurahId: readingBookmark.surahId,
+          startAyah: readingBookmark.ayah,
+          reciterId: selectedReciter
+        });
+      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 20, backgroundColor: p.hero }}
+    >
+      <View style={{ width: 48, height: 56, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 1.5, borderColor: p.accent, alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name="bookmark" size={20} color={p.accent} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <TextUI size={13} color={p.onHeroMuted}>متابعة القراءة</TextUI>
+        <TextUI size={18} weight="bold" color={p.onHero}>{`${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}`}</TextUI>
+        <TextUI size={13} color={p.onHeroMuted}>{`صفحة ${toArabicNumber(readingBookmark.page)} · الجزء ${toArabicNumber(readingBookmark.juz)}`}</TextUI>
+      </View>
+      <Feather name="chevron-left" size={20} color={p.accent} />
+    </TouchableOpacity>
+  ) : null;
 
-        {/* Reciter Selector in Header */}
-        <TouchableOpacity
-          onPress={() => setReciterModalVisible(true)}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 5,
-            paddingVertical: 4,
-            paddingHorizontal: 9,
-            borderRadius: 14,
-            backgroundColor: 'rgba(255,255,255,0.14)'
-          }}
-        >
-          <Feather name="mic" size={13} color={p.onHero} />
-          <TextUI variant="caption" color={p.onHero} numberOfLines={1} style={{ maxWidth: 85 }}>
-            {selectedReciterData.nameAr.split(' ')[0]}
-          </TextUI>
-        </TouchableOpacity>
+  const listHeader = (
+    <View style={{ gap: 12, marginBottom: 12 }}>
+      {resumeCard}
+
+      {/* Khatma & memorization shortcuts */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {[
+          { key: 'khatma', label: t('ختمتي', 'My Khatma'), icon: 'award' as const },
+          { key: 'tahfeez', label: t('جلسة حفظ', 'Memorize'), icon: 'repeat' as const }
+        ].map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            onPress={() => navigate(item.key)}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+          >
+            <Feather name={item.icon} size={16} color={p.primary} />
+            <TextUI size={15} weight="bold" color={p.ink}>{item.label}</TextUI>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* 2. Universal Search Bar & Quick Tools */}
-      <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: p.surface,
-            borderRadius: 22,
-            paddingHorizontal: 14,
-            paddingVertical: 6,
-            borderWidth: 1,
-            borderColor: p.border,
-            gap: 8,
-            ...makeShadow('0 2px 6px rgba(0,0,0,0.04)', '#000', 0.04, 3)
-          }}
-        >
-          <Feather name="search" size={17} color={p.primary} />
+      {/* Browse by surah / juz / hizb */}
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', padding: 4, borderRadius: 999, backgroundColor: p.bgAlt }}>
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              onPress={() => {
+                triggerHaptic('light');
+                setActiveTab(tab.id);
+              }}
+              style={{ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: active ? p.surface : 'transparent' }}
+            >
+              <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{tab.label}</TextUI>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const listData: any[] = activeTab === 'surah' ? QURAN_DATA : activeTab === 'juz' ? QURAN_JUZ_INDEX : QURAN_HIZB_INDEX;
+  const noResults = searchResults
+    && searchResults.matchedSurahs.length === 0
+    && searchResults.matchedHizb.length === 0
+    && searchResults.matchedVerses.length === 0
+    && !searchResults.isPageMatch;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
+      {/* Title, reciter and search stay fixed so the search field keeps focus while results change */}
+      <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 12, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <TextUI size={26} weight="bold" color={p.ink}>{t('القرآن الكريم', 'The Holy Quran')}</TextUI>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`القارئ: ${selectedReciterData.nameAr}`}
+            onPress={() => setReciterModalVisible(true)}
+            style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+          >
+            <Feather name="mic" size={15} color={p.primary} />
+            <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1} style={{ flexShrink: 1 }}>{selectedReciterData.nameAr}</TextUI>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+          <Feather name="search" size={18} color={p.muted} />
           <TextInput
-            placeholder="ابحث باسم السورة، كلمة بالآية، رقم صفحة (١-٦٠٤)، أو حزب..."
+            accessibilityLabel="بحث في القرآن"
+            placeholder="سورة، جزء، صفحة، أو كلمة بلا تشكيل"
             placeholderTextColor={p.muted}
             value={search}
             onChangeText={setSearch}
-            style={{
-              flex: 1,
-              color: p.ink,
-              textAlign: 'right',
-              fontSize: 13,
-              paddingVertical: 2
-            }}
+            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 15, paddingVertical: 10 }}
           />
           {search ? (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="مسح البحث" onPress={() => setSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={16} color={p.muted} />
             </TouchableOpacity>
           ) : null}
         </View>
-
-        {/* Direct Page Jump Card when search query matches 1-604 */}
-        {searchResults?.isPageMatch && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => openPage(searchResults.pageNumber!)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 8,
-              padding: 12,
-              borderRadius: 14,
-              backgroundColor: p.soft,
-              borderWidth: 1,
-              borderColor: p.accent
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Feather name="book-open" size={17} color={p.primary} />
-              <View>
-                <TextUI variant="bodyBold" color={p.primaryInk}>
-                  انتقال مباشر إلى الصفحة {toArabicNumber(searchResults.pageNumber!)}
-                </TextUI>
-                <TextUI variant="caption" color={p.muted}>
-                  اضغط لفتح صفحة المصحف مباشرة
-                </TextUI>
-              </View>
-            </View>
-            <Feather name="arrow-left" size={17} color={p.primary} />
-          </TouchableOpacity>
-        )}
-
-        {/* 3. Resume Reading Banner (when search is empty) */}
-        {!search && readingBookmark && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => {
-              const surah = QURAN_DATA.find((item) => item.id === readingBookmark.surahId) || QURAN_DATA[0];
-              setSelectedSurah(surah);
-              navigate('quran_reader', {
-                readingMode: 'page',
-                startPage: readingBookmark.page,
-                startSurahId: readingBookmark.surahId,
-                startAyah: readingBookmark.ayah,
-                reciterId: selectedReciter
-              });
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 8,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 14,
-              backgroundColor: p.soft,
-              borderWidth: 1,
-              borderColor: p.border
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Feather name="bookmark" size={16} color={p.primary} />
-              <View>
-                <TextUI variant="caption" color={p.muted}>
-                  متابعة القراءة من آخر موضع:
-                </TextUI>
-                <TextUI variant="bodyBold" color={p.primaryInk}>
-                  سورة {readingBookmark.surahName} • آية {toArabicNumber(readingBookmark.ayah)} • ص {toArabicNumber(readingBookmark.page)}
-                </TextUI>
-              </View>
-            </View>
-            <Feather name="arrow-left" size={16} color={p.primary} />
-          </TouchableOpacity>
-        )}
-
-        {/* 3.5 Khatma & memorization shortcuts */}
-        {!search && (
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            {[
-              { key: 'khatma', label: t('ختمتي', 'My Khatma'), icon: 'award' as const },
-              { key: 'tahfeez', label: t('جلسة حفظ', 'Memorize'), icon: 'repeat' as const }
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.key}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                onPress={() => navigate(item.key)}
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  minHeight: 48,
-                  paddingHorizontal: 12,
-                  borderRadius: 14,
-                  backgroundColor: p.surface,
-                  borderWidth: 1,
-                  borderColor: p.border
-                }}
-              >
-                <Feather name={item.icon} size={16} color={p.primary} />
-                <TextUI variant="bodyBold" color={p.ink}>{item.label}</TextUI>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* 4. Triple Tabs Selector (السور • الأجزاء • الأحزاب) */}
-        {!search && (
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 6,
-              marginTop: 8,
-              padding: 4,
-              borderRadius: 14,
-              backgroundColor: p.bgAlt,
-              borderWidth: 1,
-              borderColor: p.border
-            }}
-          >
-            {([
-              { id: 'surah' as const, label: 'السور', count: '١١٤' },
-              { id: 'juz' as const, label: 'الأجزاء', count: '٣٠' },
-              { id: 'hizb' as const, label: 'الأحزاب', count: '٦٠' }
-            ]).map((tab) => {
-              const active = activeTab === tab.id;
-              return (
-                <TouchableOpacity
-                  key={tab.id}
-                  onPress={() => {
-                    triggerHaptic('light');
-                    setActiveTab(tab.id);
-                  }}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    paddingVertical: 7,
-                    borderRadius: 11,
-                    backgroundColor: active ? p.surface : 'transparent',
-                    borderWidth: active ? 1 : 0,
-                    borderColor: p.border
-                  }}
-                >
-                  <TextUI
-                    variant="bodyMedium"
-                    weight={active ? 'bold' : 'regular'}
-                    color={active ? p.primary : p.muted}
-                  >
-                    {tab.label}
-                  </TextUI>
-                  <View
-                    style={{
-                      paddingHorizontal: 5,
-                      paddingVertical: 1,
-                      borderRadius: 8,
-                      backgroundColor: active ? p.soft : 'rgba(0,0,0,0.04)'
-                    }}
-                  >
-                    <TextUI
-                      variant="badge"
-                      color={active ? p.primary : p.muted}
-                    >
-                      {tab.count}
-                    </TextUI>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
       </View>
 
-      {/* 5. Content Stream (Search Results OR Active Tab List) */}
       {search.trim() ? (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 104, gap: 16 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Matched Surahs */}
+          {/* Direct page jump when the query is a page number (1-604) */}
+          {searchResults?.isPageMatch && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              onPress={() => openPage(searchResults.pageNumber!)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: p.soft, borderWidth: 1, borderColor: p.accent }}
+            >
+              <Feather name="book-open" size={17} color={p.primary} />
+              <TextUI size={15} weight="bold" color={p.primaryInk} style={{ flex: 1 }}>{`الانتقال إلى الصفحة ${toArabicNumber(searchResults.pageNumber!)}`}</TextUI>
+              <Feather name="chevron-left" size={18} color={p.primary} />
+            </TouchableOpacity>
+          )}
+
           {searchResults && searchResults.matchedSurahs.length > 0 && (
-            <View style={{ marginBottom: 14 }}>
-              <TextUI variant="captionBold" color={p.muted} style={{ marginHorizontal: 16, marginBottom: 6 }}>
-                السور المطابقة ({toArabicNumber(searchResults.matchedSurahs.length)})
-              </TextUI>
-              {searchResults.matchedSurahs.map((surah) => (
-                <View key={`s-match-${surah.id}`}>
-                  {renderSurah({ item: surah })}
-                </View>
-              ))}
+            <View>
+              {sectionTitle(`السور (${toArabicNumber(searchResults.matchedSurahs.length)})`)}
+              {searchResults.matchedSurahs.map((surah, i, all) => renderSurah(surah, i, all.length))}
             </View>
           )}
 
-          {/* Matched Ahzab */}
           {searchResults && searchResults.matchedHizb.length > 0 && (
-            <View style={{ marginBottom: 14 }}>
-              <TextUI variant="captionBold" color={p.muted} style={{ marginHorizontal: 16, marginBottom: 6 }}>
-                الأحزاب المطابقة ({toArabicNumber(searchResults.matchedHizb.length)})
-              </TextUI>
-              {searchResults.matchedHizb.map((hizb) => (
-                <View key={`h-match-${hizb.hizb}`}>
-                  {renderHizb({ item: hizb })}
-                </View>
-              ))}
+            <View>
+              {sectionTitle(`الأحزاب (${toArabicNumber(searchResults.matchedHizb.length)})`)}
+              {searchResults.matchedHizb.map((hizb, i, all) => renderHizb(hizb, i, all.length))}
             </View>
           )}
 
-          {/* Matched Verses with Highlighting */}
           {searchResults && searchResults.matchedVerses.length > 0 && (
-            <View style={{ marginBottom: 14 }}>
-              <TextUI variant="captionBold" color={p.muted} style={{ marginHorizontal: 16, marginBottom: 6 }}>
-                الآيات الكريمة المطابقة ({toArabicNumber(searchResults.matchedVerses.length)})
-              </TextUI>
-              {searchResults.matchedVerses.map((verse, vIdx) => (
-                <View key={`v-match-${verse.surahId}-${verse.ayahNumber}-${vIdx}`}>
-                  {renderVerseSearchResult({ item: verse })}
-                </View>
-              ))}
+            <View>
+              {sectionTitle(`الآيات (${toArabicNumber(searchResults.matchedVerses.length)})`)}
+              {searchResults.matchedVerses.map((verse, i, all) => renderVerseSearchResult(verse, i, all.length))}
             </View>
           )}
 
-          {/* Empty Search State with helpful suggestions */}
-          {searchResults &&
-            searchResults.matchedSurahs.length === 0 &&
-            searchResults.matchedHizb.length === 0 &&
-            searchResults.matchedVerses.length === 0 &&
-            !searchResults.isPageMatch && (
-              <View style={{ alignItems: 'center', paddingHorizontal: 28, paddingVertical: 50 }}>
-                <View
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: p.bgAlt,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 14
-                  }}
-                >
-                  <Feather name="search" size={26} color={p.muted} />
-                </View>
-                <TextUI size={16} weight="bold" color={p.ink}>
-                  لا توجد نتائج بحث
-                </TextUI>
-                <TextUI
-                  size={12.5}
-                  color={p.muted}
-                  style={{ textAlign: 'center', marginTop: 8, lineHeight: 22 }}
-                >
-                  جرّب البحث باسم السورة، رقم الصفحة (١ – ٦٠٤)، رقم الجزء، أو بكلمة من متن الآية الكريمة بدون تشكيل.
-                </TextUI>
-              </View>
-            )}
+          {noResults && (
+            <View style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 40, gap: 8 }}>
+              <Feather name="search" size={26} color={p.muted} />
+              <TextUI size={16} weight="bold" color={p.ink}>لا توجد نتائج</TextUI>
+              <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 22 }}>
+                جرّب اسم السورة، أو رقم الصفحة (١ – ٦٠٤)، أو رقم الجزء، أو كلمة من الآية بلا تشكيل.
+              </TextUI>
+            </View>
+          )}
         </ScrollView>
       ) : (
-        /* Tab 1: Surahs / Tab 2: Juzs / Tab 3: Ahzab */
         <FlatList
           key={activeTab}
-          data={
+          data={listData}
+          keyExtractor={(item: any) => (activeTab === 'surah' ? `surah-${item.id}` : activeTab === 'juz' ? `juz-${item.juz}` : `hizb-${item.hizb}`)}
+          renderItem={({ item, index }) =>
             activeTab === 'surah'
-              ? QURAN_DATA
+              ? renderSurah(item, index, listData.length)
               : activeTab === 'juz'
-              ? QURAN_JUZ_INDEX
-              : QURAN_HIZB_INDEX
+              ? renderJuz(item, index, listData.length)
+              : renderHizb(item, index, listData.length)
           }
-          keyExtractor={(item: any) =>
-            activeTab === 'surah'
-              ? `surah-${item.id}`
-              : activeTab === 'juz'
-              ? `juz-${item.juz}`
-              : `hizb-${item.hizb}`
-          }
-          renderItem={
-            activeTab === 'surah'
-              ? (renderSurah as any)
-              : activeTab === 'juz'
-              ? (renderJuz as any)
-              : (renderHizb as any)
-          }
-          contentContainerStyle={{ paddingBottom: 34 }}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 104 }}
           showsVerticalScrollIndicator={false}
           initialNumToRender={15}
           maxToRenderPerBatch={18}
@@ -769,16 +415,16 @@ export const QuranIndexScreen: React.FC = () => {
         />
       )}
 
-      {/* 6. Reciter Selection Modal */}
+      {/* Reciter Selection Modal */}
       <Modal visible={reciterModalVisible} transparent animationType="slide" onRequestClose={() => setReciterModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 22, maxHeight: '88%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <View>
                 <TextUI size={19} weight="bold" color={p.ink}>القرّاء المعتمدون</TextUI>
-                <TextUI size={11} color={p.muted} style={{ marginTop: 3 }}>اختر القارئ المفضل للتلاوة الصوتية</TextUI>
+                <TextUI size={12} color={p.muted} style={{ marginTop: 3 }}>اختر القارئ المفضل للتلاوة الصوتية</TextUI>
               </View>
-              <TouchableOpacity onPress={() => setReciterModalVisible(false)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setReciterModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="x" size={21} color={p.ink} />
               </TouchableOpacity>
             </View>
@@ -789,6 +435,8 @@ export const QuranIndexScreen: React.FC = () => {
                 const active = item.id === selectedReciter;
                 return (
                   <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
                     onPress={() => {
                       triggerHaptic('light');
                       chooseReciter(item.id);
@@ -823,7 +471,7 @@ export const QuranIndexScreen: React.FC = () => {
                       <TextUI size={15.5} weight="bold" color={p.ink}>
                         {item.nameAr}
                       </TextUI>
-                      <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
+                      <TextUI size={12} color={p.muted} style={{ marginTop: 2 }}>
                         {item.nameEn} • رواية حفص عن عاصم
                       </TextUI>
                     </View>
