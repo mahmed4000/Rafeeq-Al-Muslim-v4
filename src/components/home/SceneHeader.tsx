@@ -8,6 +8,7 @@ import type { SkyPhase } from './SkyArch';
 const FRAME = 390;
 export const SCENE_HEIGHT = 330;
 const GROUND = 288;
+const DISK_X = 336; // centre of the sun/moon in the frame
 
 type Scene = {
   sky: [string, string, string];
@@ -25,11 +26,11 @@ type Scene = {
 };
 
 const SCENES: Record<SkyPhase, Scene> = {
-  night: { sky: ['#141B2E', '#24304D', '#3B3550'], disk: '#F4E6C4', diskTop: 26, hill: '#2B2840', build: '#2A1F2A', window: '#E8B86A', ground: '#1E161E', palm: '#161118', cloud: '#4A4766', clouds: 0.35, stars: 1 },
-  dawn: { sky: ['#2E3A5C', '#8C7A9A', '#E9B78A'], disk: '#F7D9A6', diskTop: 150, hill: '#5B4A5E', build: '#4A3446', window: '#F2C98D', ground: '#3A2836', palm: '#33243A', cloud: '#F3D3C0', clouds: 0.55, stars: 0.6 },
-  day: { sky: ['#5F8FA8', '#A9C4C8', '#EBD9BC'], disk: '#FFF1C9', diskTop: 22, hill: '#C9B08E', build: '#9A6B42', window: '#5D3A22', ground: '#7A4E2F', palm: '#6B4A2A', cloud: '#FFFFFF', clouds: 0.75, stars: 0 },
-  afternoon: { sky: ['#B9875A', '#DDA674', '#F2CF9E'], disk: '#FFE9C2', diskTop: 112, hill: '#B98454', build: '#7E5233', window: '#F2C98D', ground: '#5D3A22', palm: '#5A3A22', cloud: '#FBE7CB', clouds: 0.6, stars: 0 },
-  dusk: { sky: ['#6B4A6E', '#C9785A', '#F0B77F'], disk: '#FFD9A0', diskTop: 150, hill: '#8A4E3E', build: '#5D3A22', window: '#F2C98D', ground: '#4A2E1C', palm: '#3A2416', cloud: '#F2B9A0', clouds: 0.6, stars: 0.4 }
+  night: { sky: ['#141B2E', '#24304D', '#3B3550'], disk: '#F4E6C4', diskTop: 66, hill: '#2B2840', build: '#2A1F2A', window: '#E8B86A', ground: '#1E161E', palm: '#161118', cloud: '#4A4766', clouds: 0.35, stars: 1 },
+  dawn: { sky: ['#2E3A5C', '#8C7A9A', '#E9B78A'], disk: '#F7D9A6', diskTop: 112, hill: '#5B4A5E', build: '#4A3446', window: '#F2C98D', ground: '#3A2836', palm: '#33243A', cloud: '#F3D3C0', clouds: 0.55, stars: 0.6 },
+  day: { sky: ['#5F8FA8', '#A9C4C8', '#EBD9BC'], disk: '#FFF1C9', diskTop: 66, hill: '#C9B08E', build: '#9A6B42', window: '#5D3A22', ground: '#7A4E2F', palm: '#6B4A2A', cloud: '#FFFFFF', clouds: 0.75, stars: 0 },
+  afternoon: { sky: ['#B9875A', '#DDA674', '#F2CF9E'], disk: '#FFE9C2', diskTop: 92, hill: '#B98454', build: '#7E5233', window: '#F2C98D', ground: '#5D3A22', palm: '#5A3A22', cloud: '#FBE7CB', clouds: 0.6, stars: 0 },
+  dusk: { sky: ['#6B4A6E', '#C9785A', '#F0B77F'], disk: '#FFD9A0', diskTop: 112, hill: '#8A4E3E', build: '#5D3A22', window: '#F2C98D', ground: '#4A2E1C', palm: '#3A2416', cloud: '#F2B9A0', clouds: 0.6, stars: 0.4 }
 };
 
 // [x, y, size] in the 390 frame.
@@ -110,9 +111,10 @@ export const SceneBackdrop: React.FC<{ phase: SkyPhase }> = ({ phase }) => {
         ))}
         {CLOUDS.map(([x, y, k], i) => <Cloud key={i} x={x} y={y} k={k} color={s.cloud} opacity={s.clouds} />)}
 
-        {/* Sun or moon on the centre line (over the dome), so it sits clear of the text when the layout mirrors */}
-        <View style={box(FRAME / 2 - 52, s.diskTop - 18, 104, 104, s.disk, { borderRadius: 52, opacity: 0.18 })} />
-        <View style={box(FRAME / 2 - 34, s.diskTop, 68, 68, s.disk, { borderRadius: 34 })} />
+        {/* Sun or moon above the wing, beside the centred countdown; kept above the city pill's
+            height because the frame mirrors in native RTL and either side can hold the pill */}
+        <View style={box(DISK_X - 45, s.diskTop - 15, 90, 90, s.disk, { borderRadius: 45, opacity: 0.18 })} />
+        <View style={box(DISK_X - 30, s.diskTop, 60, 60, s.disk, { borderRadius: 30 })} />
 
         {/* Square minaret with lantern, merlons, carved bands and a lattice panel */}
         <View style={box(74, 60, 2, 18, s.build)} />

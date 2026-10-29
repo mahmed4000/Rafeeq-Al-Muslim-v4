@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
@@ -149,6 +149,8 @@ const TONES: Record<'light' | 'dark', Tone> = {
 const STRIP_ICONS: Record<keyof PrayerTimeValues, keyof typeof Feather.glyphMap> = {
   fajr: 'sunrise', sunrise: 'sunrise', dhuhr: 'sun', asr: 'sun', maghrib: 'sunset', isha: 'moon'
 };
+
+const APP_ICON = require('../../assets/icon.png');
 
 // Light text over the scene header, whatever the sky.
 const SCENE_INK = '#FFF6EA';
@@ -487,7 +489,13 @@ export const HomeScreen: React.FC = () => {
         <SceneBackdrop phase={skyPhase(prayerTimes, now)} />
         <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <TextUI font="amiri" size={24} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* App icon, cropped to its rounded tile (the asset has a blurred margin) */}
+              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,246,234,0.5)' }}>
+                <Image source={APP_ICON} style={{ position: 'absolute', width: 52, height: 52, left: -7, top: -7 }} />
+              </View>
+              <TextUI size={22} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
+            </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -514,13 +522,13 @@ export const HomeScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
             onPress={() => navigate('prayer_times')}
-            style={{ alignSelf: 'flex-start', alignItems: 'flex-start', gap: 2 }}
+            style={{ alignSelf: 'center', alignItems: 'center', gap: 2 }}
           >
-            <TextUI size={15} color={SCENE_INK} style={SCENE_SHADOW}>
+            <TextUI size={15} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
               {next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد`, `${nextName} (tomorrow) in`) : t(`${next.nameAr} بعد`, `${nextName} in`)}
             </TextUI>
-            <TextUI size={44} weight="bold" color={SCENE_INK} style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{countdown}</TextUI>
-            <TextUI size={14} color={SCENE_INK} style={SCENE_SHADOW}>
+            <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{countdown}</TextUI>
+            <TextUI size={14} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
               {otherZone ? t(`الأذان ${next.time} بتوقيت ${currentCity.nameAr}`, `Adhan ${next.time} (${cityName} time)`) : t(`الأذان ${next.time}`, `Adhan ${next.time}`)}
             </TextUI>
           </TouchableOpacity>
