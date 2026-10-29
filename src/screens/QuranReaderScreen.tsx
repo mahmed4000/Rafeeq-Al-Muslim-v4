@@ -37,6 +37,7 @@ import { KhatmaService } from '../services/khatmaService';
 import { usePalette } from '../theme/palette';
 import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
 import { ReaderPlayer } from '../components/quran/reader/ReaderPlayer';
+import { useLessonPlayer } from '../context/LessonPlayerContext';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
@@ -70,6 +71,7 @@ export const QuranReaderScreen: React.FC = () => {
     triggerHaptic
   } = useApp();
   const screenParams = useScreenParams();
+  const lessonPlayer = useLessonPlayer();
 
   const p = usePalette();
   const tafsirCardBgColor = p.soft;
@@ -458,6 +460,8 @@ export const QuranReaderScreen: React.FC = () => {
   const startSequenceVerse = async (verse: QuranVerse) => {
     const sequence = playbackSequenceRef.current;
     if (!sequence) return;
+    // Only one recording at a time: pause a Haramain lesson playing in the background.
+    lessonPlayer.pause();
     try {
       if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();

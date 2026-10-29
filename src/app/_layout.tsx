@@ -20,6 +20,7 @@ import {
 } from '@expo-google-fonts/cairo';
 
 import { AppProvider, useApp } from '../context/AppContext';
+import { LessonPlayerProvider } from '../context/LessonPlayerContext';
 import { SafeErrorBoundary } from '../components/common/SafeErrorBoundary';
 import { TextUI } from '../components/common/TextUI';
 
@@ -119,7 +120,9 @@ export default function RootLayout() {
   return (
     <SafeErrorBoundary>
       <AppProvider>
-        <ThemedStack />
+        <LessonPlayerProvider>
+          <ThemedStack />
+        </LessonPlayerProvider>
       </AppProvider>
     </SafeErrorBoundary>
   );
