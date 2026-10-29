@@ -103,10 +103,22 @@ export const AZKAR_DATABASE: Record<string, AzkarItem[]> = {
       target: 1
     },
     {
+      ar: 'أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ رَبِّ الْعَالَمِينَ، اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذَا الْيَوْمِ فَتْحَهُ وَنَصْرَهُ وَنُورَهُ وَبَرَكَتَهُ وَهُدَاهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِيهِ وَشَرِّ مَا بَعْدَهُ',
+      en: 'We have entered the morning and the dominion belongs to Allah, Lord of the worlds',
+      virtue: '',
+      target: 1
+    },
+    {
       ar: 'أَصْبَحْنَا عَلَى فِطْرَةِ الْإِسْلاَمِ، وَعَلَى كَلِمَةِ الإِخْلاَصِ، وَعَلَى دِينِ نَبِيِّنَا مُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ، وَعَلَى مِلَّةِ أَبِينَا إِبْرَاهِيمَ حَنِيفاً مُسْلِماً وَمَا كَانَ مِنَ الْمُشْرِكِينَ',
       en: 'We awake upon the natural disposition of Islam and the word of pure faith',
       virtue: 'تجديد العهد على التوحيد الخالص واتباع سنة النبي ﷺ',
       target: 1
+    },
+    {
+      ar: 'أَصْبَحْتُ أُثْنِي عَلَيْكَ حَمْداً، وَأَشْهَدُ أَنْ لَا إِلَهَ إِلَّا اللَّهُ',
+      en: 'I have entered the morning praising You',
+      virtue: '',
+      target: 3
     },
     {
       ar: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ، وَالْعَجْزِ وَالْكَسَلِ، وَالْبُخْلِ وَالْجُبْنِ، وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ',
@@ -136,6 +148,18 @@ export const AZKAR_DATABASE: Record<string, AzkarItem[]> = {
       ar: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
       en: 'Glory be to Allah and Praise Him (100 times)',
       virtue: 'من قالها مائة مرة حُطّت خطاياه وإن كانت مثل زبد البحر',
+      target: 100
+    },
+    {
+      ar: 'سُبْحَانَ اللَّهِ',
+      en: 'Glory be to Allah',
+      virtue: '',
+      target: 100
+    },
+    {
+      ar: 'الْحَمْدُ لِلَّهِ',
+      en: 'All praise is due to Allah',
+      virtue: '',
       target: 100
     },
     {
