@@ -16,7 +16,8 @@ import { Feather } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { toArabicNumber } from '../services/prayerCalculation';
+import { toArabicNumber, toStandardNumber } from '../services/prayerCalculation';
+import { normalizeArabic } from '../services/quranSearch';
 import { QURAN_PAGE_INDEX, QURAN_JUZ_INDEX } from '../data/quranIndex';
 import {
   parseSurahVerses,
@@ -76,6 +77,9 @@ export const QuranReaderScreen: React.FC = () => {
     setQuranFontSize,
     readingBookmark,
     setReadingBookmark,
+    bookmarks,
+    addBookmark,
+    removeBookmark,
     triggerHaptic
   } = useApp();
   const screenParams = useScreenParams();
@@ -94,6 +98,7 @@ export const QuranReaderScreen: React.FC = () => {
     screenParams?.readingMode === 'tafsir' ? 'tafsir' : (screenParams?.readingMode === 'surah' ? 'surah' : 'page')
   );
   const [modeModalVisible, setModeModalVisible] = useState(false);
+  const [readingMenuVisible, setReadingMenuVisible] = useState(false);
   const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
   const [tafsirPickerVisible, setTafsirPickerVisible] = useState(false);
   const [streamTafsirs, setStreamTafsirs] = useState<Record<string, string>>({});
@@ -663,21 +668,25 @@ export const QuranReaderScreen: React.FC = () => {
     setAyahNoteModalVisible(false);
   };
 
-  const toggleReadingBookmark = (verse: QuranVerse) => {
+  const isBookmarked = (verse: QuranVerse) => bookmarks.some((b) => b.surahId === verse.surahId && b.ayah === verse.ayahNumber);
+
+  const positionOf = (verse: QuranVerse) => {
+    const verseSurah = QURAN_DATA.find((item) => item.id === verse.surahId) || currentSurah;
+    return {
+      surahId: verse.surahId,
+      surahName: verseSurah.nameAr,
+      ayah: verse.ayahNumber,
+      page: verse.pageNum || activePage,
+      juz: verse.juzNum || currentSurah.juz || 1,
+      date: new Date().toISOString()
+    };
+  };
+
+  /** Add the ayah to the bookmarks list, or remove it if it is already there. */
+  const toggleBookmark = (verse: QuranVerse) => {
     triggerHaptic('success');
-    if (readingBookmark?.surahId === verse.surahId && readingBookmark?.ayah === verse.ayahNumber) {
-      setReadingBookmark(null);
-    } else {
-      const verseSurah = QURAN_DATA.find((item) => item.id === verse.surahId) || currentSurah;
-      setReadingBookmark({
-        surahId: verse.surahId,
-        surahName: verseSurah.nameAr,
-        ayah: verse.ayahNumber,
-        page: verse.pageNum || activePage,
-        juz: verse.juzNum || currentSurah.juz || 1,
-        date: new Date().toISOString()
-      });
-    }
+    if (isBookmarked(verse)) removeBookmark(verse.surahId, verse.ayahNumber);
+    else addBookmark(positionOf(verse));
     setActionModalVisible(false);
   };
 
@@ -717,10 +726,11 @@ export const QuranReaderScreen: React.FC = () => {
   };
 
   const sourceVerses = readingMode === 'surah' ? parsedSurah.verses : pageVerses;
-  const displayedVerses = sourceVerses.filter((v) => {
-    if (!searchWord.trim()) return true;
-    return v.text.includes(searchWord.trim()) || v.ayahNumber.toString() === searchWord.trim();
-  });
+  // In-page search ignores tashkeel and accepts Arabic or Latin digits for an ayah number.
+  const searchQuery = normalizeArabic(searchWord);
+  const matchesSearch = (v: QuranVerse) =>
+    !searchQuery || normalizeArabic(v.text).includes(searchQuery) || v.ayahNumber.toString() === toStandardNumber(searchQuery);
+  const displayedVerses = sourceVerses.filter(matchesSearch);
 
   const shareAyahTafsir = async (verse: QuranVerse, customTafsirText?: string) => {
     triggerHaptic('light');
@@ -933,10 +943,29 @@ export const QuranReaderScreen: React.FC = () => {
     setAudioPosition(next);
   };
 
+  // Header bookmark: removes this page's bookmarks if it has any, else marks its first ayah.
+  const pageBookmarkedVerses = pageVerses.filter(isBookmarked);
+  const pageBookmarked = pageBookmarkedVerses.length > 0;
   const bookmarkCurrentReading = () => {
-    const verse = activeAyah || displayedVerses[0] || pageVerses[0];
-    if (verse) toggleReadingBookmark(verse);
+    if (pageBookmarked) {
+      triggerHaptic('success');
+      pageBookmarkedVerses.forEach((verse) => removeBookmark(verse.surahId, verse.ayahNumber));
+      return;
+    }
+    const verse = (activeAyah && activeAyah.pageNum === activePage ? activeAyah : null) || pageVerses[0] || displayedVerses[0];
+    if (verse) toggleBookmark(verse);
   };
+
+  // Save the reading position automatically once a page has been on screen for a second:
+  // the ayah being acted on, else the ayah the reader was opened at, else the page's first.
+  useEffect(() => {
+    const opened = pageVerses.find((v) => v.surahId === Number(screenParams?.startSurahId) && v.ayahNumber === Number(screenParams?.startAyah));
+    const verse = (activeAyah && activeAyah.pageNum === activePage ? activeAyah : null) || opened || pageVerses[0];
+    if (!verse) return;
+    const timer = setTimeout(() => setReadingBookmark(positionOf(verse)), 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage, activeAyah?.surahId, activeAyah?.ayahNumber]);
 
   useEffect(() => {
     if (!autoScroll) return;
@@ -1081,7 +1110,7 @@ export const QuranReaderScreen: React.FC = () => {
 
   const renderVerse = (verse: QuranVerse) => {
     const isPlaying = playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
-    const isMarked = (readingBookmark?.surahId === verse.surahId && readingBookmark?.ayah === verse.ayahNumber) ||
+    const isMarked = isBookmarked(verse) ||
       (Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber);
     return (
       <React.Fragment key={`v-${verse.surahId}-${verse.ayahNumber}`}>
@@ -1173,143 +1202,53 @@ export const QuranReaderScreen: React.FC = () => {
 
       {!isImmersive && (
         <>
-          <View style={{ minHeight: Platform.OS === 'ios' ? 98 : 54, paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 60 : (Platform.OS === 'web' ? 46 : 14), paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
-        {/* زر رجوع واضح وكبير بالاسم والأيقونة */}
-        <TouchableOpacity 
-          onPress={goBack} 
-          accessibilityLabel="رجوع" 
-          activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            gap: 5, 
-            paddingHorizontal: 10, 
-            paddingVertical: 6, 
-            borderRadius: 20, 
-            backgroundColor: p.bgAlt,
-            borderWidth: 1,
-            borderColor: p.border
-          }}
-        >
-          <Feather name="arrow-right" size={17} color={p.primary} />
-          <TextUI size={13} weight="bold" color={p.primary}>رجوع</TextUI>
-        </TouchableOpacity>
-
-        {/* Center: Mode Switcher Dropdown [ 📖 المصحف الشريف ⌄ ] / [ 📚 التفسير والتدبر ⌄ ] */}
-        <TouchableOpacity
-          onPress={() => { triggerHaptic('light'); setModeModalVisible(true); }}
-          activeOpacity={0.75}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 20,
-            backgroundColor: readingMode === 'tafsir' ? p.soft : p.bgAlt,
-            borderWidth: 1,
-            borderColor: readingMode === 'tafsir' ? p.primary : p.border
-          }}
-        >
-          <TextUI size={13}>
-            {readingMode === 'tafsir' ? '📚' : (readingMode === 'surah' ? '📜' : '📖')}
-          </TextUI>
-          <TextUI size={12} weight="bold" color={readingMode === 'tafsir' ? p.primaryInk : p.ink}>
-            {readingMode === 'tafsir' ? 'التفسير والتدبر' : (readingMode === 'surah' ? 'عرض السورة' : 'المصحف الشريف')}
-          </TextUI>
-          <Feather name="chevron-down" size={12} color={readingMode === 'tafsir' ? p.primaryInk : p.muted} />
-        </TouchableOpacity>
-
-        {/* Action icons: Font size [Tt], Audio Play/Pause, Reciter */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* Font Size Button */}
-          <TouchableOpacity
-            onPress={() => { triggerHaptic('light'); setFontSizeModalVisible(true); }}
-            accessibilityLabel="حجم الخط"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: p.bgAlt,
-              borderWidth: 1,
-              borderColor: p.border,
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <TextUI size={12} weight="bold" color={p.ink}>Tt</TextUI>
-          </TouchableOpacity>
-
-          {/* Quick Audio Play / Pause */}
-          <TouchableOpacity
-            onPress={toggleAudioPlayback}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: isAudioPlaying ? p.primary : p.bgAlt,
-              borderWidth: 1,
-              borderColor: isAudioPlaying ? p.primary : p.border,
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isAudioLoading ? (
-              <ActivityIndicator size="small" color={isAudioPlaying ? p.onPrimary : p.primary} />
-            ) : (
-              <Feather
-                name={isAudioPlaying ? 'pause' : 'play'}
-                size={14}
-                color={isAudioPlaying ? p.onPrimary : p.primary}
-                style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
-              />
-            )}
-          </TouchableOpacity>
-
-          {/* Reciter Icon Button */}
-          <TouchableOpacity 
-            onPress={() => setReciterModalVisible(true)} 
-            accessibilityLabel={`تغيير القارئ، الحالي ${currentReciterObj.nameAr}`} 
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: p.bgAlt,
-              borderWidth: 1,
-              borderColor: p.border,
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Feather name="mic" size={14} color={p.primary} />
-          </TouchableOpacity>
-
-          {/* Immersive Mode Button */}
-          <TouchableOpacity 
-            onPress={() => { triggerHaptic('light'); setIsImmersive(true); }} 
-            accessibilityLabel="وضع القراءة الغامر بدون مشتتات" 
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: p.bgAlt,
-              borderWidth: 1,
-              borderColor: p.border,
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Feather name="maximize-2" size={13} color={p.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+          <View style={{ paddingHorizontal: 4, paddingTop: Platform.OS === 'ios' ? 52 : (Platform.OS === 'web' ? 16 : 10), paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
+            <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel="رجوع" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name="arrow-right" size={22} color={p.primary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{currentSurah.nameAr}</TextUI>
+              <TextUI size={12.5} color={p.muted} numberOfLines={1}>
+                {`صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · التفسير' : readingMode === 'surah' ? ' · عرض السورة' : ''}`}
+              </TextUI>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={isSearching ? 'إغلاق البحث' : 'بحث'}
+              onPress={() => { triggerHaptic('light'); setIsSearching((v) => { if (v) setSearchWord(''); return !v; }); }}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Feather name={isSearching ? 'x' : 'search'} size={20} color={isSearching ? p.primary : p.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={pageBookmarked ? 'إزالة علامة هذه الصفحة' : 'إضافة علامة'}
+              onPress={bookmarkCurrentReading}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Feather name="bookmark" size={20} color={pageBookmarked ? p.accentInk : p.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={isAudioPlaying ? 'إيقاف التلاوة' : 'تشغيل التلاوة'}
+              onPress={toggleAudioPlayback}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              {isAudioLoading ? (
+                <ActivityIndicator size="small" color={p.primary} />
+              ) : (
+                <Feather name={isAudioPlaying ? 'pause-circle' : 'play-circle'} size={22} color={p.primary} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="إعدادات القراءة"
+              onPress={() => { triggerHaptic('light'); setReadingMenuVisible(true); }}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Feather name="type" size={20} color={p.muted} />
+            </TouchableOpacity>
+          </View>
 
       {/* Sub-header Bar */}
       {readingMode === 'tafsir' ? (
@@ -1485,7 +1424,7 @@ export const QuranReaderScreen: React.FC = () => {
               style={{ paddingVertical: 5 }}
             >
               {sections.map(({ section, surah, verses }, sectionIndex) => {
-                const sectionVerses = verses.filter((verse) => !searchWord.trim() || verse.text.includes(searchWord.trim()) || verse.ayahNumber.toString() === searchWord.trim());
+                const sectionVerses = verses.filter(matchesSearch);
                 if (sectionVerses.length === 0) return null;
                 return (
                   <View key={`page-${pageNumber}-surah-${surah.id}`}>
@@ -1509,7 +1448,7 @@ export const QuranReaderScreen: React.FC = () => {
             <View style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
               {displayedVerses.map((verse) => {
                 const isPlaying = playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
-                const isMarked = (readingBookmark?.surahId === verse.surahId && readingBookmark?.ayah === verse.ayahNumber);
+                const isMarked = isBookmarked(verse);
                 const key = `${verse.surahId}:${verse.ayahNumber}:${selectedTafsirId}`;
                 const tafsirContent = streamTafsirs[key];
                 const isLoadingTafsir = streamTafsirLoading[key];
@@ -1565,7 +1504,7 @@ export const QuranReaderScreen: React.FC = () => {
 
                         {/* Bookmark button */}
                         <TouchableOpacity
-                          onPress={() => toggleReadingBookmark(verse)}
+                          onPress={() => toggleBookmark(verse)}
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                           style={{
                             padding: 5,
@@ -2259,7 +2198,7 @@ export const QuranReaderScreen: React.FC = () => {
               {/* Set Bookmark */}
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => activeAyah && toggleReadingBookmark(activeAyah)}
+                onPress={() => activeAyah && toggleBookmark(activeAyah)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -2273,7 +2212,7 @@ export const QuranReaderScreen: React.FC = () => {
               >
                 <Feather name="bookmark" size={18} color={p.primary} />
                 <TextUI size={14} weight="medium" color={p.ink}>
-                  حفظ علامة القراءة عند هذه الآية
+                  {activeAyah && isBookmarked(activeAyah) ? 'إزالة العلامة عن هذه الآية' : 'إضافة علامة عند هذه الآية'}
                 </TextUI>
               </TouchableOpacity>
 
@@ -2414,7 +2353,7 @@ export const QuranReaderScreen: React.FC = () => {
                 {/* Bookmark */}
                 <TouchableOpacity
                   activeOpacity={0.75}
-                  onPress={() => activeAyah && toggleReadingBookmark(activeAyah)}
+                  onPress={() => activeAyah && toggleBookmark(activeAyah)}
                   style={{
                     flexDirection: 'row-reverse',
                     alignItems: 'center',
@@ -2422,22 +2361,22 @@ export const QuranReaderScreen: React.FC = () => {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 10,
-                    backgroundColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? 'rgba(212, 163, 115, 0.25)' : p.bg,
+                    backgroundColor: (activeAyah && isBookmarked(activeAyah)) ? 'rgba(212, 163, 115, 0.25)' : p.bg,
                     borderWidth: 1,
-                    borderColor: (activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primary : p.border
+                    borderColor: (activeAyah && isBookmarked(activeAyah)) ? p.primary : p.border
                   }}
                 >
                   <Feather
                     name="bookmark"
                     size={13}
-                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primaryInk : p.muted}
+                    color={(activeAyah && isBookmarked(activeAyah)) ? p.primaryInk : p.muted}
                   />
                   <TextUI
                     size={11}
                     weight="medium"
-                    color={(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? p.primaryInk : p.ink}
+                    color={(activeAyah && isBookmarked(activeAyah)) ? p.primaryInk : p.ink}
                   >
-                    {(activeAyah && readingBookmark?.surahId === activeAyah.surahId && readingBookmark?.ayah === activeAyah.ayahNumber) ? 'محفوظة' : 'علامة'}
+                    {(activeAyah && isBookmarked(activeAyah)) ? 'محفوظة' : 'علامة'}
                   </TextUI>
                 </TouchableOpacity>
 
@@ -2682,6 +2621,44 @@ export const QuranReaderScreen: React.FC = () => {
               <TouchableOpacity onPress={() => setAyahNoteModalVisible(false)}><TextUI size={13} color={p.muted}>إلغاء</TextUI></TouchableOpacity>
               <TouchableOpacity onPress={saveAyahNote}><TextUI size={13} weight="bold" color={p.primary}>حفظ الملاحظة</TextUI></TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reading settings menu (header "Tt" button) */}
+      <Modal visible={readingMenuVisible} animationType="fade" transparent onRequestClose={() => setReadingMenuVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
+              <TextUI size={18} weight="bold" color={p.ink}>إعدادات القراءة</TextUI>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setReadingMenuVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={20} color={p.ink} />
+              </TouchableOpacity>
+            </View>
+            {[
+              { key: 'mode', icon: 'layout' as const, label: 'طريقة العرض', value: readingMode === 'tafsir' ? 'التفسير' : readingMode === 'surah' ? 'عرض السورة' : 'صفحات المصحف', open: () => setModeModalVisible(true) },
+              { key: 'font', icon: 'type' as const, label: 'حجم الخط', value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
+              { key: 'reciter', icon: 'mic' as const, label: 'القارئ', value: currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
+              { key: 'immersive', icon: 'maximize-2' as const, label: 'قراءة دون مشتتات', value: '', open: () => setIsImmersive(true) }
+            ].map((row) => (
+              <TouchableOpacity
+                key={row.key}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={row.value ? `${row.label}: ${row.value}` : row.label}
+                onPress={() => {
+                  triggerHaptic('light');
+                  setReadingMenuVisible(false);
+                  row.open();
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 20, borderTopWidth: 1, borderColor: p.border }}
+              >
+                <Feather name={row.icon} size={18} color={p.primary} />
+                <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{row.label}</TextUI>
+                {row.value ? <TextUI size={14} color={p.muted} numberOfLines={1} style={{ maxWidth: '50%' }}>{row.value}</TextUI> : null}
+                <Feather name="chevron-left" size={16} color={p.muted} />
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </Modal>

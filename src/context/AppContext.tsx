@@ -22,14 +22,17 @@ import {
 import { useRouter, usePathname } from 'expo-router';
 import { SCREEN_PATHS, TAB_SCREENS, screenKeyForPath, serializeParams } from '../navigation/routes';
 
+/** A bookmark the user added by hand (any number of them). */
 export interface BookmarkItem {
   surahId: number;
   surahName: string;
   ayah: number;
+  page: number;
   juz: number;
   date: string;
 }
 
+/** The last reading position, saved automatically by the reader. */
 export interface ReadingBookmark {
   surahId: number;
   surahName: string;
@@ -98,6 +101,7 @@ const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
 const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
+const BOOKMARKS_MIGRATION_KEY = 'rafeeq_bookmarks_migrated_v1';
 const HIJRI_ADJUST_KEY = 'rafeeq_hijri_adjust_v1';
 const clampHijri = (n: number) => (Number.isFinite(n) ? Math.max(-HIJRI_ADJUST_LIMIT, Math.min(HIJRI_ADJUST_LIMIT, Math.round(n))) : 0);
 
@@ -217,13 +221,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hasSavedCity = !!(await StorageService.getItem('almosala_city'));
         setOnboarded(onboardedFlag === '1' || hasSavedCity);
 
-        const savedBookmarks = await StorageService.getObject<BookmarkItem[]>('almosala_bookmarks', []);
-        setBookmarks(savedBookmarks);
+        let savedBookmarks = await StorageService.getObject<BookmarkItem[]>('almosala_bookmarks', []);
 
         const savedReading = await StorageService.getObject<ReadingBookmark | null>('almosala_reading_bookmark', null);
         // Older versions saved "سورة X" as the name, which screens prefix again.
         if (savedReading?.surahName) savedReading.surahName = savedReading.surahName.replace(/^سورة\s+/, '');
         setReadingBookmarkState(savedReading);
+
+        // The reading position used to be set only by hand; it is now saved automatically,
+        // so keep a hand-made one once as a bookmark in the list.
+        if (!(await StorageService.getItem(BOOKMARKS_MIGRATION_KEY))) {
+          if (savedReading && !savedBookmarks.some((b) => b.surahId === savedReading.surahId && b.ayah === savedReading.ayah)) {
+            savedBookmarks = [{ ...savedReading }, ...savedBookmarks];
+            await StorageService.setObject('almosala_bookmarks', savedBookmarks);
+          }
+          await StorageService.setItem(BOOKMARKS_MIGRATION_KEY, '1');
+        }
+        setBookmarks(savedBookmarks);
 
         // Older versions stored built-in cities with text coordinates ("30.04° N");
         // normalizeCity repairs those so the saved city is actually used.

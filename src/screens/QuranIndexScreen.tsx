@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, TextInput, TouchableOpacity, View, Platform, ScrollView, ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useApp } from '../context/AppContext';
+import { useApp, BookmarkItem } from '../context/AppContext';
+import { GREGORIAN_MONTHS } from '../services/hijriDate';
 import { TextUI } from '../components/common/TextUI';
 import { Palette, usePalette } from '../theme/palette';
 import { QURAN_JUZ_INDEX, QURAN_HIZB_INDEX, QuranHizbIndexItem, QuranJuzIndexItem } from '../data/quranIndex';
@@ -12,13 +13,20 @@ import { searchQuranUniversal, splitTextForHighlight, VerseSearchResult } from '
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 const RECITER_STORAGE_KEY = 'quran.selected-reciter';
-type IndexTab = 'surah' | 'juz' | 'hizb';
+type IndexTab = 'surah' | 'juz' | 'hizb' | 'bookmarks';
 
 const TABS: { id: IndexTab; label: string }[] = [
   { id: 'surah', label: 'السور' },
   { id: 'juz', label: 'الأجزاء' },
-  { id: 'hizb', label: 'الأحزاب' }
+  { id: 'hizb', label: 'الأحزاب' },
+  { id: 'bookmarks', label: 'العلامات' }
 ];
+
+/** "٢٩ أكتوبر" from an ISO date, or '' if it cannot be read. */
+function shortDateAr(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : `${toArabicNumber(d.getDate())} ${GREGORIAN_MONTHS[d.getMonth()]}`;
+}
 
 /** "٧ آيات" / "٢٨٦ آية" (Arabic plural agreement for counts). */
 function versesAr(n: number): string {
@@ -54,7 +62,7 @@ const NumberDiamond: React.FC<{ n: number; p: Palette }> = ({ n, p }) => (
 );
 
 export const QuranIndexScreen: React.FC = () => {
-  const { navigate, t, setSelectedSurah, readingBookmark, triggerHaptic } = useApp();
+  const { navigate, t, setSelectedSurah, readingBookmark, bookmarks, removeBookmark, triggerHaptic } = useApp();
   const [activeTab, setActiveTab] = useState<IndexTab>('surah');
   const [search, setSearch] = useState('');
   const [selectedReciter, setSelectedReciter] = useState(QURAN_RECITERS[0].id);
@@ -186,7 +194,40 @@ export const QuranIndexScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  // 4. Verse search match with highlighting
+  // 4. Bookmark row (remove button is a sibling so buttons do not nest)
+  const renderBookmark = (item: BookmarkItem, index: number, count: number) => (
+    <View
+      key={`bm-${item.surahId}-${item.ayah}`}
+      style={[rowFrame(p, index, count), { flexDirection: 'row', alignItems: 'center', paddingEnd: 6, minHeight: 60 }]}
+    >
+      <TouchableOpacity
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`علامة: ${item.surahName}، الآية ${toArabicNumber(item.ayah)}، صفحة ${toArabicNumber(item.page)}`}
+        onPress={() => openReader(surahById(item.surahId), 'page', item.page, item.ayah)}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingStart: 8 }}
+      >
+        <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Feather name="bookmark" size={20} color={p.accentInk} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <TextUI size={16} weight="bold" color={p.ink}>{`${item.surahName} · الآية ${toArabicNumber(item.ayah)}`}</TextUI>
+          <TextUI size={12.5} color={p.muted}>{[`الجزء ${toArabicNumber(item.juz)}`, shortDateAr(item.date)].filter(Boolean).join(' · ')}</TextUI>
+        </View>
+        <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.page)}`}</TextUI>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`حذف علامة ${item.surahName} الآية ${toArabicNumber(item.ayah)}`}
+        onPress={() => { triggerHaptic('light'); removeBookmark(item.surahId, item.ayah); }}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Feather name="trash-2" size={18} color={p.muted} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  // 5. Verse search match with highlighting
   const renderVerseSearchResult = (item: VerseSearchResult, index: number, count: number) => {
     const parts = splitTextForHighlight(item.text, search);
     return (
@@ -299,7 +340,7 @@ export const QuranIndexScreen: React.FC = () => {
     </View>
   );
 
-  const listData: any[] = activeTab === 'surah' ? QURAN_DATA : activeTab === 'juz' ? QURAN_JUZ_INDEX : QURAN_HIZB_INDEX;
+  const listData: any[] = activeTab === 'surah' ? QURAN_DATA : activeTab === 'juz' ? QURAN_JUZ_INDEX : activeTab === 'hizb' ? QURAN_HIZB_INDEX : bookmarks;
   const noResults = searchResults
     && searchResults.matchedSurahs.length === 0
     && searchResults.matchedHizb.length === 0
@@ -397,15 +438,26 @@ export const QuranIndexScreen: React.FC = () => {
         <FlatList
           key={activeTab}
           data={listData}
-          keyExtractor={(item: any) => (activeTab === 'surah' ? `surah-${item.id}` : activeTab === 'juz' ? `juz-${item.juz}` : `hizb-${item.hizb}`)}
+          keyExtractor={(item: any) => (activeTab === 'surah' ? `surah-${item.id}` : activeTab === 'juz' ? `juz-${item.juz}` : activeTab === 'hizb' ? `hizb-${item.hizb}` : `bm-${item.surahId}-${item.ayah}`)}
           renderItem={({ item, index }) =>
             activeTab === 'surah'
               ? renderSurah(item, index, listData.length)
               : activeTab === 'juz'
               ? renderJuz(item, index, listData.length)
-              : renderHizb(item, index, listData.length)
+              : activeTab === 'hizb'
+              ? renderHizb(item, index, listData.length)
+              : renderBookmark(item, index, listData.length)
           }
           ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 32, gap: 8 }}>
+              <Feather name="bookmark" size={24} color={p.muted} />
+              <TextUI size={15} weight="bold" color={p.ink}>لا توجد علامات بعد</TextUI>
+              <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 22 }}>
+                أضف علامة من زر العلامة أعلى المصحف، أو بلمس آية ثم «إضافة علامة».
+              </TextUI>
+            </View>
+          }
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 104 }}
           showsVerticalScrollIndicator={false}
           initialNumToRender={15}
