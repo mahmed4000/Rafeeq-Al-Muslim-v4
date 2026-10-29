@@ -27,6 +27,11 @@ import { getUiLanguage, tr } from '../i18n/language';
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
 const AFTER_PRAYER_WINDOW = 30;
 
+// Header: count down in the last 5 minutes before a prayer, count up for 15 minutes after it.
+const BEFORE_WINDOW = 5 * 60;
+const SINCE_WINDOW = 15 * 60;
+const HEADER_PRAYERS: PrayerKey[] = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+
 const STRIP: { key: keyof PrayerTimeValues; label: string; labelEn: string }[] = [
   { key: 'fajr', label: 'الفجر', labelEn: 'Fajr' },
   { key: 'sunrise', label: 'الشروق', labelEn: 'Sunrise' },
@@ -267,8 +272,25 @@ export const HomeScreen: React.FC = () => {
   const nowCard = pickNowCard(prayerTimes, now);
   const progress = khatma && !khatma.completedAt ? getKhatmaProgress(khatma) : null;
   const countdown = next.countdownText.replace(/^-/, '');
-  const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
   const nextName = t(next.nameAr, next.nameEn);
+  // The rest of the day the header shows the current (city) time.
+  const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const hms = (secs: number) => [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60]
+    .map((v) => toArabicNumber(String(v).padStart(2, '0'))).join(':');
+  const sincePrayer = HEADER_PRAYERS
+    .map((key) => ({ key, elapsed: nowSec - (prayerTimes[key].hours * 60 + prayerTimes[key].minutes) * 60 }))
+    .find(({ elapsed }) => elapsed >= 0 && elapsed < SINCE_WINDOW);
+  const headerMode: 'before' | 'since' | 'clock' = next.diffSeconds <= BEFORE_WINDOW ? 'before' : sincePrayer ? 'since' : 'clock';
+  const clockText = `${toArabicNumber(String(now.getHours() % 12 || 12))}:${hms(now.getMinutes() * 60 + now.getSeconds()).slice(-5)}`;
+  const clockPeriod = now.getHours() < 12 ? t('ص', 'AM') : t('م', 'PM');
+  const sinceName = sincePrayer ? prayerName(sincePrayer.key) : '';
+  const headerLabel = headerMode === 'since'
+    ? t(`${sinceName} منذ`, `${sinceName} began`)
+    : headerMode === 'before'
+      ? t(`${next.nameAr} بعد`, `${nextName} in`)
+      : (next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد ${countdown.slice(0, -3)}`, `${nextName} (tomorrow) in ${countdown.slice(0, -3)}`) : t(`${next.nameAr} بعد ${countdown.slice(0, -3)}`, `${nextName} in ${countdown.slice(0, -3)}`));
+  const headerValue = headerMode === 'since' ? hms(sincePrayer!.elapsed) : headerMode === 'before' ? countdown : clockText;
+  const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
   const forwardIcon = isRTL ? 'chevron-left' : 'chevron-right';
   const bookmarkSurah = readingBookmark
     ? (lang === 'en' ? surahById(readingBookmark.surahId).nameEn || readingBookmark.surahName : readingBookmark.surahName)
@@ -522,16 +544,23 @@ export const HomeScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
+            accessibilityLabel={headerMode === 'since'
+              ? t(`${sinceName} منذ ${headerValue}، الصلاة القادمة ${next.nameAr} الساعة ${next.time}`, `${sinceName} began ${headerValue} ago, next prayer ${nextName} at ${next.time}`)
+              : t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
             onPress={() => navigate('prayer_times')}
             style={{ alignSelf: 'center', alignItems: 'center', gap: 2 }}
           >
-            <TextUI size={15} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
-              {next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد`, `${nextName} (tomorrow) in`) : t(`${next.nameAr} بعد`, `${nextName} in`)}
-            </TextUI>
-            <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{countdown}</TextUI>
+            <TextUI size={15} color={SCENE_INK} align="center" style={SCENE_SHADOW}>{headerLabel}</TextUI>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{headerValue}</TextUI>
+              {headerMode === 'clock' ? <TextUI size={18} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{clockPeriod}</TextUI> : null}
+            </View>
             <TextUI size={14} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
-              {otherZone ? t(`الأذان ${next.time} بتوقيت ${currentCity.nameAr}`, `Adhan ${next.time} (${cityName} time)`) : t(`الأذان ${next.time}`, `Adhan ${next.time}`)}
+              {(() => {
+                // While counting up, the adhan line is the prayer that just began; otherwise the next one.
+                const adhan = sincePrayer && headerMode === 'since' ? prayerTimes[sincePrayer.key].timeStr : next.time;
+                return otherZone ? t(`الأذان ${adhan} بتوقيت ${currentCity.nameAr}`, `Adhan ${adhan} (${cityName} time)`) : t(`الأذان ${adhan}`, `Adhan ${adhan}`);
+              })()}
             </TextUI>
           </TouchableOpacity>
           <TouchableOpacity
