@@ -1,3 +1,5 @@
+import { COUNTRY_NAMES, WORLD_CITY_ROWS } from '../data/worldCities';
+
 export const KAABA_LAT = 21.422487;
 export const KAABA_LNG = 39.826206;
 
@@ -39,7 +41,9 @@ export const METHOD_NAMES_AR: Record<CalcMethod, string> = {
 
 // Decimal-degree coordinates (positive = North / East). Prayer times and Qibla
 // are always computed from these at runtime, never stored per city.
-export const CITIES: City[] = [
+// The first eight keep their original ids so saved choices still resolve;
+// they are also the short list shown before the user searches.
+export const CORE_CITIES: City[] = [
   { id: 'makkah', nameAr: 'مكة المكرمة', nameEn: 'Makkah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', countryCode: 'SA', timeZone: 'Asia/Riyadh', lat: 21.4225, lng: 39.8262 },
   { id: 'madinah', nameAr: 'المدينة المنورة', nameEn: 'Madinah', country: 'السعودية', countryAr: 'السعودية', countryEn: 'Saudi Arabia', countryCode: 'SA', timeZone: 'Asia/Riyadh', lat: 24.4672, lng: 39.6024 },
   { id: 'cairo', nameAr: 'القاهرة', nameEn: 'Cairo', country: 'مصر', countryAr: 'مصر', countryEn: 'Egypt', countryCode: 'EG', timeZone: 'Africa/Cairo', lat: 30.0444, lng: 31.2357 },
@@ -49,6 +53,43 @@ export const CITIES: City[] = [
   { id: 'istanbul', nameAr: 'إسطنبول', nameEn: 'Istanbul', country: 'تركيا', countryAr: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', timeZone: 'Europe/Istanbul', lat: 41.0082, lng: 28.9784 },
   { id: 'london', nameAr: 'لندن', nameEn: 'London', country: 'المملكة المتحدة', countryAr: 'المملكة المتحدة', countryEn: 'United Kingdom', countryCode: 'GB', timeZone: 'Europe/London', lat: 51.5074, lng: -0.1278 }
 ];
+
+export const CITIES: City[] = [
+  ...CORE_CITIES,
+  ...WORLD_CITY_ROWS.map(([id, nameAr, nameEn, code, lat, lng, timeZone]): City => {
+    const [countryAr, countryEn] = COUNTRY_NAMES[code];
+    return { id, nameAr, nameEn, country: countryAr, countryAr, countryEn, countryCode: code, timeZone, lat, lng };
+  })
+];
+
+/** Folds Arabic spelling variants and Latin accents so "اسطنبول" finds "إسطنبول" and "zurich" finds "Zürich". */
+export function normalizeSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ًͯ-ٰٟـ]/g, '') // Latin accents, Arabic tashkeel, tatweel
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const SEARCH_KEYS = new Map(CITIES.map((c) => [c.id, normalizeSearch(`${c.nameAr} ${c.nameEn} ${c.countryAr} ${c.countryEn}`)]));
+
+/**
+ * Cities matching the query (all words must match), with cities from
+ * `preferCountry` first. An empty query returns the short core list.
+ */
+export function searchCities(query: string, preferCountry?: string): City[] {
+  const words = normalizeSearch(query).split(' ').filter(Boolean);
+  if (!words.length) return CORE_CITIES;
+  const found = CITIES.filter((c) => {
+    const key = SEARCH_KEYS.get(c.id) || '';
+    return words.every((w) => key.includes(w));
+  });
+  return found.sort((a, b) => Number(b.countryCode === preferCountry) - Number(a.countryCode === preferCountry));
+}
 
 /**
  * Parse a coordinate that may be a number, a numeric string, or the legacy

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, Platform, TextInput } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { usePalette, Palette } from '../theme/palette';
-import { CITIES, City, METHOD_NAMES_AR, suggestMethodForCountry } from '../constants/cities';
+import { City, METHOD_NAMES_AR, searchCities, suggestMethodForCountry } from '../constants/cities';
 import { NotificationService } from '../services/notificationService';
 
 type Step = 'welcome' | 'location' | 'city' | 'alerts';
@@ -40,6 +40,7 @@ export const OnboardingScreen: React.FC = () => {
   const [locating, setLocating] = useState(false);
   const [locationFailed, setLocationFailed] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -105,22 +106,38 @@ export const OnboardingScreen: React.FC = () => {
     </View>
   );
 
+  // Rendered inside the step's ScrollView, so cap the rows; typing narrows them.
+  const cityResults = searchCities(cityQuery).slice(0, 30);
   const cityList = (
-    <View style={{ borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, overflow: 'hidden' }}>
-      {CITIES.map((city) => (
-        <TouchableOpacity
-          key={city.id}
-          onPress={() => chooseCity(city)}
-          accessibilityRole="button"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 52, borderBottomWidth: 1, borderColor: p.divider }}
-        >
-          <View style={{ flex: 1 }}>
-            <TextUI size={16} weight="bold" color={p.ink}>{city.nameAr}</TextUI>
-            <TextUI size={13} color={p.muted}>{city.countryAr}</TextUI>
-          </View>
-          <Feather name="chevron-left" size={18} color={p.muted} />
-        </TouchableOpacity>
-      ))}
+    <View style={{ gap: 10 }}>
+      <TextInput
+        value={cityQuery}
+        onChangeText={setCityQuery}
+        placeholder="ابحث عن مدينتك أو دولتك"
+        placeholderTextColor={p.muted}
+        accessibilityLabel="البحث عن مدينة"
+        style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface, color: p.ink, paddingHorizontal: 14, fontSize: 15, textAlign: 'right' }}
+      />
+      {cityResults.length === 0 ? (
+        <TextUI size={14} color={p.muted} align="center" style={{ paddingVertical: 12 }}>لا توجد مدينة بهذا الاسم. جرّب اسمًا آخر.</TextUI>
+      ) : (
+        <View style={{ borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, overflow: 'hidden' }}>
+          {cityResults.map((city) => (
+            <TouchableOpacity
+              key={city.id}
+              onPress={() => chooseCity(city)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 52, borderBottomWidth: 1, borderColor: p.divider }}
+            >
+              <View style={{ flex: 1 }}>
+                <TextUI size={16} weight="bold" color={p.ink}>{city.nameAr}</TextUI>
+                <TextUI size={13} color={p.muted}>{city.countryAr}</TextUI>
+              </View>
+              <Feather name="chevron-left" size={18} color={p.muted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 
@@ -244,7 +261,7 @@ export const OnboardingScreen: React.FC = () => {
           </TouchableOpacity>
         ) : null}
       </View>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 16, gap: 18 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: 16, gap: 18 }}>
         {renderStep()}
       </ScrollView>
     </View>

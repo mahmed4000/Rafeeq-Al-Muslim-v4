@@ -244,6 +244,9 @@ export const SettingsScreen: React.FC = () => {
           <TextUI size={11} color={p.accentInk} style={{ marginTop: 8 }}>
             الإصدار ٢٠٢٦ • الإصدار ٢.١.٠ المعماري
           </TextUI>
+          <TextUI size={11} color={p.muted} style={{ marginTop: 6, textAlign: 'center' }}>
+            إحداثيات المدن ومناطقها الزمنية من GeoNames (geonames.org) برخصة CC BY 4.0
+          </TextUI>
         </View>
       </ScrollView>
     </View>

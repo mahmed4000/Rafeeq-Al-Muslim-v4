@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
-import { CITIES } from '../constants/cities';
+import { searchCities } from '../constants/cities';
 import { TOKENS, makeShadow } from '../constants/tokens';
 import { NotificationService } from '../services/notificationService';
 import { computeNightTimes } from '../services/prayerCalculation';
@@ -44,12 +44,7 @@ export const PrayerTimesScreen: React.FC = () => {
     { key: 'isha' as const, nameAr: 'العشاء', nameEn: 'Isha', time: prayerTimes.isha.timeStr, icon: 'moon' as const, note: 'مغيب الشفق الأحمر' }
   ];
 
-  const filteredCities = CITIES.filter(
-    (city) =>
-      city.nameAr.includes(citySearch) ||
-      city.nameEn.toLowerCase().includes(citySearch.toLowerCase()) ||
-      city.country.includes(citySearch)
-  );
+  const filteredCities = searchCities(citySearch, currentCity.countryCode);
 
   const calcMethods = [
     { id: 'umm_al_qura' as const, titleAr: 'أم القرى (المملكة العربية السعودية)', titleEn: 'Umm Al-Qura (Saudi Arabia)', note: 'الفجر 18.5° • العشاء 90 دقيقة بعد المغرب' },
@@ -374,6 +369,12 @@ export const PrayerTimesScreen: React.FC = () => {
             <FlatList
               data={filteredCities}
               keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <TextUI size={13} color={p.muted} align="center" style={{ paddingVertical: 24, lineHeight: 22 }}>
+                  {t('لا توجد مدينة بهذا الاسم. جرّب اسمًا آخر أو استخدم موقعك الحالي.', 'No city found. Try another name or use your location.')}
+                </TextUI>
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.7}
