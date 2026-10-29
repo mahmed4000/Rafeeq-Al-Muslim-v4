@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, ScrollView, TouchableOpacity, Share, Modal } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Share, Modal, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
@@ -338,14 +338,21 @@ export const AzkarSessionScreen: React.FC = () => {
                 </View>
               ) : null}
             </View>
+          </>
+        )}
+      </ScrollView>
 
-            {/* Counter */}
+      {/* Counter panel, fixed at the bottom: it stays in place whatever the dhikr's length */}
+      {!showCompletion ? (
+        <View style={{ paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 30 : 14, paddingHorizontal: 16, gap: 8, alignItems: 'center', backgroundColor: p.bg, borderTopWidth: 1, borderColor: p.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+            <SmallAction icon={isRTL ? 'chevron-right' : 'chevron-left'} label={t('السابق', 'Previous')} onPress={handlePrev} disabled={currentIndex === 0} />
             <TouchableOpacity
               activeOpacity={0.88}
               accessibilityRole="button"
               accessibilityLabel={isCompleted ? t('اكتمل هذا الذكر', 'This dhikr is complete') : t(`تسبيحة، المتبقي ${toArabicNumber(remaining)}`, `Count, ${toArabicNumber(remaining)} remaining`)}
               onPress={handleTap}
-              style={{ width: RING_SIZE, height: RING_SIZE, marginTop: 8, borderRadius: RING_SIZE / 2, alignItems: 'center', justifyContent: 'center', ...makeShadow('0 8px 24px rgba(93,58,34,0.16)', '#5D3A22', 0.16, 8) }}
+              style={{ width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: 'center', justifyContent: 'center', ...makeShadow('0 8px 24px rgba(93,58,34,0.16)', '#5D3A22', 0.16, 8) }}
             >
               <BeadRing ratio={counter / target} fill={isCompleted ? p.success : p.accent} track={p.border} />
               <View style={{ width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface }}>
@@ -362,18 +369,15 @@ export const AzkarSessionScreen: React.FC = () => {
                 )}
               </View>
             </TouchableOpacity>
-
-            {/* Previous · reset · share · next */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <SmallAction icon={isRTL ? 'chevron-right' : 'chevron-left'} label={t('السابق', 'Previous')} onPress={handlePrev} disabled={currentIndex === 0} />
-              <SmallAction icon="rotate-ccw" label={t('إعادة', 'Reset')} onPress={handleResetCounter} disabled={counter === 0} />
-              <SmallAction icon="share-2" label={t('مشاركة', 'Share')} onPress={handleShare} />
-              <SmallAction icon={isRTL ? 'chevron-left' : 'chevron-right'} label={t('التالي', 'Next')} onPress={handleNext} />
-            </View>
-            <TextUI size={12.5} color={p.muted} style={{ textAlign: 'center' }}>{t('اسحب للذكر التالي · المس الحلقة للعدّ', 'Swipe for the next dhikr · Tap the ring to count')}</TextUI>
-          </>
-        )}
-      </ScrollView>
+            <SmallAction icon={isRTL ? 'chevron-left' : 'chevron-right'} label={t('التالي', 'Next')} onPress={handleNext} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+            <SmallAction icon="rotate-ccw" label={t('إعادة', 'Reset')} onPress={handleResetCounter} disabled={counter === 0} />
+            <SmallAction icon="share-2" label={t('مشاركة', 'Share')} onPress={handleShare} />
+          </View>
+          <TextUI size={12} color={p.muted} style={{ textAlign: 'center' }}>{t('اسحب للذكر التالي · المس الحلقة للعدّ', 'Swipe for the next dhikr · Tap the ring to count')}</TextUI>
+        </View>
+      ) : null}
 
       {/* Session settings: font size and auto-advance */}
       <Modal visible={settingsVisible} animationType="fade" transparent onRequestClose={() => setSettingsVisible(false)}>
