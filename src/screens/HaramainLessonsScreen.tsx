@@ -1,38 +1,50 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { createAudioPlayer } from 'expo-audio';
+import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useApp } from '../context/AppContext';
-import { Header } from '../components/common/Header';
 import { TextUI } from '../components/common/TextUI';
 import { PROPHET_MOSQUE_COURSES, MAKKAH_MOSQUE_COURSES } from '../data/haramainData';
-import { AudioService, DownloadedLessonRecord } from '../services/audioService';
+import { AudioService, DownloadedLessonRecord, LessonResumeRecord } from '../services/audioService';
 import { toArabicNumber } from '../services/prayerCalculation';
-import { TOKENS, makeShadow } from '../constants/tokens';
 import { usePalette } from '../theme/palette';
 
 const SCIENCE_ORDER = ['العقيدة', 'القرآن', 'التفسير', 'الحديث', 'الفقه', 'أصول الفقه', 'سيرة ورقائق'];
+type Mosque = 'makkah' | 'madinah';
+
+const MOSQUE_TABS: { id: Mosque; label: string }[] = [
+  { id: 'makkah', label: 'المسجد الحرام' },
+  { id: 'madinah', label: 'المسجد النبوي' }
+];
+
+/** "١٢ درسًا" / "٣ دروس" (Arabic plural agreement). */
+function lessonsAr(n: number): string {
+  if (n === 1) return 'درس واحد';
+  if (n === 2) return 'درسان';
+  const tail = n % 100;
+  return `${toArabicNumber(n)} ${tail >= 3 && tail <= 10 ? 'دروس' : 'درسًا'}`;
+}
 
 export const HaramainLessonsScreen: React.FC = () => {
-  const { goBack, navigate, t, triggerHaptic } = useApp();
+  const { navigate, triggerHaptic } = useApp();
   const p = usePalette();
 
-  const [activeMosqueTab, setActiveMosqueTab] = useState<'madinah' | 'makkah'>('madinah');
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [activeLesson, setActiveLesson] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-  const [currentSecs, setCurrentSecs] = useState<number>(0);
-  const [totalSecs, setTotalSecs] = useState<number>(0);
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
-  const [downloadedMap, setDownloadedMap] = useState<Record<string, DownloadedLessonRecord>>({});
+  const [activeMosqueTab, setActiveMosqueTab] = useState<Mosque>('makkah');
   const [courseSearch, setCourseSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('الكل');
-  const [expandedCourseIds, setExpandedCourseIds] = useState<Set<string>>(new Set());
+  const [downloadedMap, setDownloadedMap] = useState<Record<string, DownloadedLessonRecord>>({});
+  const [resumeRecords, setResumeRecords] = useState<LessonResumeRecord[]>([]);
 
-  const nativePlayerRef = useRef<any>(null);
-  const webAudioRef = useRef<any>(null);
+  // Listening progress and downloads change in the lesson and book screens; reload on return.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      AudioService.getDownloadedLessons().then((records) => { if (alive) setDownloadedMap(records); });
+      AudioService.getResumeRecords().then((records) => { if (alive) setResumeRecords(Object.values(records).filter((r) => r?.lessonId)); });
+      return () => { alive = false; };
+    }, [])
+  );
 
   const courses = activeMosqueTab === 'madinah' ? PROPHET_MOSQUE_COURSES : MAKKAH_MOSQUE_COURSES;
   const categories = useMemo(() => ['الكل', ...Array.from(new Set(courses.map((course: any) => course.categoryAr).filter(Boolean)))
@@ -58,142 +70,24 @@ export const HaramainLessonsScreen: React.FC = () => {
         .sort((a: any, b: any) => a.titleAr.localeCompare(b.titleAr, 'ar'))
     }))
     .filter((group: any) => group.items.length > 0), [categories, filteredCourses]);
-  const lessonCount = courses.reduce((total: number, course: any) => total + (course.lessons?.length || 0), 0);
 
-  // Load downloaded state
-  useEffect(() => {
-    (async () => {
-      const records = await AudioService.getDownloadedLessons();
-      setDownloadedMap(records);
-    })();
-  }, []);
-
-  const stopAllAudio = () => {
-    try {
-      if (nativePlayerRef.current) {
-        nativePlayerRef.current.pause();
-        nativePlayerRef.current.remove();
-        nativePlayerRef.current = null;
-      }
-      if (webAudioRef.current) {
-        webAudioRef.current.pause();
-        webAudioRef.current = null;
-      }
-      setIsPlaying(false);
-    } catch (e) {}
+  /** Status line and progress for a course card, from saved listening positions and downloads. */
+  const courseStatus = (course: any): { label: string; ratio: number } => {
+    const total = course.lessons?.length || 0;
+    if (total > 0 && course.lessons.every((lesson: any) => downloadedMap[lesson.id])) return { label: 'مُنزَّل', ratio: 1 };
+    const reached = resumeRecords
+      .filter((r) => r.courseId === course.id)
+      .reduce((max, r) => Math.max(max, r.lessonNumber || 0), 0);
+    if (!reached) return { label: 'جديد', ratio: 0 };
+    return { label: `تابعت حتى الدرس ${toArabicNumber(reached)}`, ratio: total ? Math.min(1, reached / total) : 0 };
   };
 
-  const playLesson = async (course: any, lesson: any) => {
+  const switchMosque = (id: Mosque) => {
+    if (id === activeMosqueTab) return;
     triggerHaptic('light');
-    if (activeLesson?.id === lesson.id && nativePlayerRef.current) {
-      if (isPlaying) {
-        nativePlayerRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        nativePlayerRef.current.play();
-        setIsPlaying(true);
-      }
-      return;
-    }
-    if (activeLesson?.id === lesson.id && webAudioRef.current) {
-      if (isPlaying) {
-        webAudioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        webAudioRef.current.play().catch(() => {});
-        setIsPlaying(true);
-      }
-      return;
-    }
-    stopAllAudio();
-    setActiveLesson(lesson);
-    setSelectedCourse(course);
-
-    const isDownloaded = downloadedMap[lesson.id];
-    const url = isDownloaded?.localUri || lesson.audioUrl || course.audioStreamUrl;
-
-    try {
-      const player = createAudioPlayer(url, { updateInterval: 500 });
-      if (player) {
-        nativePlayerRef.current = player;
-        player.setPlaybackRate(playbackSpeed);
-        player.addListener('playbackStatusUpdate', (status: any) => {
-          if (status) {
-            const cur = Math.floor(status.currentTime || 0);
-            const tot = Math.floor(status.duration || 0);
-            setCurrentSecs(cur);
-            setTotalSecs(tot);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-            }
-          }
-        });
-        player.play();
-        setIsPlaying(true);
-        return;
-      }
-    } catch (e) {}
-
-    // HTML5 fallback for web
-    if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
-      const sound = new Audio(url);
-      webAudioRef.current = sound;
-      sound.playbackRate = playbackSpeed;
-      sound.ontimeupdate = () => {
-        setCurrentSecs(Math.floor(sound.currentTime));
-        setTotalSecs(Math.floor(sound.duration || 0));
-      };
-      sound.onended = () => setIsPlaying(false);
-      sound.play().catch(() => {});
-      setIsPlaying(true);
-    }
-  };
-
-  const togglePlayPause = () => {
-    triggerHaptic('light');
-    if (isPlaying) {
-      nativePlayerRef.current?.pause();
-      webAudioRef.current?.pause();
-      setIsPlaying(false);
-    } else {
-      nativePlayerRef.current?.play();
-      webAudioRef.current?.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const skipSeconds = (delta: number) => {
-    triggerHaptic('light');
-    const next = Math.max(0, currentSecs + delta);
-    if (nativePlayerRef.current) {
-      if (typeof nativePlayerRef.current.seekTo === 'function') {
-        nativePlayerRef.current.seekTo(next);
-      } else {
-        nativePlayerRef.current.currentTime = next;
-      }
-    }
-    if (webAudioRef.current) {
-      webAudioRef.current.currentTime = next;
-    }
-    setCurrentSecs(next);
-  };
-
-  const handleDownload = async (course: any, lesson: any) => {
-    triggerHaptic('medium');
-    setDownloadProgress((prev) => ({ ...prev, [lesson.id]: 10 }));
-    const result = await AudioService.downloadLesson(course, lesson, (pct) => {
-      setDownloadProgress((prev) => ({ ...prev, [lesson.id]: pct }));
-    });
-    if (result) {
-      setDownloadedMap((prev) => ({ ...prev, [lesson.id]: result }));
-    } else {
-      Alert.alert('تعذّر التحميل', 'تحقق من اتصال الإنترنت ثم أعد المحاولة.');
-    }
-    setDownloadProgress((prev) => {
-      const next = { ...prev };
-      delete next[lesson.id];
-      return next;
-    });
+    setActiveMosqueTab(id);
+    setSelectedCategory('الكل');
+    setCourseSearch('');
   };
 
   const openOfficialCourseArchive = async () => {
@@ -204,368 +98,140 @@ export const HaramainLessonsScreen: React.FC = () => {
     }
   };
 
-  const formatSecs = (s: number) => {
-    const m = Math.floor(s / 60).toString().padStart(2, '0');
-    const sec = (s % 60).toString().padStart(2, '0');
-    return `${toArabicNumber(m)}:${toArabicNumber(sec)}`;
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
-      <Header
-        title={t('دروس وكراسي الحرمين الشريفين', 'Haramain Scholars Chairs')}
-        subtitle={t('المسجد الحرام بمكة • المسجد النبوي بالمدينة', 'Makkah & Madinah Scholars')}
-        onBack={goBack}
-      />
-
-      {/* Mosque Tabs (Madinah / Makkah) */}
-      <View
-        style={{
-          flexDirection: 'row',
-          marginHorizontal: 18,
-          marginTop: 12,
-          marginBottom: 16,
-          backgroundColor: p.surface,
-          borderRadius: TOKENS.radius.pill,
-          padding: 4,
-          borderWidth: 1,
-          borderColor: p.border
-        }}
-      >
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            triggerHaptic('light');
-            setActiveMosqueTab('madinah');
-            setSelectedCategory('الكل');
-            setCourseSearch('');
-          }}
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            borderRadius: TOKENS.radius.pill,
-            alignItems: 'center',
-            backgroundColor: activeMosqueTab === 'madinah' ? p.primary : 'transparent'
-          }}
-        >
-          <TextUI
-            size={14}
-            weight="bold"
-            color={activeMosqueTab === 'madinah' ? p.onPrimary :p.ink}
-          >
-            🕌 المسجد النبوي الشريف
-          </TextUI>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            triggerHaptic('light');
-            setActiveMosqueTab('makkah');
-            setSelectedCategory('الكل');
-            setCourseSearch('');
-          }}
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            borderRadius: TOKENS.radius.pill,
-            alignItems: 'center',
-            backgroundColor: activeMosqueTab === 'makkah' ? p.primary : 'transparent'
-          }}
-        >
-          <TextUI
-            size={14}
-            weight="bold"
-            color={activeMosqueTab === 'makkah' ? p.onPrimary :p.ink}
-          >
-            🕋 المسجد الحرام بمكة
-          </TextUI>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 104, gap: 14 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Course catalog */}
-        <TextUI size={16} weight="bold" color={p.ink} style={{ marginBottom: 12 }}>
-          {t('السلاسل العلمية حسب العلم', 'Scientific series by subject')}
-        </TextUI>
-
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={openOfficialCourseArchive}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: p.successBg, borderRadius: 15, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: p.border }}
-        >
-          <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary }}>
-            <Feather name="book-open" size={18} color={p.onPrimary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <TextUI size={13} weight="bold" color={p.ink}>المكتبة العلمية الكاملة للحرمين</TextUI>
-            <TextUI size={11} color={p.muted} style={{ marginTop: 3 }}>تصفح الكتب والشروح وشغّل التسجيلات في نافذة التطبيق</TextUI>
-          </View>
-          <Feather name="arrow-up-left" size={17} color={p.primary} />
-        </TouchableOpacity>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>{t('السلاسل المصنفة داخل التطبيق', 'Curated in-app courses')}</TextUI>
-          <TextUI size={11} color={p.muted}>{toArabicNumber(courses.length)} سلسلة • {toArabicNumber(lessonCount)} درس</TextUI>
+        {/* Title and downloads */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TextUI size={26} weight="bold" color={p.ink}>دروس الحرمين</TextUI>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            onPress={() => navigate('downloads')}
+            style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+          >
+            <Feather name="download" size={16} color={p.primary} />
+            <TextUI size={14} weight="medium" color={p.ink}>التنزيلات</TextUI>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: p.surface, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: p.border, gap: 8, marginBottom: 10 }}>
-          <Feather name="search" size={16} color={p.muted} />
-          <TextInput
-            placeholder="ابحث باسم السلسلة أو الشيخ أو الدرس..."
-            placeholderTextColor={p.muted}
-            value={courseSearch}
-            onChangeText={setCourseSearch}
-            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 13 }}
-          />
-          {courseSearch ? <TouchableOpacity onPress={() => setCourseSearch('')}><Feather name="x" size={15} color={p.muted} /></TouchableOpacity> : null}
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
-          {categories.map((category) => {
-            const isSelected = selectedCategory === category;
+        {/* Mosque switcher */}
+        <View accessibilityRole="tablist" style={{ flexDirection: 'row', padding: 4, borderRadius: 999, backgroundColor: p.bgAlt }}>
+          {MOSQUE_TABS.map((tab) => {
+            const active = activeMosqueTab === tab.id;
             return (
               <TouchableOpacity
-                key={category}
-                onPress={() => setSelectedCategory(category)}
-                style={{ paddingHorizontal: 13, paddingVertical: 7, borderRadius: TOKENS.radius.pill, backgroundColor: isSelected ? p.primary : p.surface, borderWidth: 1, borderColor: isSelected ? p.primary : p.border }}
+                key={tab.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => switchMosque(tab.id)}
+                style={{ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: active ? p.surface : 'transparent' }}
               >
-                <TextUI size={11} weight="bold" color={isSelected ? p.onPrimary :p.muted}>{category}</TextUI>
+                <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{tab.label}</TextUI>
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
 
-        {groupedCourses.map(({ category, items }: any) => (
-          <View key={category}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderColor: p.border }}>
-              <Feather name="book-open" size={16} color={p.primary} />
-              <TextUI size={15} weight="bold" color={p.primaryInk}>{category}</TextUI>
-              <TextUI size={11} color={p.muted}>{toArabicNumber(items.length)} سلسلة</TextUI>
-            </View>
-            {items.map((course: any) => {
-          const expanded = expandedCourseIds.has(course.id) || !!courseSearch.trim();
-          const visibleLessons = expanded ? course.lessons : course.lessons.slice(0, 3);
-          return (
-          <View
-            key={course.id}
-            style={{
-              backgroundColor: p.surface,
-              borderRadius: 18,
-              padding: 18,
-              marginBottom: 14,
-              borderWidth: 1,
-              borderColor: p.border,
-              ...makeShadow('0 2px 8px rgba(0,0,0,0.03)', '#000', 0.03, 3)
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-              <View style={{ flex: 1 }}>
-                <TextUI variant="h4" color={p.primaryInk}>
-                  {course.titleAr}
-                </TextUI>
-                <TextUI variant="bodyMedium" color={p.primary} style={{ marginTop: 2 }}>
-                  {course.scholarAr}
-                </TextUI>
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: p.soft,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: TOKENS.radius.pill
-                }}
-              >
-                <TextUI variant="badge" color={p.primaryInk}>
-                  {course.categoryAr}
-                </TextUI>
-              </View>
-            </View>
-
-            <TextUI variant="caption" color={p.muted} style={{ lineHeight: 18, marginBottom: 12 }}>
-              {course.descriptionAr}
-            </TextUI>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <Feather name="headphones" size={13} color={p.primary} />
-              <TextUI variant="caption" color={p.muted}>{toArabicNumber(course.lessons.length)} درس مسجل</TextUI>
-            </View>
-
-            <TouchableOpacity onPress={() => navigate('haramain_book', { courseId: course.id })} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, backgroundColor: p.hero, borderRadius: 12, marginBottom: 12 }}>
-              <Feather name="book-open" size={16} color={p.onHero} />
-              <TextUI variant="captionBold" color={p.onHero}>افتح صفحة الكتاب وجميع الدروس</TextUI>
+        {/* Search */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+          <Feather name="search" size={18} color={p.muted} />
+          <TextInput
+            accessibilityLabel="بحث في الدروس"
+            placeholder="كتاب، شيخ، أو موضوع"
+            placeholderTextColor={p.muted}
+            value={courseSearch}
+            onChangeText={setCourseSearch}
+            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 15, paddingVertical: 10 }}
+          />
+          {courseSearch ? (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="مسح البحث" onPress={() => setCourseSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name="x" size={16} color={p.muted} />
             </TouchableOpacity>
+          ) : null}
+        </View>
 
-            {/* Lessons List in Course */}
-            <View style={{ gap: 8 }}>
-              {visibleLessons.map((lesson: any) => {
-                const isCurrent = activeLesson?.id === lesson.id;
-                const isDownloaded = !!downloadedMap[lesson.id];
-                const isDownloading = downloadProgress[lesson.id] != null;
-
-                return (
-                  <View
-                    key={lesson.id}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: isCurrent ? p.soft : p.bgAlt,
-                      borderRadius: 12,
-                      padding: 10
-                    }}
-                  >
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => navigate('haramain_lesson', { courseId: course.id, lessonId: lesson.id })}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                    >
-                      <Feather
-                        name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
-                        size={22}
-                        color={p.primary}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <TextUI variant="bodyMedium" weight={isCurrent ? 'bold' : 'medium'} color={p.ink} numberOfLines={1}>
-                          {lesson.number}. {lesson.titleAr}
-                        </TextUI>
-                        <TextUI variant="caption" color={p.muted}>
-                          {lesson.duration}
-                        </TextUI>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Download Button */}
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => handleDownload(course, lesson)}
-                      disabled={isDownloaded || isDownloading}
-                      style={{ padding: 6 }}
-                    >
-                      {isDownloading ? (
-                        <ActivityIndicator size="small" color={p.primary} />
-                      ) : (
-                        <Feather
-                          name={isDownloaded ? 'check-circle' : 'download-cloud'}
-                          size={18}
-                          color={isDownloaded ? p.success : p.muted}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-
-            {course.lessons.length > 3 && !courseSearch.trim() ? (
+        {/* Subject chips */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {categories.map((category) => {
+            const selected = selectedCategory === category;
+            return (
               <TouchableOpacity
-                onPress={() => setExpandedCourseIds((previous) => {
-                  const next = new Set(previous);
-                  if (next.has(course.id)) next.delete(course.id);
-                  else next.add(course.id);
-                  return next;
-                })}
-                style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingTop: 12 }}
+                key={category}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                onPress={() => { triggerHaptic('light'); setSelectedCategory(category); }}
+                style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 999, backgroundColor: selected ? p.primary : p.soft }}
               >
-                <TextUI size={12} weight="bold" color={p.primary}>
-                  {expanded ? 'إخفاء الحلقات' : `عرض جميع الحلقات (${toArabicNumber(course.lessons.length)})`}
-                </TextUI>
-                <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={p.primary} />
+                <TextUI size={14} weight={selected ? 'bold' : 'medium'} color={selected ? p.onPrimary : p.primaryInk}>{category}</TextUI>
               </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Courses by subject */}
+        <TextUI size={17} weight="bold" color={p.ink} style={{ marginTop: 4 }}>الكراسي العلمية</TextUI>
+        {groupedCourses.map(({ category, items }: any) => (
+          <View key={category} style={{ gap: 10 }}>
+            {selectedCategory === 'الكل' ? (
+              <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4 }}>{`${category} · ${toArabicNumber(items.length)}`}</TextUI>
             ) : null}
-          </View>
-          );
+            {items.map((course: any) => {
+              const status = courseStatus(course);
+              return (
+                <TouchableOpacity
+                  key={course.id}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${course.titleAr}، ${course.scholarAr}، ${lessonsAr(course.lessons.length)}، ${status.label}`}
+                  onPress={() => navigate('haramain_book', { courseId: course.id })}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+                >
+                  <View style={{ width: 52, height: 60, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: p.soft }}>
+                    <Feather name="book-open" size={20} color={p.primary} />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: p.soft }}>
+                      <TextUI size={12} weight="bold" color={p.primaryInk}>{course.categoryAr}</TextUI>
+                    </View>
+                    <TextUI size={16} weight="bold" color={p.ink}>{course.titleAr}</TextUI>
+                    <TextUI size={13} color={p.muted}>{`${course.scholarAr} · ${lessonsAr(course.lessons.length)} · ${status.label}`}</TextUI>
+                    <View style={{ height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border, marginTop: 2 }}>
+                      <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${Math.round(status.ratio * 100)}%` }} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
             })}
           </View>
         ))}
         {filteredCourses.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: 36 }}>
+          <View style={{ alignItems: 'center', paddingVertical: 36, gap: 8 }}>
             <Feather name="search" size={26} color={p.muted} />
-            <TextUI size={13} weight="bold" color={p.ink} style={{ marginTop: 10 }}>لا توجد سلاسل مطابقة</TextUI>
+            <TextUI size={15} weight="bold" color={p.ink}>لا توجد سلاسل مطابقة</TextUI>
           </View>
         ) : null}
-      </ScrollView>
 
-      {/* Floating Audio Player Bar */}
-      {activeLesson && (
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: p.surface,
-            borderTopWidth: 1,
-            borderColor: p.border,
-            paddingHorizontal: 18,
-            paddingVertical: 12,
-            ...makeShadow('0 -4px 16px rgba(0,0,0,0.08)', '#000', 0.08, 6)
-          }}
+        {/* Official full library (external) */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="link"
+          onPress={openOfficialCourseArchive}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 14, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
         >
-          {/* Progress Slider Bar */}
-          <View style={{ height: 3, width: '100%', backgroundColor: p.border, marginBottom: 10 }}>
-            <View
-              style={{
-                height: '100%',
-                width: totalSecs > 0 ? `${(currentSecs / totalSecs) * 100}%` : '0%',
-                backgroundColor: p.primary
-              }}
-            />
+          <Feather name="globe" size={18} color={p.primary} />
+          <View style={{ flex: 1 }}>
+            <TextUI size={14} weight="bold" color={p.ink}>المكتبة العلمية الكاملة للحرمين</TextUI>
+            <TextUI size={12.5} color={p.muted}>الموقع الرسمي لدروس الحرمين</TextUI>
           </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1, marginRight: 10 }}>
-              <TextUI size={13} weight="bold" color={p.ink} numberOfLines={1}>
-                {activeLesson.titleAr}
-              </TextUI>
-              <TextUI size={11} color={p.muted}>
-                {formatSecs(currentSecs)} / {formatSecs(totalSecs)}
-              </TextUI>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  const speeds = [1, 1.25, 1.5, 2];
-                  const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
-                  setPlaybackSpeed(nextSpeed);
-                  nativePlayerRef.current?.setPlaybackRate?.(nextSpeed);
-                  if (webAudioRef.current) webAudioRef.current.playbackRate = nextSpeed;
-                }}
-                style={{ minWidth: 36, alignItems: 'center' }}
-              >
-                <TextUI size={11} weight="bold" color={p.ink}>{playbackSpeed}×</TextUI>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => skipSeconds(-15)}>
-                <Feather name="rotate-ccw" size={18} color={p.ink} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={togglePlayPause}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: p.primary,
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Feather name={isPlaying ? 'pause' : 'play'} size={18} color={p.onPrimary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => skipSeconds(15)}>
-                <Feather name="rotate-cw" size={18} color={p.ink} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
+          <Feather name="arrow-up-left" size={17} color={p.muted} />
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
