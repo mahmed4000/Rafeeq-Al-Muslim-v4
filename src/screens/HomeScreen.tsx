@@ -152,7 +152,7 @@ const STRIP_ICONS: Record<keyof PrayerTimeValues, keyof typeof Feather.glyphMap>
   fajr: 'sunrise', sunrise: 'sunrise', dhuhr: 'sun', asr: 'sun', maghrib: 'sunset', isha: 'moon'
 };
 
-const APP_ICON = require('../../assets/icon.png');
+const APP_LOGO = require('../../assets/logo-transparent.png');
 
 // Light text over the scene header, whatever the sky.
 const SCENE_INK = '#FFF6EA';
@@ -492,11 +492,9 @@ export const HomeScreen: React.FC = () => {
         <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              {/* App icon, cropped to its rounded tile (the asset has a blurred margin) */}
-              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,246,234,0.5)' }}>
-                <Image source={APP_ICON} style={{ position: 'absolute', width: 52, height: 52, left: -7, top: -7 }} />
-              </View>
-              <TextUI size={22} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
+              {/* App logo: the icon's arch, crescent and mosque on a transparent background */}
+              <Image source={APP_LOGO} accessibilityElementsHidden importantForAccessibility="no" style={{ width: 42, height: 42 }} />
+              <TextUI size={22} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{t('رفيق المسلم', 'Muslim Companion')}</TextUI>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity

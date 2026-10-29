@@ -23,7 +23,7 @@ export class SafeErrorBoundary extends React.Component<ErrorBoundaryProps, Error
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('Almosala ErrorBoundary caught error:', error, errorInfo);
+    console.error('ErrorBoundary caught error:', error, errorInfo);
   }
 
   resetError = () => {

@@ -186,7 +186,7 @@ export async function fetchAyahTafsir(
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'AlMosala-App/2.0'
+        'User-Agent': 'MuslimCompanion-App/2.0'
       }
     });
     clearTimeout(timeoutId);

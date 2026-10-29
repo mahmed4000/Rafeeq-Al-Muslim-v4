@@ -697,7 +697,7 @@ export const QuranReaderScreen: React.FC = () => {
       const editionName = currentEdition ? t(currentEdition.name, currentEdition.nameEn) : t('التفسير', 'Tafsir');
       message += `\n\n📖 ${editionName}:\n${activeTafsirText.trim()}`;
     }
-    message += t(`\n\n— تطبيق رفيق المسلم (Almosala Pro)`, `\n\n— Rafeeq Al-Muslim app (Almosala Pro)`);
+    message += t(`\n\n— تطبيق رفيق المسلم`, `\n\n— Muslim Companion app`);
     Share.share({ message });
     setActionModalVisible(false);
   };
@@ -744,8 +744,8 @@ export const QuranReaderScreen: React.FC = () => {
     }
 
     const message = t(
-      `﴿ ${verse.text} ﴾\n[سورة ${verseSurah.nameAr}: الآية ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'تفسير الآية الكريمة'}\n\n— تطبيق رفيق المسلم (Almosala Pro)`,
-      `﴿ ${verse.text} ﴾\n[Surah ${verseSurah.nameEn}: verse ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'Verse tafsir'}\n\n— Rafeeq Al-Muslim app (Almosala Pro)`
+      `﴿ ${verse.text} ﴾\n[سورة ${verseSurah.nameAr}: الآية ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'تفسير الآية الكريمة'}\n\n— تطبيق رفيق المسلم`,
+      `﴿ ${verse.text} ﴾\n[Surah ${verseSurah.nameEn}: verse ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'Verse tafsir'}\n\n— Muslim Companion app`
     );
     try {
       await Share.share({ message });

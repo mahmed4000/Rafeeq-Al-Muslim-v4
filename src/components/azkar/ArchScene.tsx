@@ -47,7 +47,9 @@ export const ARCH_SCENES: Record<string, SceneDef> = {
     sky: DAY,
     draw: () => (
       <>
-        <View style={box(49, 18, 2, 10, '#8C5E3C')} />
+        <View style={box(49, 16, 2, 12, '#8C5E3C')} />
+        {/* Crescent finial (horns up): a ring showing only its lower edge */}
+        <View style={{ position: 'absolute', left: 45, top: 6, width: 10, height: 10, borderRadius: 5, borderBottomWidth: 2.5, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: '#C69255' }} />
         <View style={box(32, 28, 36, 26, '#8C5E3C', { borderTopLeftRadius: 18, borderTopRightRadius: 18 })} />
         <View style={box(20, 52, 60, 34, '#8C5E3C')} />
         {[30, 46, 62].map((x) => <View key={x} style={box(x, 62, 8, 14, DAY, { borderTopLeftRadius: 4, borderTopRightRadius: 4 })} />)}

@@ -113,7 +113,7 @@ export default function RootLayout() {
       >
         <ActivityIndicator size="large" color="#8C5E3C" />
         <TextUI size={16} weight="bold" color="#5D3A22" style={{ marginTop: 14 }}>
-          {tr('رفيق المسلم 🕌', 'Rafeeq Al-Muslim 🕌')}
+          {tr('رفيق المسلم 🕌', 'Muslim Companion 🕌')}
         </TextUI>
       </View>
     );

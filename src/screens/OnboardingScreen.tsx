@@ -148,7 +148,7 @@ export const OnboardingScreen: React.FC = () => {
         return (
           <>
             <ArchIcon p={p} icon="moon" />
-            {title(t('رفيق المسلم', 'Rafeeq Al-Muslim'), t('رفيقك اليومي للصلاة والقرآن والأذكار.\nبلا إعلانات، ويعمل دون إنترنت.', 'Your daily companion for prayer, Quran and adhkar.\nNo ads, and it works offline.'))}
+            {title(t('رفيق المسلم', 'Muslim Companion'), t('رفيقك اليومي للصلاة والقرآن والأذكار.\nبلا إعلانات، ويعمل دون إنترنت.', 'Your daily companion for prayer, Quran and adhkar.\nNo ads, and it works offline.'))}
             <View style={{ flex: 1 }} />
             {primaryButton(t('ابدأ', 'Get started'), () => setStep('location'))}
           </>

@@ -110,7 +110,7 @@ export const AdhanSettingsScreen: React.FC = () => {
         {permission === false && Platform.OS !== 'web' ? (
           <View accessibilityRole="alert" style={{ borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F7E3DF' }}>
             <Feather name="alert-triangle" size={18} color="#7A2E2B" />
-            <TextUI size={13} color="#7A2E2B" style={{ flex: 1, lineHeight: 20 }}>{t('التنبيهات غير مسموحة لرفيق المسلم، فلن يصل الأذان.', "Notifications aren't allowed for Rafeeq Al-Muslim, so the adhan won't arrive.")}</TextUI>
+            <TextUI size={13} color="#7A2E2B" style={{ flex: 1, lineHeight: 20 }}>{t('التنبيهات غير مسموحة لرفيق المسلم، فلن يصل الأذان.', "Notifications aren't allowed for Muslim Companion, so the adhan won't arrive.")}</TextUI>
             <TouchableOpacity onPress={askPermission} accessibilityRole="button" style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 10, justifyContent: 'center', backgroundColor: '#FFFDF9' }}>
               <TextUI size={13} weight="bold" color="#7A2E2B">{t('السماح', 'Allow')}</TextUI>
             </TouchableOpacity>
@@ -171,7 +171,7 @@ export const AdhanSettingsScreen: React.FC = () => {
             <Feather name="info" size={18} color={p.primary} />
             <View style={{ flex: 1, gap: 6 }}>
               <TextUI size={13} color={p.primaryInk} style={{ lineHeight: 21 }}>
-                {t('إن تأخر الأذان على جهازك: اسمح بالمنبّهات الدقيقة، واستثنِ رفيق المسلم من توفير البطارية.', 'If the adhan arrives late on your device: allow exact alarms and exclude Rafeeq Al-Muslim from battery saving.')}
+                {t('إن تأخر الأذان على جهازك: اسمح بالمنبّهات الدقيقة، واستثنِ رفيق المسلم من توفير البطارية.', 'If the adhan arrives late on your device: allow exact alarms and exclude Muslim Companion from battery saving.')}
               </TextUI>
               <TouchableOpacity onPress={NotificationService.openSystemSettings} accessibilityRole="button" style={{ alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' }}>
                 <TextUI size={13} weight="bold" color={p.primary}>{t('فتح إعدادات التطبيق', 'Open app settings')}</TextUI>

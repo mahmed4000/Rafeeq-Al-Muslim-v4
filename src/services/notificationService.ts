@@ -305,7 +305,7 @@ export const NotificationService = {
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'granted') {
             new Notification(tr('حان الآن موعد الصلاة', 'It is now time for prayer'), {
-              body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Rafeeq Al-Muslim test alert · ${cityNameAr}`),
+              body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Muslim Companion test alert · ${cityNameAr}`),
               icon: '/favicon.ico'
             });
           }
@@ -319,7 +319,7 @@ export const NotificationService = {
         await Notifications.scheduleNotificationAsync({
           content: {
             title: tr('حان الآن موعد الصلاة', 'It is now time for prayer'),
-            body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Rafeeq Al-Muslim test alert · ${cityNameAr}`),
+            body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Muslim Companion test alert · ${cityNameAr}`),
             sound: true
           },
           trigger: null // Deliver immediately

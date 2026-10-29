@@ -9,6 +9,7 @@ const FRAME = 390;
 export const SCENE_HEIGHT = 330;
 const GROUND = 288;
 const DISK_X = 336; // centre of the sun/moon in the frame
+const CRESCENT_GOLD = '#D9A75A';
 
 type Scene = {
   sky: [string, string, string];
@@ -51,6 +52,19 @@ const box = (left: number, top: number, width: number, height: number, backgroun
 /** Arch-topped window (horseshoe-like: rounded top, straight sides). */
 const windowStyle = (left: number, top: number, width: number, height: number, color: string): ViewStyle =>
   box(left, top, width, height, color, { borderTopLeftRadius: width / 2, borderTopRightRadius: width / 2 });
+
+/**
+ * Crescent finial (horns up), centred on x with its bottom at y: a ring that shows only its
+ * lower edge, so it reads as a crescent over any sky colour.
+ */
+const Crescent: React.FC<{ x: number; y: number; size: number }> = ({ x, y, size }) => (
+  <View
+    style={{
+      position: 'absolute', left: x - size / 2, top: y - size + 2, width: size, height: size, borderRadius: size / 2,
+      borderBottomWidth: Math.max(2.5, size * 0.24), borderLeftWidth: 0.5, borderRightWidth: 0.5, borderColor: CRESCENT_GOLD
+    }}
+  />
+);
 
 /** A row of merlons (stepped battlements) along a roof line. */
 const Merlons: React.FC<{ left: number; width: number; top: number; color: string; size?: number }> = ({ left, width, top, color, size = 6 }) => {
@@ -117,8 +131,8 @@ export const SceneBackdrop: React.FC<{ phase: SkyPhase }> = ({ phase }) => {
         <View style={box(DISK_X - 30, s.diskTop, 60, 60, s.disk, { borderRadius: 30 })} />
 
         {/* Square minaret with lantern, merlons, carved bands and a lattice panel */}
-        <View style={box(74, 60, 2, 18, s.build)} />
-        <View style={box(72, 64, 6, 6, s.window, { borderRadius: 3 })} />
+        <View style={box(74, 58, 2, 20, s.build)} />
+        <Crescent x={75} y={52} size={13} />
         <View style={box(66, 78, 18, 16, s.build, { borderTopLeftRadius: 9, borderTopRightRadius: 9 })} />
         <View style={box(66, 92, 18, 26, s.build)} />
         <View style={windowStyle(71, 98, 8, 14, s.window)} />
@@ -135,8 +149,9 @@ export const SceneBackdrop: React.FC<{ phase: SkyPhase }> = ({ phase }) => {
         )))}
 
         {/* Domed hall with merlons and a ribbed drum */}
-        <View style={box(175, 138, 8, 8, s.window, { borderRadius: 4 })} />
-        <View style={box(177, 144, 4, 26, s.build)} />
+        <View style={box(177, 142, 4, 28, s.build)} />
+        <View style={box(175, 150, 8, 8, s.build, { borderRadius: 4 })} />
+        <Crescent x={179} y={134} size={16} />
         <View style={box(134, 168, 90, 48, s.build, { borderTopLeftRadius: 45, borderTopRightRadius: 45 })} />
         <View style={box(132, 208, 94, 4, s.window, { opacity: 0.45 })} />
         <Merlons left={104} width={30} top={214} color={s.build} />

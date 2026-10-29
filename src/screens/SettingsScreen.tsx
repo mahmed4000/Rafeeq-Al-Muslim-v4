@@ -194,11 +194,11 @@ export const SettingsScreen: React.FC = () => {
           </SettingsList>
 
           <SettingsList
-            rows={[{ key: 'about', label: t('عن رفيق المسلم', 'About Rafeeq Al-Muslim'), value: t('الإصدار ٢.١.٠', 'Version 2.1.0'), expanded: aboutOpen, onPress: () => setAboutOpen((v) => !v) }]}
+            rows={[{ key: 'about', label: t('عن رفيق المسلم', 'About Muslim Companion'), value: t('الإصدار ٢.١.٠', 'Version 2.1.0'), expanded: aboutOpen, onPress: () => setAboutOpen((v) => !v) }]}
           >
             {aboutOpen ? (
               <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 12, gap: 6, alignItems: 'center', borderTopWidth: 1, borderColor: p.border }}>
-                <TextUI size={16} weight="bold" color={p.primaryInk}>{t('رفيق المسلم | Almosala Pro', 'Rafeeq Al-Muslim | Almosala Pro')}</TextUI>
+                <TextUI size={16} weight="bold" color={p.primaryInk}>{t('رفيق المسلم', 'Muslim Companion')}</TextUI>
                 <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 21 }}>
                   {t('تطبيق إسلامي شامل وقف لله تعالى، خالٍ من الإعلانات تماماً وبأعلى معايير الخصوصية والجودة التقنية.', 'A comprehensive Islamic app, an endowment (waqf) for the sake of Allah, completely ad-free and built to the highest standards of privacy and technical quality.')}
                 </TextUI>
