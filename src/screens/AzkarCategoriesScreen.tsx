@@ -7,7 +7,9 @@ import { TextUI } from '../components/common/TextUI';
 import { AZKAR_CATEGORIES, AZKAR_DATABASE } from '../data/azkarData';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { StorageService } from '../services/storage';
-import { usePalette } from '../theme/palette';
+import { usePalette, PALETTE } from '../theme/palette';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArchScene } from '../components/azkar/ArchScene';
 import { getUiLanguage } from '../i18n/language';
 
 type FilterGroup = 'all' | 'daily' | 'prayer' | 'occasions';
@@ -21,7 +23,10 @@ const GROUPS: { id: FilterGroup; labelAr: string; labelEn: string }[] = [
 
 // Same key and shape as AzkarSessionScreen's same-day progress.
 const PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
-type SessionProgress = Record<string, { day: string; index: number; counter: number }>;
+type SessionProgress = Record<string, { day: string; index: number; counter: number; doneDay?: string }>;
+
+// Once-a-day sessions shown in the banner, in the order of the day.
+const DAILY_SESSIONS = ['waking', 'morning', 'evening', 'sleep'];
 
 /** "١٢ ذكرًا" / "٣ أذكار" (Arabic plural agreement). */
 function adhkarAr(n: number): string {
@@ -60,6 +65,8 @@ export const AzkarCategoriesScreen: React.FC = () => {
     const saved = progress[id];
     return saved && saved.day === today && saved.index > 0 ? saved.index : 0;
   };
+  const doneToday = (id: string) => progress[id]?.doneDay === today;
+  const isDark = p.bg === PALETTE.dark.bg;
 
   // Suggested session by time of day (unchanged rule from the previous screen).
   const recommendedId = useMemo(() => {
@@ -87,40 +94,83 @@ export const AzkarCategoriesScreen: React.FC = () => {
     navigate('azkar_session', { categoryId: id });
   };
 
-  const dailyCard = (id: 'morning' | 'evening', icon: 'sun' | 'moon') => {
-    const cat = AZKAR_CATEGORIES.find((c) => c.id === id);
-    if (!cat) return null;
-    const total = countOf(id);
-    const at = stoppedAt(id);
-    const isNow = recommendedId === id;
+  // Dusk banner: today's once-a-day sessions, each a chip that opens it.
+  const renderBanner = () => {
+    const done = DAILY_SESSIONS.filter(doneToday).length;
     return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={`${titleOf(cat)}${t('، ', ', ')}${adhkarAr(total)}${at ? `${t('، ', ', ')}${stoppedLabel(at)}` : ''}`}
-        onPress={() => openSession(id)}
-        style={{ flex: 1, gap: 8, padding: 14, borderRadius: 18, backgroundColor: isNow ? p.hero : p.surface, borderWidth: 1, borderColor: isNow ? p.hero : p.border }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: isNow ? 'rgba(250,241,230,0.14)' : p.soft }}>
-            <Feather name={icon} size={18} color={isNow ? p.accent : p.primaryInk} />
+      <View style={{ borderRadius: 22, overflow: 'hidden' }}>
+        <LinearGradient colors={['#2E3A5C', '#6B4A6E', '#C9785A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: 'row' }}>
+          <View style={{ flex: 1, paddingVertical: 16, paddingHorizontal: 14, gap: 10 }}>
+          <TextUI size={12.5} weight="bold" color="#F4D9A8">{t('وِرد الأذكار اليوم', "Today's adhkar")}</TextUI>
+          <TextUI size={19} weight="bold" color="#FFF6EA">
+            {t(`${toArabicNumber(done)} من ${toArabicNumber(DAILY_SESSIONS.length)} جلسات`, `${toArabicNumber(done)} of ${toArabicNumber(DAILY_SESSIONS.length)} sessions`)}
+          </TextUI>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {DAILY_SESSIONS.map((id) => {
+              const cat = AZKAR_CATEGORIES.find((c) => c.id === id);
+              if (!cat) return null;
+              const finished = doneToday(id);
+              const at = stoppedAt(id);
+              const isNow = recommendedId === id && !finished;
+              const state = finished ? t('تمّت', 'done') : at ? stoppedLabel(at) : isNow ? t('الآن', 'now') : '';
+              return (
+                <TouchableOpacity
+                  key={id}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={state ? `${titleOf(cat)}${t('، ', ', ')}${state}` : titleOf(cat)}
+                  onPress={() => openSession(id)}
+                  style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, borderRadius: 999, backgroundColor: finished ? '#C69255' : isNow ? 'rgba(255,246,234,0.28)' : 'rgba(255,246,234,0.14)', borderWidth: isNow ? 1 : 0, borderColor: '#F4D9A8' }}
+                >
+                  {finished ? <Feather name="check" size={13} color="#2D1E16" /> : null}
+                  <TextUI size={12.5} weight={finished || isNow ? 'bold' : 'medium'} color={finished ? '#2D1E16' : '#FFF6EA'}>{titleOf(cat).replace(/^أذكار /, '')}</TextUI>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          {isNow ? (
-            <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: p.accent }}>
-              <TextUI size={12} weight="bold" color="#2D1E16">{t('الآن', 'Now')}</TextUI>
-            </View>
-          ) : null}
-        </View>
-        <TextUI size={16} weight="bold" color={isNow ? p.onHero : p.ink}>{titleOf(cat)}</TextUI>
-        <TextUI size={13} color={isNow ? p.onHeroMuted : p.muted}>
-          {at ? stoppedLabel(at, total) : adhkarAr(total)}
-        </TextUI>
-        <View style={{ height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: isNow ? 'rgba(250,241,230,0.2)' : p.border }}>
-          <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${total ? Math.round((at / total) * 100) : 0}%` }} />
-        </View>
-      </TouchableOpacity>
+          <TextUI size={12} color="#E8D3B4">{t('من جلساتك أنت · على جهازك فقط', 'From your own sessions · on your device only')}</TextUI>
+          </View>
+          {/* Decorative arch with a crescent, at the end side */}
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 84, alignSelf: 'stretch' }}>
+            <View style={{ position: 'absolute', left: 6, right: 6, top: 20, bottom: -2, borderTopLeftRadius: 36, borderTopRightRadius: 36, borderWidth: 1.5, borderBottomWidth: 0, borderColor: 'rgba(244,217,168,0.5)' }} />
+            <View style={{ position: 'absolute', left: 27, top: 40, width: 30, height: 30, borderRadius: 15, backgroundColor: '#F4D9A8' }} />
+            <View style={{ position: 'absolute', left: 37, top: 34, width: 26, height: 26, borderRadius: 13, backgroundColor: '#4E4566' }} />
+            {[[20, 88], [62, 100], [34, 118]].map(([x, y]) => <View key={x} style={{ position: 'absolute', left: x, top: y, width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#FFF3DC' }} />)}
+          </View>
+        </LinearGradient>
+      </View>
     );
   };
+
+  type Tile = { id: string; title: string; total: number; at: number; done: boolean; onPress: () => void; a11y: string };
+  const renderTile = (tile: Tile) => (
+    <TouchableOpacity
+      key={tile.id}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={tile.a11y}
+      onPress={tile.onPress}
+      style={{ width: '31.5%', minHeight: 150, borderRadius: 18, padding: 7, paddingBottom: 10, gap: 8, alignItems: 'center', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+    >
+      <ArchScene id={tile.id} border={p.border} dim={isDark} />
+      {tile.done ? (
+        // A flex row so the badge sits at the end side on web and native alike.
+        <View style={{ position: 'absolute', top: 10, left: 10, right: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: p.success }}>
+            <Feather name="check" size={13} color="#FFFDF9" />
+          </View>
+        </View>
+      ) : null}
+      <TextUI size={13} weight="bold" color={p.ink} align="center" numberOfLines={2} style={{ lineHeight: 18 }}>{tile.title}</TextUI>
+      {tile.at > 0 && tile.total > 0 ? (
+        <View style={{ width: '70%', height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border }}>
+          <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${Math.round((tile.at / tile.total) * 100)}%` }} />
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+
+  const showTasbihTile = selectedGroup === 'all' && !searchQuery.trim();
 
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
@@ -132,7 +182,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
       >
         {/* Title and tasbih */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TextUI size={26} weight="bold" color={p.ink}>{t('الأذكار', 'Adhkar')}</TextUI>
+          <TextUI font="amiri" size={28} weight="bold" color={p.primaryInk}>{t('الأذكار', 'Adhkar')}</TextUI>
           <TouchableOpacity
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -144,11 +194,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Morning and evening */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {dailyCard('morning', 'sun')}
-          {dailyCard('evening', 'moon')}
-        </View>
+        {renderBanner()}
 
         {/* Search */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
@@ -200,31 +246,27 @@ export const AzkarCategoriesScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-            {filteredCategories.map((cat, i) => {
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
+            {filteredCategories.map((cat) => {
               const total = countOf(cat.id);
               const at = stoppedAt(cat.id);
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${titleOf(cat)}${t('، ', ', ')}${adhkarAr(total)}`}
-                  onPress={() => openSession(cat.id)}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, minHeight: 64, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
-                >
-                  <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.soft }}>
-                    <Feather name={cat.icon as any} size={20} color={p.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <TextUI size={16} weight="bold" color={p.ink}>{titleOf(cat)}</TextUI>
-                    <TextUI size={13} color={p.muted} numberOfLines={1}>{at ? stoppedLabel(at, total) : t(cat.subtitleAr, cat.subtitleEn)}</TextUI>
-                  </View>
-                  <TextUI size={13} color={p.muted}>{adhkarAr(total)}</TextUI>
-                  <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
-                </TouchableOpacity>
-              );
+              const done = doneToday(cat.id);
+              const status = done ? t('أتممتها اليوم', 'finished today') : at ? stoppedLabel(at, total) : adhkarAr(total);
+              return renderTile({
+                id: cat.id,
+                title: titleOf(cat),
+                total,
+                at,
+                done,
+                onPress: () => openSession(cat.id),
+                a11y: `${titleOf(cat)}${t('، ', ', ')}${status}`
+              });
             })}
+            {showTasbihTile
+              ? renderTile({ id: 'tasbih', title: t('السبحة', 'Tasbih'), total: 0, at: 0, done: false, onPress: () => { triggerHaptic('light'); navigate('tasbih'); }, a11y: t('السبحة', 'Tasbih') })
+              : null}
+            {/* Keep the last row aligned to the start when it is not full */}
+            {Array.from({ length: (3 - ((filteredCategories.length + (showTasbihTile ? 1 : 0)) % 3)) % 3 }, (_, i) => <View key={`pad${i}`} style={{ width: '31.5%' }} />)}
           </View>
         )}
       </ScrollView>
