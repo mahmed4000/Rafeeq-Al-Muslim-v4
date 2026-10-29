@@ -6,7 +6,7 @@ import { TextUI } from '../components/common/TextUI';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { usePalette } from '../theme/palette';
 import { calculateAccuratePrayerTimes, formatPrayerTime, toArabicNumber } from '../services/prayerCalculation';
-import { getHijriParts, HIJRI_MONTHS, GREGORIAN_MONTHS } from '../services/hijriDate';
+import { getHijriParts, hijriMonthName, gregorianMonthName } from '../services/hijriDate';
 import { cityNow, fromCityClock, zoneOffsetMinutes } from '../services/cityTime';
 
 type Mode = 'hijri' | 'gregorian';
@@ -76,11 +76,11 @@ export const PrayerMonthScreen: React.FC = () => {
     const last = dates[dates.length - 1];
     const h = hijriOf(first);
     const title = mode === 'hijri'
-      ? `${HIJRI_MONTHS[h.month - 1]} ${toArabicNumber(h.year)} هـ`
-      : `${GREGORIAN_MONTHS[first.getMonth()]} ${toArabicNumber(first.getFullYear())}`;
+      ? `${hijriMonthName(h.month)} ${toArabicNumber(h.year)} هـ`
+      : `${gregorianMonthName(first.getMonth())} ${toArabicNumber(first.getFullYear())}`;
     const span = mode === 'hijri'
-      ? `${GREGORIAN_MONTHS[first.getMonth()]}${first.getMonth() !== last.getMonth() ? ` – ${GREGORIAN_MONTHS[last.getMonth()]}` : ''} ${toArabicNumber(last.getFullYear())}`
-      : `${HIJRI_MONTHS[hijriOf(first).month - 1]} – ${HIJRI_MONTHS[hijriOf(last).month - 1]}`;
+      ? `${gregorianMonthName(first.getMonth())}${first.getMonth() !== last.getMonth() ? ` – ${gregorianMonthName(last.getMonth())}` : ''} ${toArabicNumber(last.getFullYear())}`
+      : `${hijriMonthName(hijriOf(first).month)} – ${hijriMonthName(hijriOf(last).month)}`;
     return { rows: built, label: title, subLabel: `${span} · ${currentCity.nameAr}` };
   }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust]);
 

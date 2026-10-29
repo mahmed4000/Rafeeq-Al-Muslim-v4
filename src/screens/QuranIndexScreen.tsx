@@ -3,7 +3,7 @@ import { FlatList, Modal, TextInput, TouchableOpacity, View, Platform, ScrollVie
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp, BookmarkItem } from '../context/AppContext';
-import { GREGORIAN_MONTHS } from '../services/hijriDate';
+import { gregorianMonthName } from '../services/hijriDate';
 import { TextUI } from '../components/common/TextUI';
 import { Palette, usePalette } from '../theme/palette';
 import { QURAN_JUZ_INDEX, QURAN_HIZB_INDEX, QuranHizbIndexItem, QuranJuzIndexItem } from '../data/quranIndex';
@@ -25,7 +25,7 @@ const TABS: { id: IndexTab; label: string }[] = [
 /** "٢٩ أكتوبر" from an ISO date, or '' if it cannot be read. */
 function shortDateAr(iso: string): string {
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? '' : `${toArabicNumber(d.getDate())} ${GREGORIAN_MONTHS[d.getMonth()]}`;
+  return isNaN(d.getTime()) ? '' : `${toArabicNumber(d.getDate())} ${gregorianMonthName(d.getMonth())}`;
 }
 
 /** "٧ آيات" / "٢٨٦ آية" (Arabic plural agreement for counts). */

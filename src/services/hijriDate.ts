@@ -1,4 +1,5 @@
 import { toArabicNumber } from './prayerCalculation';
+import { getUiLanguage } from '../i18n/language';
 
 export interface FormattedDateInfo {
   hijriFormatted: string;
@@ -49,6 +50,25 @@ const WEEKDAYS = [
   'الجمعة',
   'السبت'
 ];
+
+const HIJRI_MONTHS_EN = ['Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Akhir', 'Jumada al-Ula', 'Jumada al-Akhirah', 'Rajab', "Sha'ban", 'Ramadan', 'Shawwal', "Dhu al-Qa'dah", 'Dhu al-Hijjah'];
+const GREGORIAN_MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEKDAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Hijri month name (month 1-12) in the interface language. */
+export function hijriMonthName(month: number): string {
+  return (getUiLanguage() === 'en' ? HIJRI_MONTHS_EN : HIJRI_MONTHS)[month - 1] || '';
+}
+
+/** Gregorian month name (index 0-11) in the interface language. */
+export function gregorianMonthName(monthIndex: number): string {
+  return (getUiLanguage() === 'en' ? GREGORIAN_MONTHS_EN : GREGORIAN_MONTHS)[monthIndex] || '';
+}
+
+/** Weekday name (0 = Sunday) in the interface language. */
+export function weekdayName(dayIndex: number): string {
+  return (getUiLanguage() === 'en' ? WEEKDAYS_EN : WEEKDAYS)[dayIndex] || '';
+}
 
 function fallbackKuwaiti(date: Date): { day: number; month: number; year: number } {
   const today = new Date(date);
@@ -138,16 +158,30 @@ export function getFullDateInfo(date = new Date(), adjustmentDays = 0): Formatte
   const d = new Date(date);
   const hijriDate = shiftDays(d, adjustmentDays);
 
+  if (getUiLanguage() === 'en') {
+    const h = getHijriParts(d, adjustmentDays);
+    const gregorianDate = `${d.getDate()} ${gregorianMonthName(d.getMonth())} ${d.getFullYear()}`;
+    return {
+      hijriFormatted: `${h.day} ${hijriMonthName(h.month)} ${h.year} AH`,
+      hijriDay: String(h.day),
+      hijriMonth: hijriMonthName(h.month),
+      hijriYear: String(h.year),
+      gregorianFormatted: `${weekdayName(d.getDay())}, ${gregorianDate}`,
+      gregorianDayName: weekdayName(d.getDay()),
+      gregorianDate
+    };
+  }
+
   // 1. Gregorian date components
   const dayIndex = d.getDay();
   const gregorianDayName = WEEKDAYS[dayIndex] || 'اليوم';
   const gregorianDayNum = d.getDate();
-  const gregorianMonthName = GREGORIAN_MONTHS[d.getMonth()] || '';
+  const gregorianMonthLabel = GREGORIAN_MONTHS[d.getMonth()] || '';
   const gregorianYearNum = d.getFullYear();
 
   const gregorianDayAr = toArabicNumber(gregorianDayNum);
   const gregorianYearAr = toArabicNumber(gregorianYearNum);
-  const gregorianDate = `${gregorianDayAr} ${gregorianMonthName} ${gregorianYearAr}`;
+  const gregorianDate = `${gregorianDayAr} ${gregorianMonthLabel} ${gregorianYearAr}`;
   const gregorianFormatted = `${gregorianDayName}، ${gregorianDate} م`;
 
   // 2. Hijri date calculation

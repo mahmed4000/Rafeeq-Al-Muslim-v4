@@ -1,7 +1,13 @@
 // Prayer Times Calculation Engine (Accurate offline engine + Adhan support)
 import { fromCityClock, toCityClock, zoneOffsetMinutes } from './cityTime';
+import { getUiLanguage } from '../i18n/language';
 
+/**
+ * Digits for display in the interface language: Arabic-Indic in Arabic, Latin in
+ * English (the name is kept because the whole app calls it).
+ */
 export const toArabicNumber = (num: number | string): string => {
+  if (getUiLanguage() === 'en') return num.toString().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/٫/g, '.');
   const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return num.toString().replace(/[0-9]/g, (w) => arabicDigits[+w]);
 };
@@ -14,7 +20,7 @@ export const toStandardNumber = (str: string): string => {
   return str.replace(/[٠-٩]/g, (d) => arabicDigits[d] || d);
 };
 
-export const formatPrayerTime = (hours: number, minutes: number, lang: 'ar' | 'en' = 'ar'): string => {
+export const formatPrayerTime = (hours: number, minutes: number, lang: 'ar' | 'en' = getUiLanguage()): string => {
   const safeH = (typeof hours === 'number' && Number.isFinite(hours)) ? Math.floor(hours) : 5;
   const safeM = (typeof minutes === 'number' && Number.isFinite(minutes)) ? Math.floor(minutes) : 0;
   const period = safeH >= 12 ? (lang === 'ar' ? 'م' : 'PM') : (lang === 'ar' ? 'ص' : 'AM');

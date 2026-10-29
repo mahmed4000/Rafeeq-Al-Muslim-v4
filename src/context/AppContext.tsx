@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AppState, Platform, useColorScheme } from 'react-native';
+import { AppState, I18nManager, Platform, useColorScheme } from 'react-native';
+import { setUiLanguage } from '../i18n/language';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { CITIES, City, normalizeCity } from '../constants/cities';
@@ -106,6 +107,29 @@ const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
 const BOOKMARKS_MIGRATION_KEY = 'rafeeq_bookmarks_migrated_v1';
+
+/**
+ * Make the language take effect outside React too: digits and dates (i18n/language),
+ * the page direction on web, and the native RTL flag (fully applied on next launch;
+ * the root view's `direction` flips the layout right away).
+ */
+function applyLanguage(lang: 'ar' | 'en') {
+  setUiLanguage(lang);
+  const rtl = lang === 'ar';
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    document.documentElement.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+    document.documentElement.setAttribute('lang', lang);
+    if (document.body) {
+      document.body.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+      document.body.style.direction = rtl ? 'rtl' : 'ltr';
+    }
+  } else {
+    try {
+      I18nManager.allowRTL(rtl);
+      I18nManager.forceRTL(rtl);
+    } catch {}
+  }
+}
 const HIJRI_ADJUST_KEY = 'rafeeq_hijri_adjust_v1';
 const AZKAR_REMINDERS_KEY = 'rafeeq_azkar_reminders_v1';
 const clampHijri = (n: number) => (Number.isFinite(n) ? Math.max(-HIJRI_ADJUST_LIMIT, Math.min(HIJRI_ADJUST_LIMIT, Math.round(n))) : 0);
@@ -194,7 +218,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (savedTheme === 'auto' || savedTheme === 'light' || savedTheme === 'dark') setThemePreferenceState(savedTheme);
 
         const savedLang = await StorageService.getItem('almosala_lang');
-        if (savedLang === 'ar' || savedLang === 'en') setLangState(savedLang);
+        const startLang = savedLang === 'en' ? 'en' : 'ar';
+        applyLanguage(startLang);
+        setLangState(startLang);
 
         const savedCalc = await StorageService.getItem('almosala_calc_method');
         if (savedCalc === 'umm_al_qura' || savedCalc === 'egypt' || savedCalc === 'mwl' || savedCalc === 'isna') {
@@ -331,6 +357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setLang = (l: 'ar' | 'en') => {
+    applyLanguage(l);
     setLangState(l);
     StorageService.setItem('almosala_lang', l);
   };
@@ -469,7 +496,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const prayerTimes = useMemo(
     () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, cityNow(cityTimeZone), calculationMethod, asrMethod, cityTimeZone, prayerOffsets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, prayerOffsets, dayKey]
+    // `lang` re-formats the times (digits, AM/PM) when the interface language changes.
+    [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, prayerOffsets, dayKey, lang]
   );
 
   return (

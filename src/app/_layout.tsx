@@ -24,10 +24,10 @@ import { LessonPlayerProvider } from '../context/LessonPlayerContext';
 import { SafeErrorBoundary } from '../components/common/SafeErrorBoundary';
 import { TextUI } from '../components/common/TextUI';
 
-// RTL & Audio Background Config
+// Direction: AppContext applies the saved language (Arabic by default) as soon as
+// preferences load, and the root view below follows it. Web starts RTL until then.
 try {
   I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
 } catch (e) {}
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -61,7 +61,7 @@ if (Platform.OS !== 'web') {
 }
 
 const ThemedStack: React.FC = () => {
-  const { themeMode } = useApp();
+  const { themeMode, lang } = useApp();
   const router = useRouter();
   const bg = themeMode === 'light' ? '#FAF6F0' : '#1C1511';
 
@@ -77,12 +77,13 @@ const ThemedStack: React.FC = () => {
   }, [router]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg, direction: 'rtl' }}>
+    <View style={{ flex: 1, backgroundColor: bg, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
       <StatusBar
         barStyle={themeMode === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bg}
       />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }} />
+      {/* Keyed by language so every screen re-renders its text, digits and direction. */}
+      <Stack key={lang} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }} />
     </View>
   );
 };
