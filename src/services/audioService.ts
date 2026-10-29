@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
+import { Directory, File, Paths } from 'expo-file-system';
 import { StorageService } from './storage';
 
-let FileSystem: any = null;
-try {
-  FileSystem = require('expo-file-system');
-} catch (e) {
-  FileSystem = null;
-}
+const AUDIO_DIR = 'almosala_audio';
+// Before the SDK 57 file API, native "downloads" silently fell back to the stream URL; such
+// records point at http(s) and hold no file, so they are not offered as downloaded.
+const isSavedLocally = (record?: DownloadedLessonRecord) =>
+  !!record && (Platform.OS === 'web' || !!(record.localUri && !/^https?:/i.test(record.localUri)));
 
 const DOWNLOAD_STORAGE_KEY = 'almosala_downloaded_lessons';
 const RESUME_STORAGE_KEY = 'almosala_lessons_resume_v1';
@@ -44,7 +44,8 @@ export interface LessonMarker {
 
 export const AudioService = {
   async getDownloadedLessons(): Promise<Record<string, DownloadedLessonRecord>> {
-    return await StorageService.getObject<Record<string, DownloadedLessonRecord>>(DOWNLOAD_STORAGE_KEY, {});
+    const all = await StorageService.getObject<Record<string, DownloadedLessonRecord>>(DOWNLOAD_STORAGE_KEY, {});
+    return Object.fromEntries(Object.entries(all).filter(([, record]) => isSavedLocally(record)));
   },
 
   async isLessonDownloaded(lessonId: string): Promise<boolean> {
@@ -66,30 +67,19 @@ export const AudioService = {
     const estSize = `${(14 + ((lesson.number * 3) % 9)).toFixed(1)} ميجابايت`;
 
     try {
-      if (Platform.OS !== 'web' && FileSystem && FileSystem.documentDirectory) {
-        const dir = `${FileSystem.documentDirectory}almosala_audio/`;
-        const dirInfo = await FileSystem.getInfoAsync(dir);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-        }
-
-        const targetFile = `${dir}${lessonId}.mp3`;
-        const downloadResumable = FileSystem.createDownloadResumable(
-          url,
-          targetFile,
-          {},
-          (downloadProgress: any) => {
-            const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-            if (onProgress && !isNaN(progress)) {
-              onProgress(Math.round(progress * 100));
-            }
-          }
-        );
-
-        const result = await downloadResumable.downloadAsync();
-        if (result && result.uri) {
-          localFileUri = result.uri;
-        }
+      if (Platform.OS !== 'web') {
+        const dir = new Directory(Paths.document, AUDIO_DIR);
+        dir.create({ idempotent: true, intermediates: true });
+        const target = new File(dir, `${lessonId}.mp3`);
+        if (target.exists) target.delete();
+        const task = File.createDownloadTask(url, target, {
+          onProgress: ({ bytesWritten, totalBytes }) => {
+            if (onProgress && totalBytes > 0) onProgress(Math.round((bytesWritten / totalBytes) * 100));
+          },
+        });
+        const result = await task.downloadAsync();
+        if (!result?.exists) return null;
+        localFileUri = result.uri;
       } else {
         // Web fallback simulation
         if (onProgress) {
@@ -124,9 +114,10 @@ export const AudioService = {
     try {
       const existing = await this.getDownloadedLessons();
       const item = existing[lessonId];
-      if (item && item.localUri && Platform.OS !== 'web' && FileSystem) {
+      if (item && isSavedLocally(item) && item.localUri && Platform.OS !== 'web') {
         try {
-          await FileSystem.deleteAsync(item.localUri, { idempotent: true });
+          const file = new File(item.localUri);
+          if (file.exists) file.delete();
         } catch (delErr) {}
       }
       delete existing[lessonId];
