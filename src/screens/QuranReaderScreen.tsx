@@ -58,6 +58,9 @@ const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
  * A mushaf page that re-renders only when its page number or `version` changes; the render
  * function itself is ignored in the comparison (it is a fresh closure on every parent render).
  */
+// Mushaf text font: King Fahd Complex Hafs (loaded in src/app/_layout.tsx).
+const MUSHAF_FONT = 'KFGQPC_Hafs';
+
 const MushafPage: React.FC<{ pageNumber: number; version: string; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
 const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber === next.pageNumber && prev.version === next.version);
 
@@ -1026,7 +1029,13 @@ export const QuranReaderScreen: React.FC = () => {
   };
 
   const renderTajweedText = (markup: string, keyPrefix: string) => {
-    const clean = markup.replace(/<span\s+class=end>.*?<\/span>/g, '');
+    // quran.com's tajweed text writes the dagger alef as U+0672 and stretches some words with
+    // repeated tatweels; the Hafs font draws those as a stray mark and over-long joins, so use
+    // the standard dagger alef (U+0670, as in our bundled text) and a single tatweel.
+    const clean = markup
+      .replace(/<span\s+class=end>.*?<\/span>/g, '')
+      .replace(/ٲ/g, 'ٰ')
+      .replace(/ـ{2,}/g, 'ـ');
     const tokens: Array<{ text: string; rule: string | null }> = [];
     const tagRegex = /<\/?([a-zA-Z0-9_]+)(?:\s+class=([^>]+))?\/?>/g;
     let lastIndex = 0;
@@ -1055,12 +1064,24 @@ export const QuranReaderScreen: React.FC = () => {
       const text = clean.substring(lastIndex);
       if (text) tokens.push({ text, rule: null });
     }
+    // Browsers shape each coloured span on its own, so a span that starts with harakat shows
+    // them on a dotted circle. On web only, keep such leading marks with the previous letter
+    // (they lose the colour); iOS and Android shape across colour changes.
+    if (Platform.OS === 'web') {
+      for (let i = 1; i < tokens.length; i += 1) {
+        const leading = tokens[i].text.match(/^[ً-ٰٟۖ-ۭ]+/)?.[0];
+        if (leading && !/\s$/.test(tokens[i - 1].text)) {
+          tokens[i - 1].text += leading;
+          tokens[i].text = tokens[i].text.slice(leading.length);
+        }
+      }
+    }
 
-    return tokens.map((token, index) => (
+    return tokens.filter((token) => token.text).map((token, index) => (
       <Text
         key={`${keyPrefix}-tj-${index}`}
         style={{
-          fontFamily: 'Amiri_400Regular',
+          fontFamily: MUSHAF_FONT,
           color: token.rule ? tajweedColor(token.rule) : p.ink,
         }}
       >
@@ -1070,78 +1091,19 @@ export const QuranReaderScreen: React.FC = () => {
   };
 
   const renderAyahMarker = (arabicNumber: string, isPlaying: boolean = false, verse?: QuranVerse, customFontSize?: number) => {
-    const effectiveSize = customFontSize || quranFontSize;
-    if (Platform.OS === 'ios') {
-      return (
-        <Text
-          key={verse ? `ayah-marker-${verse.surahId}-${verse.ayahNumber}` : undefined}
-          style={{
-            fontFamily: 'Amiri_700Bold',
-            fontSize: Math.round(effectiveSize * 0.95),
-            color: isPlaying ? p.primaryInk : p.primary,
-          }}
-        >
-          {` ﴿${arabicNumber}﴾ `}
-        </Text>
-      );
-    }
-
-    // On Web (localhost): preserved exactly as calibrated for browser rendering, scaled to effectiveSize
-    const badgeSize = Math.max(20, Math.round(effectiveSize * 1.2));
-    const rosetteSize = Math.round(badgeSize * 1.15);
-    const numSize = arabicNumber.length > 2
-      ? Math.max(7.5, Math.round(badgeSize * 0.34))
-      : Math.max(9.5, Math.round(badgeSize * 0.44));
-
+    // The Hafs font draws U+06DD followed by Arabic-Indic digits as one numbered ayah medallion.
+    const digits = arabicNumber.replace(/[0-9]/g, (d) => String.fromCharCode(0x0660 + Number(d)));
     return (
-      <View
+      <Text
         key={verse ? `ayah-marker-${verse.surahId}-${verse.ayahNumber}` : undefined}
         style={{
-          width: badgeSize,
-          height: badgeSize,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginHorizontal: 3,
-          position: 'relative',
+          fontFamily: MUSHAF_FONT,
+          fontSize: customFontSize || quranFontSize,
+          color: isPlaying ? p.primaryInk : p.primary,
         }}
       >
-        <Text
-          style={{
-            position: 'absolute',
-            fontFamily: 'Amiri_400Regular',
-            fontSize: rosetteSize,
-            color: isPlaying ? p.primaryInk : p.primary,
-            textAlign: 'center',
-            includeFontPadding: false,
-          }}
-        >
-          ۝
-        </Text>
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingTop: 3,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: 'Amiri_700Bold',
-              fontSize: numSize,
-              color: isPlaying ? p.primaryInk : p.ink,
-              textAlign: 'center',
-              includeFontPadding: false,
-            }}
-          >
-            {arabicNumber}
-          </Text>
-        </View>
-      </View>
+        {` ۝${digits} `}
+      </Text>
     );
   };
 
@@ -1154,7 +1116,7 @@ export const QuranReaderScreen: React.FC = () => {
         <Text
           onPress={(event) => { event?.stopPropagation?.(); handleOpenAyahAction(verse); }}
           style={{
-            fontFamily: 'Amiri_400Regular',
+            fontFamily: MUSHAF_FONT,
             fontSize: quranFontSize,
             color: p.ink,
             backgroundColor: isPlaying
@@ -1168,15 +1130,8 @@ export const QuranReaderScreen: React.FC = () => {
           {tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`]
             ? renderTajweedText(tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`], `v-${verse.surahId}-${verse.ayahNumber}`)
             : verse.text}
-          {Platform.OS === 'ios' ? renderAyahMarker(verse.arabicNumber, isPlaying, verse) : null}
+          {renderAyahMarker(verse.arabicNumber, isPlaying, verse)}
         </Text>
-        {Platform.OS !== 'ios' ? (
-          <>
-            {' '}
-            {renderAyahMarker(verse.arabicNumber, isPlaying, verse)}
-            {' '}
-          </>
-        ) : null}
       </React.Fragment>
     );
   };
@@ -1205,8 +1160,8 @@ export const QuranReaderScreen: React.FC = () => {
               {section.startAyah === 1 ? (
                 renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
               ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
-              {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
-              <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
+              {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI font="hafs" size={Math.round(quranFontSize * 0.85)} color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
+              <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
             </View>
           );
         })}
@@ -1670,7 +1625,7 @@ export const QuranReaderScreen: React.FC = () => {
               })}
             </View>
           ) : (
-            <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
+            <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
           )}
         </View>
 

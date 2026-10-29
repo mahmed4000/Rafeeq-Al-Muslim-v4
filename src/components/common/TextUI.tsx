@@ -29,7 +29,7 @@ interface TextUIProps {
   align?: 'left' | 'right' | 'center' | 'justify';
   quran?: boolean;
   cairo?: boolean;
-  font?: 'tajawal' | 'amiri' | 'cairo';
+  font?: 'tajawal' | 'amiri' | 'cairo' | 'hafs';
   numberOfLines?: number;
   onPress?: (event?: any) => void;
   fontsLoaded?: boolean;
@@ -57,7 +57,8 @@ export const TextUI: React.FC<TextUIProps> = ({
   const resolvedSize = size ?? variantToken?.fontSize ?? 14;
   const resolvedWeight = weight ?? variantToken?.weight ?? 'regular';
   const isCairo = cairo || font === 'cairo';
-  const isQuran = quran || font === 'amiri' || (variantToken as any)?.quran;
+  const isHafs = font === 'hafs';
+  const isQuran = quran || isHafs || font === 'amiri' || (variantToken as any)?.quran;
   // Direction follows the interface language; Quran/Amiri text (Arabic in any language) stays RTL.
   const isRTL = isRTLProp ?? (isQuran || getUiLanguage() === 'ar');
 
@@ -71,6 +72,9 @@ export const TextUI: React.FC<TextUIProps> = ({
         : resolvedWeight === 'medium'
         ? 'Cairo_600SemiBold, Cairo, sans-serif'
         : 'Cairo_400Regular, Cairo, sans-serif';
+    } else if (isHafs) {
+      fontFamily = 'KFGQPC_Hafs, Amiri_400Regular, serif';
+      fontWeight = '400';
     } else if (isQuran) {
       fontFamily = resolvedWeight === 'bold' ? 'Amiri_700Bold, Amiri, serif' : 'Amiri_400Regular, Amiri, serif';
     } else {
@@ -83,6 +87,8 @@ export const TextUI: React.FC<TextUIProps> = ({
   } else if (fontsLoaded) {
     if (isCairo) {
       fontFamily = resolvedWeight === 'bold' ? 'Cairo_700Bold' : resolvedWeight === 'medium' ? 'Cairo_600SemiBold' : 'Cairo_400Regular';
+    } else if (isHafs) {
+      fontFamily = 'KFGQPC_Hafs';
     } else if (isQuran) {
       fontFamily = resolvedWeight === 'bold' ? 'Amiri_700Bold' : 'Amiri_400Regular';
     } else {

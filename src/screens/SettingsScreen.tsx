@@ -36,6 +36,7 @@ const SOURCES: { title: string; titleEn: string; detail: string; detailEn: strin
   { title: 'المدن ومناطقها الزمنية', titleEn: 'Cities and their time zones', detail: 'GeoNames (geonames.org) · رخصة CC BY 4.0', detailEn: 'GeoNames (geonames.org) · CC BY 4.0 license' },
   { title: 'حساب مواقيت الصلاة', titleEn: 'Prayer time calculation', detail: 'مكتبة adhan مفتوحة المصدر · رخصة MIT', detailEn: 'Open-source adhan library · MIT license' },
   { title: 'التاريخ الهجري', titleEn: 'Hijri date', detail: 'تقويم أم القرى من نظام الجهاز', detailEn: "Umm al-Qura calendar from the device's system" },
+  { title: 'خط المصحف', titleEn: 'Mushaf font', detail: 'الخط الحاسوبي لرواية حفص 3.0 · مجمع الملك فهد لطباعة المصحف الشريف', detailEn: 'Hafs computer font 3.0 · King Fahd Glorious Quran Printing Complex' },
   { title: 'الخطوط', titleEn: 'Fonts', detail: 'Amiri و Tajawal و Cairo · رخصة SIL Open Font License 1.1', detailEn: 'Amiri, Tajawal and Cairo · SIL Open Font License 1.1' }
 ];
 
