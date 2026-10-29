@@ -6,6 +6,8 @@ import { TextUI } from '../components/common/TextUI';
 import { PrayerSettingsSheets, PrayerSheet, prayerSettingValues } from '../components/prayer/PrayerSettingsSheets';
 import { NotificationService } from '../services/notificationService';
 import { toArabicNumber } from '../services/prayerCalculation';
+import { getFullDateInfo, HIJRI_ADJUST_LIMIT } from '../services/hijriDate';
+import { cityNow } from '../services/cityTime';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { SettingsList } from '../ui/SettingsList';
 import { Stepper } from '../ui/Stepper';
@@ -37,6 +39,13 @@ const SOURCES: { title: string; detail: string }[] = [
 
 type ChoiceSheet = 'theme' | 'lang';
 
+/** "بدون" / "زيادة يوم" / "إنقاص يومين" (words, since +/− signs reorder in RTL text) */
+function hijriAdjustAr(days: number): string {
+  if (!days) return 'بدون';
+  const n = Math.abs(days);
+  return `${days > 0 ? 'زيادة' : 'إنقاص'} ${n === 1 ? 'يوم' : n === 2 ? 'يومين' : `${toArabicNumber(n)} أيام`}`;
+}
+
 export const SettingsScreen: React.FC = () => {
   const {
     goBack,
@@ -52,6 +61,8 @@ export const SettingsScreen: React.FC = () => {
     prayerBells,
     quranFontSize,
     setQuranFontSize,
+    hijriAdjust,
+    setHijriAdjust,
     triggerHaptic
   } = useApp();
   const p = usePalette();
@@ -60,6 +71,8 @@ export const SettingsScreen: React.FC = () => {
   const [choice, setChoice] = useState<ChoiceSheet | null>(null);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [hijriOpen, setHijriOpen] = useState(false);
+  const todayInfo = getFullDateInfo(cityNow(currentCity.timeZone), hijriAdjust);
 
   const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
   const open = (s: PrayerSheet) => { triggerHaptic('light'); setPrayerSheet(s); };
@@ -87,7 +100,8 @@ export const SettingsScreen: React.FC = () => {
           rows={[
             { key: 'calc', label: 'طريقة الحساب', value: values.calc, onPress: () => open('calc') },
             { key: 'asr', label: 'حساب العصر', value: values.asr, onPress: () => open('asr') },
-            { key: 'offsets', label: 'تعديل يدوي للأوقات', value: values.offsets, onPress: () => open('offsets') }
+            { key: 'offsets', label: 'تعديل يدوي للأوقات', value: values.offsets, onPress: () => open('offsets') },
+            { key: 'hijri', label: 'تصحيح التاريخ الهجري', value: hijriAdjustAr(hijriAdjust), onPress: () => { triggerHaptic('light'); setHijriOpen(true); } }
           ]}
         />
 
@@ -170,6 +184,34 @@ export const SettingsScreen: React.FC = () => {
       </ScrollView>
 
       <PrayerSettingsSheets open={prayerSheet} onClose={() => setPrayerSheet(null)} />
+
+      {/* Hijri date correction */}
+      <Modal visible={hijriOpen} animationType="fade" transparent onRequestClose={() => setHijriOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 16, overflow: 'hidden' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 }}>
+              <View style={{ flex: 1 }}>
+                <TextUI size={18} weight="bold" color={p.ink}>تصحيح التاريخ الهجري</TextUI>
+                <TextUI size={12.5} color={p.muted}>لمطابقة بداية الشهر المعتمدة في بلدك. لا يغيّر التاريخ الميلادي ولا المواقيت.</TextUI>
+              </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setHijriOpen(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={20} color={p.ink} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ marginTop: 8, borderTopWidth: 1, borderColor: p.divider }}>
+              <Stepper
+                label="اليوم"
+                sub={todayInfo.hijriFormatted}
+                valueLabel={hijriAdjustAr(hijriAdjust)}
+                onDecrement={() => { triggerHaptic('light'); setHijriAdjust(hijriAdjust - 1); }}
+                onIncrement={() => { triggerHaptic('light'); setHijriAdjust(hijriAdjust + 1); }}
+                canDecrement={hijriAdjust > -HIJRI_ADJUST_LIMIT}
+                canIncrement={hijriAdjust < HIJRI_ADJUST_LIMIT}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Theme / language picker */}
       <Modal visible={choice !== null} animationType="fade" transparent onRequestClose={() => setChoice(null)}>

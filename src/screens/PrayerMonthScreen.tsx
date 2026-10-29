@@ -27,14 +27,15 @@ const offsetOn = (date: Date, timeZone?: string) =>
   zoneOffsetMinutes(timeZone, fromCityClock(date, timeZone)) ?? -date.getTimezoneOffset();
 
 /** All dates of the Hijri month that is `offset` months away from today's. */
-function hijriMonthDates(offset: number, now: Date): Date[] {
+function hijriMonthDates(offset: number, now: Date, hijriAdjust: number): Date[] {
   const today = addDays(now, 0);
+  const hijri = (d: Date) => getHijriParts(d, hijriAdjust);
   // Jump roughly `offset` lunar months, then walk back to day 1 of that month.
   let probe = addDays(today, Math.round(offset * 29.53));
-  for (let i = 0; i < 31 && getHijriParts(probe).day !== 1; i++) probe = addDays(probe, -1);
-  const { month } = getHijriParts(probe);
+  for (let i = 0; i < 31 && hijri(probe).day !== 1; i++) probe = addDays(probe, -1);
+  const { month } = hijri(probe);
   const dates: Date[] = [];
-  for (let d = probe; getHijriParts(d).month === month && dates.length < 31; d = addDays(d, 1)) dates.push(d);
+  for (let d = probe; hijri(d).month === month && dates.length < 31; d = addDays(d, 1)) dates.push(d);
   return dates;
 }
 
@@ -46,7 +47,7 @@ function gregorianMonthDates(offset: number, now: Date): Date[] {
 }
 
 export const PrayerMonthScreen: React.FC = () => {
-  const { goBack, currentCity, calculationMethod, asrMethod, prayerOffsets, t } = useApp();
+  const { goBack, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust, t } = useApp();
   const p = usePalette();
   const [mode, setMode] = useState<Mode>('hijri');
   const [offset, setOffset] = useState(0);
@@ -54,10 +55,11 @@ export const PrayerMonthScreen: React.FC = () => {
   const { rows, label, subLabel } = useMemo(() => {
     const tz = currentCity.timeZone;
     const today = cityNow(tz);
-    const dates = mode === 'hijri' ? hijriMonthDates(offset, today) : gregorianMonthDates(offset, today);
+    const hijriOf = (d: Date) => getHijriParts(d, hijriAdjust);
+    const dates = mode === 'hijri' ? hijriMonthDates(offset, today, hijriAdjust) : gregorianMonthDates(offset, today);
     const built = dates.map((date, i) => {
       const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, date, calculationMethod, asrMethod, tz, prayerOffsets);
-      const hijri = getHijriParts(date);
+      const hijri = hijriOf(date);
       const dstChanged = i > 0 && offsetOn(dates[i - 1], tz) !== offsetOn(date, tz);
       return {
         key: date.toDateString(),
@@ -72,15 +74,15 @@ export const PrayerMonthScreen: React.FC = () => {
     });
     const first = dates[0];
     const last = dates[dates.length - 1];
-    const h = getHijriParts(first);
+    const h = hijriOf(first);
     const title = mode === 'hijri'
       ? `${HIJRI_MONTHS[h.month - 1]} ${toArabicNumber(h.year)} هـ`
       : `${GREGORIAN_MONTHS[first.getMonth()]} ${toArabicNumber(first.getFullYear())}`;
     const span = mode === 'hijri'
       ? `${GREGORIAN_MONTHS[first.getMonth()]}${first.getMonth() !== last.getMonth() ? ` – ${GREGORIAN_MONTHS[last.getMonth()]}` : ''} ${toArabicNumber(last.getFullYear())}`
-      : `${HIJRI_MONTHS[getHijriParts(first).month - 1]} – ${HIJRI_MONTHS[getHijriParts(last).month - 1]}`;
+      : `${HIJRI_MONTHS[hijriOf(first).month - 1]} – ${HIJRI_MONTHS[hijriOf(last).month - 1]}`;
     return { rows: built, label: title, subLabel: `${span} · ${currentCity.nameAr}` };
-  }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets]);
+  }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust]);
 
   const navButton = (icon: 'chevron-right' | 'chevron-left', onPress: () => void, a11y: string) => (
     <TouchableOpacity onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>

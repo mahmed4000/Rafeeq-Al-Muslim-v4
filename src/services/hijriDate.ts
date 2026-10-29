@@ -50,11 +50,8 @@ const WEEKDAYS = [
   'السبت'
 ];
 
-function fallbackKuwaiti(date: Date, adjustmentDays = 0): { day: number; month: number; year: number } {
-  let today = new Date(date);
-  if (adjustmentDays !== 0) {
-    today = new Date(today.getTime() + adjustmentDays * 86400000);
-  }
+function fallbackKuwaiti(date: Date): { day: number; month: number; year: number } {
+  const today = new Date(date);
   let day = today.getDate();
   let month = today.getMonth();
   let year = today.getFullYear();
@@ -103,8 +100,22 @@ function fallbackKuwaiti(date: Date, adjustmentDays = 0): { day: number; month: 
   return { day: Math.max(1, Math.min(30, id)), month: Math.max(1, Math.min(12, im)), year: iy };
 }
 
-/** Umm al-Qura Hijri day/month/year as numbers (month 1-12), with an arithmetic fallback. */
-export function getHijriParts(date: Date): { day: number; month: number; year: number } {
+export const HIJRI_ADJUST_LIMIT = 2;
+
+/** The same wall-clock time `days` days later; used to apply the user's Hijri correction. */
+function shiftDays(date: Date, days: number): Date {
+  if (!days) return date;
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/**
+ * Umm al-Qura Hijri day/month/year as numbers (month 1-12), with an arithmetic fallback.
+ * `adjustmentDays` moves only the Hijri date (local moon-sighting correction).
+ */
+export function getHijriParts(gregorian: Date, adjustmentDays = 0): { day: number; month: number; year: number } {
+  const date = shiftDays(gregorian, adjustmentDays);
   try {
     if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
       const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', {
@@ -122,11 +133,10 @@ export function getHijriParts(date: Date): { day: number; month: number; year: n
   return fallbackKuwaiti(date);
 }
 
+/** `adjustmentDays` moves only the Hijri date; the Gregorian date and weekday stay as given. */
 export function getFullDateInfo(date = new Date(), adjustmentDays = 0): FormattedDateInfo {
   const d = new Date(date);
-  if (adjustmentDays !== 0) {
-    d.setDate(d.getDate() + adjustmentDays);
-  }
+  const hijriDate = shiftDays(d, adjustmentDays);
 
   // 1. Gregorian date components
   const dayIndex = d.getDay();
@@ -152,7 +162,7 @@ export function getFullDateInfo(date = new Date(), adjustmentDays = 0): Formatte
         day: 'numeric',
         month: 'long',
         year: 'numeric'
-      }).formatToParts(d);
+      }).formatToParts(hijriDate);
 
       let pDay = '';
       let pMonth = '';
@@ -175,7 +185,7 @@ export function getFullDateInfo(date = new Date(), adjustmentDays = 0): Formatte
 
   // Fallback if Intl did not resolve
   if (!hijriFormatted) {
-    const fallback = fallbackKuwaiti(date, adjustmentDays);
+    const fallback = fallbackKuwaiti(hijriDate);
     hijriDay = toArabicNumber(fallback.day);
     hijriMonth = HIJRI_MONTHS[fallback.month - 1] || 'جمادى الأولى';
     hijriYear = toArabicNumber(fallback.year);

@@ -3,6 +3,7 @@ import { AppState, Platform, useColorScheme } from 'react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { CITIES, City, normalizeCity } from '../constants/cities';
+import { HIJRI_ADJUST_LIMIT } from '../services/hijriDate';
 import { StorageService } from '../services/storage';
 import { cityNow, deviceTimeZone } from '../services/cityTime';
 import {
@@ -73,6 +74,9 @@ interface AppContextType {
   /** Manual minute adjustments applied to every prayer time and alert. */
   prayerOffsets: PrayerOffsets;
   setPrayerOffsets: (offsets: PrayerOffsets) => void;
+  /** Days added to the Hijri date only (local moon-sighting correction). */
+  hijriAdjust: number;
+  setHijriAdjust: (days: number) => void;
   bookmarks: BookmarkItem[];
   addBookmark: (b: BookmarkItem) => void;
   removeBookmark: (surahId: number, ayah: number) => void;
@@ -94,6 +98,8 @@ const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
 const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
+const HIJRI_ADJUST_KEY = 'rafeeq_hijri_adjust_v1';
+const clampHijri = (n: number) => (Number.isFinite(n) ? Math.max(-HIJRI_ADJUST_LIMIT, Math.min(HIJRI_ADJUST_LIMIT, Math.round(n))) : 0);
 
 /** Keep only known keys with whole minutes inside the allowed range. */
 function cleanOffsets(raw: any): PrayerOffsets {
@@ -119,6 +125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [calculationMethod, setCalcMethodState] = useState<CalculationMethod>('umm_al_qura');
   const [asrMethod, setAsrMethodState] = useState<AsrMethod>('standard');
   const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>({});
+  const [hijriAdjust, setHijriAdjustState] = useState(0);
   const [alertsConfig, setAlertsConfigState] = useState<PrayerAlertsConfig>(() => defaultAlertsConfig());
   const prayerBells = useMemo(() => bellsFromAlerts(alertsConfig), [alertsConfig]);
   // Existing installs (a saved city) skip onboarding; new installs see it once.
@@ -188,6 +195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (savedAsr === 'standard' || savedAsr === 'hanafi') setAsrMethodState(savedAsr);
 
         setPrayerOffsetsState(cleanOffsets(await StorageService.getObject<any>(OFFSETS_KEY, null)));
+        setHijriAdjustState(clampHijri(Number(await StorageService.getItem(HIJRI_ADJUST_KEY))));
 
         // Per-prayer alert settings; older installs only had on/off bells.
         const savedAlerts = await StorageService.getObject<PrayerAlertsConfig | null>(ALERTS_KEY, null);
@@ -301,6 +309,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const clean = cleanOffsets(offsets);
     setPrayerOffsetsState(clean);
     StorageService.setObject(OFFSETS_KEY, clean);
+  };
+
+  const setHijriAdjust = (days: number) => {
+    const clean = clampHijri(days);
+    setHijriAdjustState(clean);
+    StorageService.setItem(HIJRI_ADJUST_KEY, String(clean));
   };
 
   const setCurrentCity = (city: City) => {
@@ -440,6 +454,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAsrMethod,
         prayerOffsets,
         setPrayerOffsets,
+        hijriAdjust,
+        setHijriAdjust,
         bookmarks,
         addBookmark,
         removeBookmark,

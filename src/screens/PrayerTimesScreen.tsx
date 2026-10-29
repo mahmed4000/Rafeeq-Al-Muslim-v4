@@ -43,6 +43,7 @@ export const PrayerTimesScreen: React.FC = () => {
     calculationMethod,
     asrMethod,
     prayerOffsets,
+    hijriAdjust,
     triggerHaptic
   } = useApp();
 
@@ -71,7 +72,7 @@ export const PrayerTimesScreen: React.FC = () => {
   );
   const adjustedCount = countOffsets(prayerOffsets);
 
-  const dateInfo = getFullDateInfo(day);
+  const dateInfo = getFullDateInfo(day, hijriAdjust);
   const dayLabel = dayOffset === 0 ? 'اليوم' : dayOffset === 1 ? 'غدًا' : dayOffset === -1 ? 'أمس' : '';
   const dayTitle = dayLabel ? `${dayLabel} · ${dateInfo.gregorianDayName}` : dateInfo.gregorianDayName;
 

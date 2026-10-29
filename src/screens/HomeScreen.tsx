@@ -116,14 +116,14 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
 );
 
 export const HomeScreen: React.FC = () => {
-  const { navigate, t, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah } = useApp();
+  const { navigate, t, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust } = useApp();
   const p = usePalette();
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
   // Everything time-based on Home follows the selected city's clock.
   const now = cityNow(timeZone);
   const otherZone = differsFromDevice(timeZone);
-  const dateInfo = getFullDateInfo(now);
+  const dateInfo = getFullDateInfo(now, hijriAdjust);
 
   const [khatma, setKhatma] = useState<Khatma | null>(null);
   const [prayed, setPrayed] = useState<PrayerKey[]>([]);
