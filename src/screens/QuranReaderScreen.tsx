@@ -147,6 +147,8 @@ export const QuranReaderScreen: React.FC = () => {
   const [jumpType, setJumpType] = useState<JumpType>('page');
   const [jumpValue, setJumpValue] = useState('');
   const [tajweedTexts, setTajweedTexts] = useState<Record<string, string>>({});
+  const [tajweedPages, setTajweedPages] = useState<Record<number, true>>({});
+  const tajweedRequestedRef = useRef<Set<string>>(new Set());
 
   const [measuredAyahDurations, setMeasuredAyahDurations] = useState<Record<string, number>>({});
   const audioPlayerRef = useRef<any>(null);
@@ -332,37 +334,53 @@ export const QuranReaderScreen: React.FC = () => {
     }).catch(() => {});
   }, []);
 
+  // Tajweed text is loaded for every rendered page, not only the active one, so a page gets its
+  // tajweed text while it is still below the screen. Swapping the plain text for tajweed on the
+  // page being read made the words visibly shift on iPhone.
   useEffect(() => {
-    const scope = readingMode === 'surah' ? `chapter:${currentSurah.id}` : `page:${activePage}`;
-    const storageKey = `quran.tajweed.${scope}`;
-    let cancelled = false;
-    const loadTajweedText = async () => {
+    // In page mode also the next 5 pages, which are appended once the reader nears the end.
+    const lastRendered = renderedPages[renderedPages.length - 1] || activePage;
+    const upcoming = Array.from({ length: 5 }, (_, index) => lastRendered + 1 + index).filter((page) => page <= QURAN_PAGE_INDEX.length);
+    const scopes = readingMode === 'surah'
+      ? [`chapter:${currentSurah.id}`]
+      : (readingMode === 'page' ? [...renderedPages, ...upcoming] : [activePage]).map((page) => `page:${page}`);
+    const loadTajweedScope = async (scope: string) => {
+      const storageKey = `quran.tajweed.${scope}`;
+      const [kind, id] = scope.split(':');
+      const pageNumber = kind === 'page' ? Number(id) : 0;
+      const apply = (data: Record<string, string>) => {
+        setTajweedTexts((previous) => ({ ...previous, ...data }));
+        if (pageNumber) setTajweedPages((previous) => ({ ...previous, [pageNumber]: true }));
+      };
       try {
         const cached = await AsyncStorage.getItem(storageKey);
         if (cached) {
-          const cachedData = JSON.parse(cached);
-          if (!cancelled) setTajweedTexts((previous) => ({ ...previous, ...cachedData }));
+          apply(JSON.parse(cached));
           return;
         }
-        const filter = readingMode === 'surah' ? `chapter_number=${currentSurah.id}` : `page_number=${activePage}`;
+        const filter = kind === 'chapter' ? `chapter_number=${id}` : `page_number=${id}`;
         const response = await fetch(`https://api.quran.com/api/v4/quran/verses/uthmani_tajweed?${filter}`);
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`tajweed ${response.status}`);
         const payload = await response.json();
         const pageMap: Record<string, string> = {};
         for (const verse of payload?.verses || []) {
           if (verse?.verse_key && verse?.text_uthmani_tajweed) pageMap[verse.verse_key.replace(':', '-')] = verse.text_uthmani_tajweed;
         }
         if (Object.keys(pageMap).length) {
-          if (!cancelled) setTajweedTexts((previous) => ({ ...previous, ...pageMap }));
+          apply(pageMap);
           AsyncStorage.setItem(storageKey, JSON.stringify(pageMap)).catch(() => {});
         }
       } catch {
-        // Keep the bundled Uthmani text available when the device is offline.
+        // Keep the bundled Uthmani text when offline; allow a retry on a later render.
+        tajweedRequestedRef.current.delete(scope);
       }
     };
-    loadTajweedText();
-    return () => { cancelled = true; };
-  }, [activePage, currentSurah.id, readingMode]);
+    for (const scope of scopes) {
+      if (tajweedRequestedRef.current.has(scope)) continue;
+      tajweedRequestedRef.current.add(scope);
+      loadTajweedScope(scope);
+    }
+  }, [activePage, currentSurah.id, readingMode, renderedPages]);
 
   const updatePlaybackSettings = (patch: Partial<PlaybackSettings>) => {
     setPlaybackSettings((previous) => {
@@ -1205,7 +1223,7 @@ export const QuranReaderScreen: React.FC = () => {
   // Everything the page text depends on; a page re-renders only when this changes.
   const pageVersion = [
     quranFontSize, p.ink, p.surface, lang, playingSurahId, playingAyahNum, searchQuery,
-    bookmarks.map((b) => `${b.surahId}:${b.ayah}`).join(','), Object.keys(tajweedTexts).length,
+    bookmarks.map((b) => `${b.surahId}:${b.ayah}`).join(','),
     screenParams?.startSurahId, screenParams?.startAyah
   ].join('|');
 
@@ -1474,7 +1492,7 @@ export const QuranReaderScreen: React.FC = () => {
           }}
         >
           {readingMode === 'page' ? renderedPages.map((pageNumber) => (
-            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={pageVersion} render={renderMushafPage} />
+            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}`} render={renderMushafPage} />
           )) : readingMode === 'tafsir' ? (
             <View style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
               {displayedVerses.map((verse) => {
