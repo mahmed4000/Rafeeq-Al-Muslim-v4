@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Platform, StyleSheet, TextStyle, StyleProp, I18nManager } from 'react-native';
 import { TOKENS } from '../../constants/tokens';
 import { usePalette } from '../../theme/palette';
+import { getUiLanguage } from '../../i18n/language';
 
 export type TextUIVariant =
   | 'h1'
@@ -49,7 +50,7 @@ export const TextUI: React.FC<TextUIProps> = ({
   numberOfLines,
   onPress,
   fontsLoaded = true,
-  isRTL = true
+  isRTL: isRTLProp
 }) => {
   const p = usePalette();
   const variantToken = variant ? TOKENS.typography[variant] : null;
@@ -57,6 +58,8 @@ export const TextUI: React.FC<TextUIProps> = ({
   const resolvedWeight = weight ?? variantToken?.weight ?? 'regular';
   const isCairo = cairo || font === 'cairo';
   const isQuran = quran || font === 'amiri' || (variantToken as any)?.quran;
+  // Direction follows the interface language; Quran/Amiri text (Arabic in any language) stays RTL.
+  const isRTL = isRTLProp ?? (isQuran || getUiLanguage() === 'ar');
 
   let fontFamily: string | undefined = undefined;
   let fontWeight: any = resolvedWeight === 'bold' ? '700' : resolvedWeight === 'medium' ? '500' : '400';

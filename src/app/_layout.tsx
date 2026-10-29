@@ -23,6 +23,7 @@ import { AppProvider, useApp } from '../context/AppContext';
 import { LessonPlayerProvider } from '../context/LessonPlayerContext';
 import { SafeErrorBoundary } from '../components/common/SafeErrorBoundary';
 import { TextUI } from '../components/common/TextUI';
+import { tr } from '../i18n/language';
 
 // Direction: AppContext applies the saved language (Arabic by default) as soon as
 // preferences load, and the root view below follows it. Web starts RTL until then.
@@ -112,7 +113,7 @@ export default function RootLayout() {
       >
         <ActivityIndicator size="large" color="#8C5E3C" />
         <TextUI size={16} weight="bold" color="#5D3A22" style={{ marginTop: 14 }}>
-          رفيق المسلم 🕌
+          {tr('رفيق المسلم 🕌', 'Rafeeq Al-Muslim 🕌')}
         </TextUI>
       </View>
     );

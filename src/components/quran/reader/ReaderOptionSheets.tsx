@@ -26,23 +26,23 @@ export interface ReadingMenuSheetProps {
 
 export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setModeModalVisible, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive, autoScroll, setAutoScroll }) => {
   const p = usePalette();
-  const { quranFontSize, triggerHaptic } = useApp();
+  const { quranFontSize, triggerHaptic, t, isRTL, lang } = useApp();
   return (
     <Modal visible={readingMenuVisible} animationType="fade" transparent onRequestClose={() => setReadingMenuVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
         <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-            <TextUI size={18} weight="bold" color={p.ink}>إعدادات القراءة</TextUI>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setReadingMenuVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <TextUI size={18} weight="bold" color={p.ink}>{t('إعدادات القراءة', 'Reading settings')}</TextUI>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setReadingMenuVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
           {[
-            { key: 'mode', icon: 'layout' as const, label: 'طريقة العرض', value: readingMode === 'tafsir' ? 'التفسير' : readingMode === 'surah' ? 'عرض السورة' : 'صفحات المصحف', open: () => setModeModalVisible(true) },
-            { key: 'font', icon: 'type' as const, label: 'حجم الخط', value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
-            { key: 'reciter', icon: 'mic' as const, label: 'القارئ', value: currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
-            { key: 'immersive', icon: 'maximize-2' as const, label: 'قراءة دون مشتتات', value: '', open: () => setIsImmersive(true) },
-            { key: 'autoscroll', icon: 'chevrons-down' as const, label: 'تمرير تلقائي', value: autoScroll ? 'يعمل' : 'متوقف', open: () => setAutoScroll(!autoScroll) }
+            { key: 'mode', icon: 'layout' as const, label: t('طريقة العرض', 'View mode'), value: readingMode === 'tafsir' ? t('التفسير', 'Tafsir') : readingMode === 'surah' ? t('عرض السورة', 'Surah view') : t('صفحات المصحف', 'Mushaf pages'), open: () => setModeModalVisible(true) },
+            { key: 'font', icon: 'type' as const, label: t('حجم الخط', 'Font size'), value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
+            { key: 'reciter', icon: 'mic' as const, label: t('القارئ', 'Reciter'), value: lang === 'en' ? currentReciterObj.nameEn : currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
+            { key: 'immersive', icon: 'maximize-2' as const, label: t('قراءة دون مشتتات', 'Distraction-free reading'), value: '', open: () => setIsImmersive(true) },
+            { key: 'autoscroll', icon: 'chevrons-down' as const, label: t('تمرير تلقائي', 'Auto-scroll'), value: autoScroll ? t('يعمل', 'On') : t('متوقف', 'Off'), open: () => setAutoScroll(!autoScroll) }
           ].map((row) => (
             <TouchableOpacity
               key={row.key}
@@ -59,7 +59,7 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
               <Feather name={row.icon} size={18} color={p.primary} />
               <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{row.label}</TextUI>
               {row.value ? <TextUI size={14} color={p.muted} numberOfLines={1} style={{ maxWidth: '50%' }}>{row.value}</TextUI> : null}
-              <Feather name="chevron-left" size={16} color={p.muted} />
+              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -78,16 +78,16 @@ export interface ReciterSheetProps {
 
 export const ReciterSheet: React.FC<ReciterSheetProps> = ({ reciterModalVisible, setReciterModalVisible, stopAudio, setSelectedReciter, selectedReciter }) => {
   const p = usePalette();
-  const { triggerHaptic } = useApp();
+  const { triggerHaptic, t, lang } = useApp();
   return (
     <Modal visible={reciterModalVisible} animationType="fade" transparent onRequestClose={() => setReciterModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
         <View style={{ backgroundColor: p.bg, borderRadius: 20, padding: 20, maxHeight: '82%' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <TextUI size={17} weight="bold" color={p.ink}>
-              اختر القارئ
+              {t('اختر القارئ', 'Choose a reciter')}
             </TextUI>
-            <TouchableOpacity onPress={() => setReciterModalVisible(false)}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setReciterModalVisible(false)}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
@@ -115,10 +115,10 @@ export const ReciterSheet: React.FC<ReciterSheetProps> = ({ reciterModalVisible,
             >
               <View>
                 <TextUI size={14} weight="bold" color={r.id === selectedReciter ? p.primary : p.ink}>
-                  {r.nameAr}
+                  {lang === 'en' ? r.nameEn : r.nameAr}
                 </TextUI>
                 <TextUI size={11} color={p.muted}>
-                  {r.nameEn}
+                  {lang === 'en' ? r.nameAr : r.nameEn}
                 </TextUI>
               </View>
               {r.id === selectedReciter && (
@@ -142,15 +142,15 @@ export interface ReadingModeSheetProps {
 
 export const ReadingModeSheet: React.FC<ReadingModeSheetProps> = ({ modeModalVisible, setModeModalVisible, setReadingMode, readingMode }) => {
   const p = usePalette();
-  const { triggerHaptic } = useApp();
+  const { triggerHaptic, t } = useApp();
   return (
     <Modal visible={modeModalVisible} animationType="slide" transparent onRequestClose={() => setModeModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
           <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <TextUI size={18} weight="bold" color={p.ink}>طريقة عرض المصحف</TextUI>
-            <TouchableOpacity onPress={() => setModeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TextUI size={18} weight="bold" color={p.ink}>{t('طريقة عرض المصحف', 'Mushaf view mode')}</TextUI>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setModeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
@@ -179,10 +179,10 @@ export const ReadingModeSheet: React.FC<ReadingModeSheetProps> = ({ modeModalVis
               </View>
               <View style={{ flex: 1 }}>
                 <TextUI size={14} weight="bold" color={readingMode === 'page' ? p.primaryInk : p.ink}>
-                  المصحف الشريف (صفحات مصورة)
+                  {t('المصحف الشريف (صفحات مصورة)', 'The Noble Mushaf (page images)')}
                 </TextUI>
                 <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  عرض صفحات المصحف المعتمدة والمطابقة للمصحف الورقي، مثالية للحفظ والمراجعة
+                  {t('عرض صفحات المصحف المعتمدة والمطابقة للمصحف الورقي، مثالية للحفظ والمراجعة', 'Shows the approved mushaf pages, matching the printed mushaf; ideal for memorization and review')}
                 </TextUI>
               </View>
               {readingMode === 'page' && (
@@ -213,10 +213,10 @@ export const ReadingModeSheet: React.FC<ReadingModeSheetProps> = ({ modeModalVis
               </View>
               <View style={{ flex: 1 }}>
                 <TextUI size={14} weight="bold" color={readingMode === 'tafsir' ? p.primaryInk : p.ink}>
-                  التفسير والتدبر (عرض عمودي)
+                  {t('التفسير والتدبر (عرض عمودي)', 'Tafsir and reflection (vertical view)')}
                 </TextUI>
                 <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  عرض كل آية مع بطاقة تفسيرها مباشرة ومشاركتها مع ٧ تفاسير معتمدة
+                  {t('عرض كل آية مع بطاقة تفسيرها مباشرة ومشاركتها مع ٧ تفاسير معتمدة', 'Shows each verse with its tafsir card directly, and sharing, with 7 approved tafsirs')}
                 </TextUI>
               </View>
               {readingMode === 'tafsir' && (
@@ -247,10 +247,10 @@ export const ReadingModeSheet: React.FC<ReadingModeSheetProps> = ({ modeModalVis
               </View>
               <View style={{ flex: 1 }}>
                 <TextUI size={14} weight="bold" color={readingMode === 'surah' ? p.primaryInk : p.ink}>
-                  عرض السورة المتتابع
+                  {t('عرض السورة المتتابع', 'Continuous surah view')}
                 </TextUI>
                 <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  قراءة متصلة لآيات السورة كاملة في تدفق واحد مع بيان المقاصد
+                  {t('قراءة متصلة لآيات السورة كاملة في تدفق واحد مع بيان المقاصد', 'Continuous reading of the whole surah in one flow, with an explanation of its aims')}
                 </TextUI>
               </View>
               {readingMode === 'surah' && (
@@ -275,7 +275,7 @@ export interface FontSizeSheetProps {
 
 export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisible, setFontSizeModalVisible, tafsirFontSize, tafsirCardBgColor, tafsirBorderColor, handleChangeTafsirFontSize }) => {
   const p = usePalette();
-  const { quranFontSize, triggerHaptic, setQuranFontSize } = useApp();
+  const { quranFontSize, triggerHaptic, setQuranFontSize, t } = useApp();
   return (
     <Modal visible={fontSizeModalVisible} animationType="slide" transparent onRequestClose={() => setFontSizeModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
@@ -284,9 +284,9 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Feather name="type" size={18} color={p.primary} />
-              <TextUI size={17} weight="bold" color={p.ink}>إعدادات حجم الخط</TextUI>
+              <TextUI size={17} weight="bold" color={p.ink}>{t('إعدادات حجم الخط', 'Font size settings')}</TextUI>
             </View>
-            <TouchableOpacity onPress={() => setFontSizeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setFontSizeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
@@ -294,8 +294,8 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
           {/* Quran Font Size Section */}
           <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 14 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <TextUI size={14} weight="bold" color={p.ink}>خط آيات المصحف الشريف</TextUI>
-              <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(quranFontSize)} نقطة</TextUI>
+              <TextUI size={14} weight="bold" color={p.ink}>{t('خط آيات المصحف الشريف', 'Mushaf verse font')}</TextUI>
+              <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(quranFontSize)} {t('نقطة', 'pt')}</TextUI>
             </View>
 
             <View style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 65, borderWidth: 1, borderColor: p.border }}>
@@ -313,7 +313,7 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}
               >
                 <Feather name="minus" size={16} color={p.ink} />
-                <TextUI size={13} weight="bold" color={p.ink}>تصغير (A-)</TextUI>
+                <TextUI size={13} weight="bold" color={p.ink}>{t('تصغير (A-)', 'Smaller (A-)')}</TextUI>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -324,7 +324,7 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.primary }}
               >
                 <Feather name="plus" size={16} color={p.onPrimary} />
-                <TextUI size={13} weight="bold" color={p.onPrimary}>تكبير (A+)</TextUI>
+                <TextUI size={13} weight="bold" color={p.onPrimary}>{t('تكبير (A+)', 'Larger (A+)')}</TextUI>
               </TouchableOpacity>
             </View>
           </View>
@@ -332,8 +332,8 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
           {/* Tafsir Font Size Section */}
           <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <TextUI size={14} weight="bold" color={p.ink}>خط نصوص التفسير والتدبر</TextUI>
-              <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(tafsirFontSize)} نقطة</TextUI>
+              <TextUI size={14} weight="bold" color={p.ink}>{t('خط نصوص التفسير والتدبر', 'Tafsir and reflection text font')}</TextUI>
+              <TextUI size={12} weight="bold" color={p.primary}>{toArabicNumber(tafsirFontSize)} {t('نقطة', 'pt')}</TextUI>
             </View>
 
             <View style={{ backgroundColor: tafsirCardBgColor, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: tafsirBorderColor }}>
@@ -351,7 +351,7 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.bgAlt, borderWidth: 1, borderColor: p.border }}
               >
                 <Feather name="minus" size={16} color={p.ink} />
-                <TextUI size={13} weight="bold" color={p.ink}>تصغير (A-)</TextUI>
+                <TextUI size={13} weight="bold" color={p.ink}>{t('تصغير (A-)', 'Smaller (A-)')}</TextUI>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -362,7 +362,7 @@ export const FontSizeSheet: React.FC<FontSizeSheetProps> = ({ fontSizeModalVisib
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: p.primary }}
               >
                 <Feather name="plus" size={16} color={p.onPrimary} />
-                <TextUI size={13} weight="bold" color={p.onPrimary}>تكبير (A+)</TextUI>
+                <TextUI size={13} weight="bold" color={p.onPrimary}>{t('تكبير (A+)', 'Larger (A+)')}</TextUI>
               </TouchableOpacity>
             </View>
           </View>
@@ -381,7 +381,7 @@ export interface TafsirPickerSheetProps {
 
 export const TafsirPickerSheet: React.FC<TafsirPickerSheetProps> = ({ tafsirPickerVisible, setTafsirPickerVisible, selectedTafsirId, setSelectedTafsirId }) => {
   const p = usePalette();
-  const { triggerHaptic } = useApp();
+  const { triggerHaptic, t } = useApp();
   return (
     <Modal visible={tafsirPickerVisible} animationType="slide" transparent onRequestClose={() => setTafsirPickerVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
@@ -389,12 +389,12 @@ export const TafsirPickerSheet: React.FC<TafsirPickerSheetProps> = ({ tafsirPick
           <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <View>
-              <TextUI size={18} weight="bold" color={p.ink}>اختيار كتاب التفسير</TextUI>
+              <TextUI size={18} weight="bold" color={p.ink}>{t('اختيار كتاب التفسير', 'Choose a tafsir')}</TextUI>
               <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                اختر من بين ٧ تفاسير معتمدة ومحققة
+                {t('اختر من بين ٧ تفاسير معتمدة ومحققة', 'Choose from 7 approved, verified tafsirs')}
               </TextUI>
             </View>
-            <TouchableOpacity onPress={() => setTafsirPickerVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setTafsirPickerVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
@@ -423,11 +423,11 @@ export const TafsirPickerSheet: React.FC<TafsirPickerSheetProps> = ({ tafsirPick
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <TextUI size={14} weight="bold" color={isSelected ? p.primaryInk : p.ink}>
-                        {edition.name}
+                        {t(edition.name, edition.nameEn)}
                       </TextUI>
                       <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: p.bgAlt }}>
                         <TextUI size={10} weight="bold" color={p.primary}>
-                          {edition.badge}
+                          {t(edition.badge, edition.badgeEn)}
                         </TextUI>
                       </View>
                     </View>
@@ -436,10 +436,10 @@ export const TafsirPickerSheet: React.FC<TafsirPickerSheetProps> = ({ tafsirPick
                     )}
                   </View>
                   <TextUI size={11} color={p.muted} style={{ marginBottom: 4 }}>
-                    {edition.author}
+                    {t(edition.author, edition.authorEn)}
                   </TextUI>
                   <TextUI size={10.5} color={p.muted} numberOfLines={2}>
-                    {edition.description}
+                    {t(edition.description, edition.descriptionEn)}
                   </TextUI>
                 </TouchableOpacity>
               );

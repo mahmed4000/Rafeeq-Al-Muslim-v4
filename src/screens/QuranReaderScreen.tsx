@@ -15,7 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
-import { toArabicNumber, toStandardNumber } from '../services/prayerCalculation';
+import { toArabicNumber, toArabicIndicDigits, toStandardNumber } from '../services/prayerCalculation';
 import { normalizeArabic } from '../services/quranSearch';
 import { QURAN_PAGE_INDEX, QURAN_JUZ_INDEX } from '../data/quranIndex';
 import {
@@ -59,6 +59,8 @@ export const QuranReaderScreen: React.FC = () => {
     goBack,
     themeMode,
     t,
+    isRTL,
+    lang,
     selectedSurah,
     setSelectedSurah,
     quranFontSize,
@@ -74,6 +76,7 @@ export const QuranReaderScreen: React.FC = () => {
   const lessonPlayer = useLessonPlayer();
 
   const p = usePalette();
+  const en = lang === 'en';
   const tafsirCardBgColor = p.soft;
   const tafsirBorderColor = p.border;
   // Opened from a link (or after a reload) the context may not hold the surah yet.
@@ -109,6 +112,8 @@ export const QuranReaderScreen: React.FC = () => {
   const [tafsirModalVisible, setTafsirModalVisible] = useState(false);
   const tafsirEditions = AVAILABLE_TAFSIR_EDITIONS;
   const [selectedTafsirId, setSelectedTafsirId] = useState<number>(DEFAULT_TAFSIR_ID);
+  const selectedTafsirEdition = AVAILABLE_TAFSIR_EDITIONS.find((e) => e.id === selectedTafsirId);
+  const selectedTafsirLabel = selectedTafsirEdition ? t(selectedTafsirEdition.name, selectedTafsirEdition.nameEn) : t('التفسير الميسر', 'Al-Tafsir al-Muyassar');
   const [tafsirFontSize, setTafsirFontSize] = useState<number>(16);
   const [activeTafsirText, setActiveTafsirText] = useState('');
   const [tafsirLoading, setTafsirLoading] = useState(false);
@@ -158,7 +163,7 @@ export const QuranReaderScreen: React.FC = () => {
   const quranTextAlign: 'center' = 'center';
 
   const formatAudioTime = (seconds: number): string => {
-    if (!Number.isFinite(seconds) || seconds <= 0) return '٠٠:٠٠';
+    if (!Number.isFinite(seconds) || seconds <= 0) return t('٠٠:٠٠', '00:00');
     const total = Math.floor(seconds);
     const hrs = Math.floor(total / 3600);
     const mins = Math.floor((total % 3600) / 60);
@@ -597,7 +602,7 @@ export const QuranReaderScreen: React.FC = () => {
       }
     } catch (error) {
       if (requestId === tafsirRequestRef.current) {
-        setTafsirError(error instanceof Error ? error.message : 'تعذر تحميل التفسير. تحقق من اتصال الإنترنت.');
+        setTafsirError(error instanceof Error ? error.message : t('تعذر تحميل التفسير. تحقق من اتصال الإنترنت.', 'Could not load the tafsir. Check your internet connection.'));
       }
     } finally {
       if (requestId === tafsirRequestRef.current) {
@@ -684,11 +689,15 @@ export const QuranReaderScreen: React.FC = () => {
     triggerHaptic('light');
     const verseSurah = QURAN_DATA.find((item) => item.id === verse.surahId) || currentSurah;
     const currentEdition = AVAILABLE_TAFSIR_EDITIONS.find((item) => item.id === selectedTafsirId);
-    let message = `﴿ ${verse.text} ﴾ [سورة ${verseSurah.nameAr}: الآية ${verse.ayahNumber}]`;
+    let message = t(
+      `﴿ ${verse.text} ﴾ [سورة ${verseSurah.nameAr}: الآية ${verse.ayahNumber}]`,
+      `﴿ ${verse.text} ﴾ [Surah ${verseSurah.nameEn}: verse ${verse.ayahNumber}]`
+    );
     if (withTafsir && activeTafsirText.trim()) {
-      message += `\n\n📖 ${currentEdition?.name || 'التفسير'}:\n${activeTafsirText.trim()}`;
+      const editionName = currentEdition ? t(currentEdition.name, currentEdition.nameEn) : t('التفسير', 'Tafsir');
+      message += `\n\n📖 ${editionName}:\n${activeTafsirText.trim()}`;
     }
-    message += `\n\n— تطبيق رفيق المسلم (Almosala Pro)`;
+    message += t(`\n\n— تطبيق رفيق المسلم (Almosala Pro)`, `\n\n— Rafeeq Al-Muslim app (Almosala Pro)`);
     Share.share({ message });
     setActionModalVisible(false);
   };
@@ -726,7 +735,7 @@ export const QuranReaderScreen: React.FC = () => {
     triggerHaptic('light');
     const verseSurah = QURAN_DATA.find((item: any) => item.id === verse.surahId) || currentSurah;
     const currentEdition = AVAILABLE_TAFSIR_EDITIONS.find((item) => item.id === selectedTafsirId);
-    const tafsirName = currentEdition?.name || 'التفسير الميسر';
+    const tafsirName = currentEdition ? t(currentEdition.name, currentEdition.nameEn) : t('التفسير الميسر', 'Al-Tafsir al-Muyassar');
 
     let tafsirText = customTafsirText;
     if (!tafsirText) {
@@ -734,7 +743,10 @@ export const QuranReaderScreen: React.FC = () => {
       tafsirText = streamTafsirs[key] || activeTafsirText;
     }
 
-    const message = `﴿ ${verse.text} ﴾\n[سورة ${verseSurah.nameAr}: الآية ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'تفسير الآية الكريمة'}\n\n— تطبيق رفيق المسلم (Almosala Pro)`;
+    const message = t(
+      `﴿ ${verse.text} ﴾\n[سورة ${verseSurah.nameAr}: الآية ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'تفسير الآية الكريمة'}\n\n— تطبيق رفيق المسلم (Almosala Pro)`,
+      `﴿ ${verse.text} ﴾\n[Surah ${verseSurah.nameEn}: verse ${toArabicNumber(verse.ayahNumber)}]\n\n📖 ${tafsirName}:\n${tafsirText ? tafsirText.trim() : 'Verse tafsir'}\n\n— Rafeeq Al-Muslim app (Almosala Pro)`
+    );
     try {
       await Share.share({ message });
     } catch {}
@@ -1182,10 +1194,10 @@ export const QuranReaderScreen: React.FC = () => {
         >
           <Feather name="minimize-2" size={13} color={p.primary} />
           <TextUI size={12} weight="bold" color={p.ink}>
-            سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}
+            {en ? <>Surah {currentSurah.nameEn} • p. {toArabicNumber(activePage)}</> : <>سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}</>}
           </TextUI>
           <TextUI size={10.5} color={p.muted}>
-            (انقر للخروج)
+            {t('(انقر للخروج)', '(tap to exit)')}
           </TextUI>
         </TouchableOpacity>
       )}
@@ -1193,18 +1205,20 @@ export const QuranReaderScreen: React.FC = () => {
       {!isImmersive && (
         <>
           <View style={{ paddingHorizontal: 4, paddingTop: Platform.OS === 'ios' ? 52 : (Platform.OS === 'web' ? 16 : 10), paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
-            <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel="رجوع" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Feather name="arrow-right" size={22} color={p.primary} />
+            <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel={t('رجوع', 'Back')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={p.primary} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{currentSurah.nameAr}</TextUI>
+              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
               <TextUI size={12.5} color={p.muted} numberOfLines={1}>
-                {`صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · التفسير' : readingMode === 'surah' ? ' · عرض السورة' : ''}`}
+                {en
+                  ? `Page ${toArabicNumber(activePage)} · Juz ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · Tafsir' : readingMode === 'surah' ? ' · Surah view' : ''}`
+                  : `صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · التفسير' : readingMode === 'surah' ? ' · عرض السورة' : ''}`}
               </TextUI>
             </View>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel={isSearching ? 'إغلاق البحث' : 'بحث'}
+              accessibilityLabel={isSearching ? t('إغلاق البحث', 'Close search') : t('بحث', 'Search')}
               onPress={() => { triggerHaptic('light'); setIsSearching((v) => { if (v) setSearchWord(''); return !v; }); }}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -1212,7 +1226,7 @@ export const QuranReaderScreen: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel={pageBookmarked ? 'إزالة علامة هذه الصفحة' : 'إضافة علامة'}
+              accessibilityLabel={pageBookmarked ? t('إزالة علامة هذه الصفحة', 'Remove this page’s bookmark') : t('إضافة علامة', 'Add bookmark')}
               onPress={bookmarkCurrentReading}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -1220,7 +1234,7 @@ export const QuranReaderScreen: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel={isAudioPlaying ? 'إيقاف التلاوة' : 'تشغيل التلاوة'}
+              accessibilityLabel={isAudioPlaying ? t('إيقاف التلاوة', 'Stop recitation') : t('تشغيل التلاوة', 'Play recitation')}
               onPress={toggleAudioPlayback}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -1232,7 +1246,7 @@ export const QuranReaderScreen: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel="إعدادات القراءة"
+              accessibilityLabel={t('إعدادات القراءة', 'Reading settings')}
               onPress={() => { triggerHaptic('light'); setReadingMenuVisible(true); }}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -1260,7 +1274,7 @@ export const QuranReaderScreen: React.FC = () => {
           >
             <Feather name="book-open" size={13} color={p.primaryInk} />
             <TextUI size={12} weight="bold" color={p.primaryInk}>
-              {AVAILABLE_TAFSIR_EDITIONS.find((e) => e.id === selectedTafsirId)?.name || 'التفسير الميسر'}
+              {selectedTafsirLabel}
             </TextUI>
             <Feather name="chevron-down" size={12} color={p.primaryInk} />
           </TouchableOpacity>
@@ -1271,26 +1285,26 @@ export const QuranReaderScreen: React.FC = () => {
               style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
               <TextUI variant="captionBold" color={p.ink}>
-                سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}
+                {en ? <>Surah {currentSurah.nameEn} • p. {toArabicNumber(activePage)}</> : <>سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}</>}
               </TextUI>
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', gap: 2 }}>
               <TouchableOpacity
-                accessibilityLabel="الصفحة السابقة"
+                accessibilityLabel={t('الصفحة السابقة', 'Previous page')}
                 onPress={() => movePage(-1)}
                 disabled={activePage <= 1}
                 style={{ width: 28, height: 32, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}
               >
-                <Feather name="chevron-right" size={18} color={p.ink} />
+                <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={18} color={p.ink} />
               </TouchableOpacity>
               <TouchableOpacity
-                accessibilityLabel="الصفحة التالية"
+                accessibilityLabel={t('الصفحة التالية', 'Next page')}
                 onPress={() => movePage(1)}
                 disabled={activePage >= QURAN_PAGE_INDEX.length}
                 style={{ width: 28, height: 32, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}
               >
-                <Feather name="chevron-left" size={18} color={p.ink} />
+                <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={18} color={p.ink} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1299,17 +1313,17 @@ export const QuranReaderScreen: React.FC = () => {
         <View style={{ paddingHorizontal: 8, paddingVertical: 5, backgroundColor: p.bgAlt, borderBottomWidth: 1, borderColor: p.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <TouchableOpacity onPress={() => openJump('surah')} style={{ flex: 1.15, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={p.ink} numberOfLines={1}>سورة {currentSurah.nameAr}</TextUI>
+              <TextUI variant="bodyMedium" weight="bold" color={p.ink} numberOfLines={1}>{t('سورة', 'Surah')} {en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => openJump('page')} style={{ minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, paddingVertical: 6 }}>
               <TextUI variant="h4" color={p.ink}>{toArabicNumber(activePage)}</TextUI>
             </TouchableOpacity>
             {readingMode === 'page' ? <View style={{ flexDirection: 'row', gap: 2 }}>
-              <TouchableOpacity accessibilityLabel="الصفحة السابقة" onPress={() => movePage(-1)} disabled={activePage <= 1} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}><Feather name="chevron-right" size={20} color={p.ink} /></TouchableOpacity>
-              <TouchableOpacity accessibilityLabel="الصفحة التالية" onPress={() => movePage(1)} disabled={activePage >= QURAN_PAGE_INDEX.length} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}><Feather name="chevron-left" size={20} color={p.ink} /></TouchableOpacity>
+              <TouchableOpacity accessibilityLabel={t('الصفحة السابقة', 'Previous page')} onPress={() => movePage(-1)} disabled={activePage <= 1} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}><Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.ink} /></TouchableOpacity>
+              <TouchableOpacity accessibilityLabel={t('الصفحة التالية', 'Next page')} onPress={() => movePage(1)} disabled={activePage >= QURAN_PAGE_INDEX.length} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}><Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.ink} /></TouchableOpacity>
             </View> : null}
             <TouchableOpacity onPress={() => openJump('juz')} style={{ flex: 1.05, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={p.ink}>الجزء {toArabicNumber(pageItem.juzNumbers[0] || 1)}</TextUI>
+              <TextUI variant="bodyMedium" weight="bold" color={p.ink}>{t('الجزء', 'Juz')} {toArabicNumber(pageItem.juzNumbers[0] || 1)}</TextUI>
             </TouchableOpacity>
           </View>
         </View>
@@ -1325,11 +1339,11 @@ export const QuranReaderScreen: React.FC = () => {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Feather name="search" size={16} color={p.muted} />
             <TextInput
-              placeholder={readingMode === 'page' ? 'ابحث عن كلمة أو رقم الآية في الصفحة...' : 'ابحث عن كلمة أو رقم الآية في السورة...'}
+              placeholder={readingMode === 'page' ? t('ابحث عن كلمة أو رقم الآية في الصفحة...', 'Search for a word or verse number on this page...') : t('ابحث عن كلمة أو رقم الآية في السورة...', 'Search for a word or verse number in this surah...')}
               placeholderTextColor={p.muted}
               value={searchWord}
               onChangeText={setSearchWord}
-              style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 13 }}
+              style={{ flex: 1, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 13 }}
             />
             {searchWord ? (
               <TouchableOpacity onPress={() => setSearchWord('')}>
@@ -1412,16 +1426,16 @@ export const QuranReaderScreen: React.FC = () => {
                   <View key={`page-${pageNumber}-surah-${surah.id}`}>
                     {section.startAyah === 1 ? (
                       renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
-                    ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>سورة {surah.nameAr}</TextUI> : null}
+                    ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
                     {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI quran size={Math.round(quranFontSize * 0.85)} weight="bold" color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</TextUI> : null}
                     <TextUI quran align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
                   </View>
                 );
               })}
-              <View accessibilityLabel={`نهاية الصفحة ${toArabicNumber(pageNumber)}`} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
                 <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
-                <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicNumber(pageNumber)}</TextUI></View>
+                <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
                 <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
                 <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
               </View>
@@ -1454,7 +1468,7 @@ export const QuranReaderScreen: React.FC = () => {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.primary }} />
                         <TextUI size={12} weight="bold" color={p.primary}>
-                          سورة {verseSurah.nameAr} • الآية {toArabicNumber(verse.ayahNumber)}
+                          {en ? <>Surah {verseSurah.nameEn} • Verse {toArabicNumber(verse.ayahNumber)}</> : <>سورة {verseSurah.nameAr} • الآية {toArabicNumber(verse.ayahNumber)}</>}
                         </TextUI>
                       </View>
 
@@ -1480,7 +1494,7 @@ export const QuranReaderScreen: React.FC = () => {
                         >
                           <Feather name={isPlaying ? 'pause' : 'play'} size={12} color={isPlaying ? p.onPrimary : p.primary} />
                           <TextUI size={10.5} weight="bold" color={isPlaying ? p.onPrimary : p.ink}>
-                            {isPlaying ? 'إيقاف' : 'استماع'}
+                            {isPlaying ? t('إيقاف', 'Stop') : t('استماع', 'Listen')}
                           </TextUI>
                         </TouchableOpacity>
 
@@ -1517,7 +1531,7 @@ export const QuranReaderScreen: React.FC = () => {
                         >
                           <Feather name="share-2" size={12} color={p.muted} />
                           <TextUI size={10.5} color={p.muted}>
-                            مشاركة
+                            {t('مشاركة', 'Share')}
                           </TextUI>
                         </TouchableOpacity>
                       </View>
@@ -1553,7 +1567,7 @@ export const QuranReaderScreen: React.FC = () => {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                           <Feather name="book" size={12} color={p.primaryInk} />
                           <TextUI size={11} weight="bold" color={p.primaryInk}>
-                            {AVAILABLE_TAFSIR_EDITIONS.find((e) => e.id === selectedTafsirId)?.name || 'التفسير الميسر'}
+                            {selectedTafsirLabel}
                           </TextUI>
                         </View>
 
@@ -1562,7 +1576,7 @@ export const QuranReaderScreen: React.FC = () => {
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
                           <TextUI size={10.5} weight="bold" color={p.primary}>
-                            مشاركة التفسير ↗
+                            {t('مشاركة التفسير ↗', 'Share tafsir ↗')}
                           </TextUI>
                         </TouchableOpacity>
                       </View>
@@ -1570,7 +1584,7 @@ export const QuranReaderScreen: React.FC = () => {
                       {isLoadingTafsir ? (
                         <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                           <ActivityIndicator size="small" color={p.primary} />
-                          <TextUI size={11} color={p.muted}>جارِ جلب التفسير المعتمد...</TextUI>
+                          <TextUI size={11} color={p.muted}>{t('جارِ جلب التفسير المعتمد...', 'Fetching the approved tafsir...')}</TextUI>
                         </View>
                       ) : tafsirContent ? (
                         <TextUI
@@ -1593,7 +1607,7 @@ export const QuranReaderScreen: React.FC = () => {
                           style={{ paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }}
                         >
                           <TextUI size={11} color={p.primary} weight="bold">
-                            اضغط لتحميل التفسير ↻
+                            {t('اضغط لتحميل التفسير ↻', 'Tap to load the tafsir ↻')}
                           </TextUI>
                         </TouchableOpacity>
                       )}
@@ -1649,9 +1663,9 @@ export const QuranReaderScreen: React.FC = () => {
               borderColor: p.border
             }}
           >
-            <Feather name="arrow-right" size={16} color={p.ink} />
+            <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={16} color={p.ink} />
             <TextUI size={13} weight="bold" color={p.ink}>
-              السورة السابقة
+              {t('السورة السابقة', 'Previous surah')}
             </TextUI>
           </TouchableOpacity>
 
@@ -1670,16 +1684,16 @@ export const QuranReaderScreen: React.FC = () => {
             }}
           >
             <TextUI size={13} weight="bold" color={p.onPrimary}>
-              السورة التالية
+              {t('السورة التالية', 'Next surah')}
             </TextUI>
-            <Feather name="arrow-left" size={16} color={p.onPrimary} />
+            <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={16} color={p.onPrimary} />
           </TouchableOpacity>
         </View>
       </ScrollView>
 
       {(isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? (
         <ReaderPlayer
-          reciterName={currentReciterObj.nameAr}
+          reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
           ayahNumber={currentAyahNum}
           totalAyahs={totalSurahVerses}
           ayahRepeats={playbackSettings.ayahRepeats}

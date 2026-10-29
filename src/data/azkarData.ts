@@ -11,6 +11,7 @@ export interface AzkarCategory {
   titleEn: string;
   count: number;
   subtitleAr: string;
+  subtitleEn: string;
   icon: string;
   group: 'daily' | 'prayer' | 'occasions';
 }
@@ -915,6 +916,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Morning Azkar',
     count: AZKAR_DATABASE.morning.length,
     subtitleAr: 'تُقرأ بعد الفجر حتى الشروق',
+    subtitleEn: 'Read after Fajr until sunrise',
     icon: 'sun',
     group: 'daily'
   },
@@ -924,6 +926,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Evening Azkar',
     count: AZKAR_DATABASE.evening.length,
     subtitleAr: 'تُقرأ بعد العصر حتى الغروب',
+    subtitleEn: 'Read after Asr until sunset',
     icon: 'moon',
     group: 'daily'
   },
@@ -933,6 +936,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Prayer Azkar',
     count: AZKAR_DATABASE.prayer_azkar.length,
     subtitleAr: 'الاستفتاح، الركوع، السجود، والتشهد',
+    subtitleEn: 'Opening supplication, bowing, prostration and tashahhud',
     icon: 'heart',
     group: 'prayer'
   },
@@ -942,6 +946,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Post-Prayer Azkar',
     count: AZKAR_DATABASE.after_prayer.length,
     subtitleAr: 'أدعية وتسابيح دبر كل صلاة مكتوبة',
+    subtitleEn: 'Supplications and tasbih after each obligatory prayer',
     icon: 'check-circle',
     group: 'prayer'
   },
@@ -951,6 +956,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Masjid & Adhan Azkar',
     count: AZKAR_DATABASE.masjid.length,
     subtitleAr: 'إجابة المؤذن، والمشي، ودخول المسجد',
+    subtitleEn: 'Answering the muezzin, walking to and entering the mosque',
     icon: 'compass',
     group: 'prayer'
   },
@@ -960,6 +966,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Sleep Azkar',
     count: AZKAR_DATABASE.sleep.length,
     subtitleAr: 'حصن المسلم العظيم قبل المنام',
+    subtitleEn: 'The Muslim\'s great fortress before sleep',
     icon: 'shield',
     group: 'daily'
   },
@@ -969,6 +976,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Waking Up Azkar',
     count: AZKAR_DATABASE.waking.length,
     subtitleAr: 'دعاء الاستيقاظ وما يقال عند الانتباه',
+    subtitleEn: 'The supplication on waking and what is said on rising',
     icon: 'sunrise',
     group: 'daily'
   },
@@ -978,6 +986,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Relief & Distress Duas',
     count: AZKAR_DATABASE.karb.length,
     subtitleAr: 'تفريج الهموم وقضاء الدين والاستخارة',
+    subtitleEn: 'Relief from worries, settling debts, and istikhara',
     icon: 'activity',
     group: 'occasions'
   },
@@ -987,6 +996,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Wudu & Home Azkar',
     count: AZKAR_DATABASE.wudu_home.length,
     subtitleAr: 'الطهور، والخروج والدخول من البيت',
+    subtitleEn: 'Purification, and leaving and entering the home',
     icon: 'home',
     group: 'occasions'
   },
@@ -996,6 +1006,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Food & Travel Azkar',
     count: AZKAR_DATABASE.food_travel.length,
     subtitleAr: 'التسمية والحمد وركوب الدابة والسفر',
+    subtitleEn: 'Saying Bismillah and Alhamdulillah, riding, and travel',
     icon: 'navigation',
     group: 'occasions'
   },
@@ -1005,6 +1016,7 @@ export const AZKAR_CATEGORIES: AzkarCategory[] = [
     titleEn: 'Prophetic Duas',
     count: AZKAR_DATABASE.duas.length,
     subtitleAr: 'جوامع الكلم من الكتاب والسنة الصحيحة',
+    subtitleEn: 'Comprehensive supplications from the Quran and authentic Sunnah',
     icon: 'book-open',
     group: 'occasions'
   }

@@ -11,6 +11,7 @@ import { StorageService } from '../services/storage';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { Stepper } from '../ui/Stepper';
 import { usePalette } from '../theme/palette';
+import { getUiLanguage } from '../i18n/language';
 
 // Virtue lines in azkarData have no recorded source yet; they stay hidden until a
 // sourced dataset (text, evidence, grading) replaces them. Set to true to show them again.
@@ -18,7 +19,9 @@ const SHOW_UNSOURCED_VIRTUES = false;
 
 // Where each session stopped today, so it can be resumed the same day.
 const PROGRESS_KEY = 'rafeeq_azkar_progress_v1';
-type SessionProgress = Record<string, { day: string; index: number; counter: number }>;
+// `counts` holds each dhikr's count so moving back and forth never clears it;
+// `counter` (the current dhikr's count) is kept for the adhkar list screen and older saves.
+type SessionProgress = Record<string, { day: string; index: number; counter: number; counts?: number[] }>;
 const todayKey = () => new Date().toDateString();
 
 const FONT_MIN = 16;
@@ -28,6 +31,7 @@ const BEADS = 33;
 
 /** "مرة" / "مرتان" / "٣ مرات" / "١٠٠ مرة" */
 function timesAr(n: number): string {
+  if (getUiLanguage() === 'en') return n === 1 ? 'once' : n === 2 ? 'twice' : `${toArabicNumber(n)} times`;
   if (n === 1) return 'مرة واحدة';
   if (n === 2) return 'مرتان';
   const tail = n % 100;
@@ -80,16 +84,21 @@ const SmallAction: React.FC<{ icon: React.ComponentProps<typeof Feather>['name']
 };
 
 export const AzkarSessionScreen: React.FC = () => {
-  const { goBack, t, triggerHaptic, isRTL } = useApp();
+  const { goBack, t, triggerHaptic, isRTL, lang } = useApp();
   const screenParams = useScreenParams();
   const p = usePalette();
 
   const category: any = AZKAR_CATEGORIES.find((cat) => cat.id === screenParams?.categoryId) ||
     { id: 'morning', titleAr: 'أذكار الصباح' };
   const azkarList = AZKAR_DATABASE[category.id] || AZKAR_DATABASE.morning;
+  const categoryTitle: string = lang === 'en' ? (category.titleEn || 'Morning Azkar') : category.titleAr;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [counter, setCounter] = useState(0);
+  // One count per dhikr; cleared only by "reset", "read again from the beginning" or a new day.
+  const [counts, setCounts] = useState<number[]>(() => azkarList.map(() => 0));
+  const counter = counts[currentIndex] || 0;
+  const setCountAt = (index: number, value: number) =>
+    setCounts((prev) => prev.map((c, i) => (i === index ? value : c)));
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [fontSize, setFontSize] = useState(26);
   const [showCompletion, setShowCompletion] = useState(false);
@@ -112,7 +121,11 @@ export const AzkarSessionScreen: React.FC = () => {
         const saved = progress[category.id];
         if (saved && saved.day === todayKey() && saved.index >= 0 && saved.index < azkarList.length) {
           setCurrentIndex(saved.index);
-          setCounter(Math.max(0, saved.counter || 0));
+          setCounts(
+            Array.isArray(saved.counts) && saved.counts.length === azkarList.length
+              ? saved.counts.map((c) => Math.max(0, Number(c) || 0))
+              : azkarList.map((_, i) => (i === saved.index ? Math.max(0, saved.counter || 0) : 0))
+          );
         }
       } catch (e) {}
       setProgressLoaded(true);
@@ -129,10 +142,13 @@ export const AzkarSessionScreen: React.FC = () => {
     if (!progressLoaded) return;
     (async () => {
       const progress = await StorageService.getObject<SessionProgress>(PROGRESS_KEY, {});
-      progress[category.id] = { day: todayKey(), index: showCompletion ? 0 : currentIndex, counter: showCompletion ? 0 : counter };
+      progress[category.id] = showCompletion
+        ? { day: todayKey(), index: 0, counter: 0, counts: azkarList.map(() => 0) }
+        : { day: todayKey(), index: currentIndex, counter, counts };
       await StorageService.setObject(PROGRESS_KEY, progress);
     })().catch(() => {});
-  }, [progressLoaded, category.id, currentIndex, counter, showCompletion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressLoaded, category.id, currentIndex, counts, showCompletion]);
 
   const safeIndex = currentIndex % azkarList.length;
   const currentItem = azkarList[safeIndex];
@@ -159,7 +175,7 @@ export const AzkarSessionScreen: React.FC = () => {
   const handleTap = () => {
     if (counter < target) {
       const next = counter + 1;
-      setCounter(next);
+      setCountAt(currentIndex, next);
       triggerHaptic('light');
 
       if (next >= target) {
@@ -170,7 +186,6 @@ export const AzkarSessionScreen: React.FC = () => {
           autoAdvanceTimerRef.current = setTimeout(() => {
             if (currentIndex + 1 < azkarList.length) {
               setCurrentIndex((prev) => prev + 1);
-              setCounter(0);
             } else {
               setShowCompletion(true);
             }
@@ -185,7 +200,6 @@ export const AzkarSessionScreen: React.FC = () => {
     triggerHaptic('light');
     if (currentIndex + 1 < azkarList.length) {
       setCurrentIndex((prev) => prev + 1);
-      setCounter(0);
     } else {
       setShowCompletion(true);
     }
@@ -196,7 +210,6 @@ export const AzkarSessionScreen: React.FC = () => {
     triggerHaptic('light');
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
-      setCounter(0);
       setShowCompletion(false);
     }
   };
@@ -204,15 +217,15 @@ export const AzkarSessionScreen: React.FC = () => {
   const handleResetCounter = () => {
     if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
     triggerHaptic('light');
-    setCounter(0);
+    setCountAt(currentIndex, 0);
   };
 
   const handleShare = async () => {
     try {
       triggerHaptic('light');
       await Share.share({
-        message: `${currentItem.ar}\n\n— من تطبيق رفيق المسلم`,
-        title: category.titleAr
+        message: `${currentItem.ar}\n\n${t('— من تطبيق رفيق المسلم', '— from the Rafeeq Al-Muslim app')}`,
+        title: categoryTitle
       });
     } catch (err) {}
   };
@@ -246,13 +259,13 @@ export const AzkarSessionScreen: React.FC = () => {
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <ScreenHeader
-        title={category.titleAr}
-        subtitle={`${toArabicNumber(Math.min(currentIndex + 1, azkarList.length))} من ${toArabicNumber(azkarList.length)}`}
+        title={categoryTitle}
+        subtitle={`${toArabicNumber(Math.min(currentIndex + 1, azkarList.length))} ${t('من', 'of')} ${toArabicNumber(azkarList.length)}`}
         onBack={goBack}
         right={
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="إعدادات الجلسة"
+            accessibilityLabel={t('إعدادات الجلسة', 'Session settings')}
             onPress={() => { triggerHaptic('light'); setSettingsVisible(true); }}
             style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
           >
@@ -281,7 +294,7 @@ export const AzkarSessionScreen: React.FC = () => {
               {t('تقبل الله طاعتكم', 'May Allah Accept Your Worship')}
             </TextUI>
             <TextUI variant="body" color={p.muted} style={{ textAlign: 'center', lineHeight: 24, marginBottom: 24 }}>
-              {t('أتممت بحمد الله وتوفيقه جميع أذكار هذا الباب المبارك. جعلك الله من الذاكرين الله كثيراً والذاكرات.', 'You have completed all supplications in this category by the grace of Allah.')}
+              {t('أتممت بحمد الله وتوفيقه جميع أذكار هذا الباب المبارك. جعلك الله من الذاكرين الله كثيراً والذاكرات.', 'By the praise and help of Allah, you have completed all the adhkar in this section. May Allah make you among those who remember Him often.')}
             </TextUI>
             <View style={{ width: '100%', gap: 10 }}>
               <TouchableOpacity
@@ -289,7 +302,7 @@ export const AzkarSessionScreen: React.FC = () => {
                 onPress={() => {
                   triggerHaptic('medium');
                   setCurrentIndex(0);
-                  setCounter(0);
+                  setCounts(azkarList.map(() => 0));
                   setShowCompletion(false);
                 }}
                 style={{ backgroundColor: p.primary, minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
@@ -314,7 +327,7 @@ export const AzkarSessionScreen: React.FC = () => {
               </TextUI>
               <View style={{ alignItems: 'center' }}>
                 <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: p.soft }}>
-                  <TextUI size={13} weight="bold" color={p.primaryInk}>{`التكرار: ${timesAr(target)}`}</TextUI>
+                  <TextUI size={13} weight="bold" color={p.primaryInk}>{`${t('التكرار', 'Repeat')}: ${timesAr(target)}`}</TextUI>
                 </View>
               </View>
               {SHOW_UNSOURCED_VIRTUES && currentItem?.virtue ? (
@@ -328,7 +341,7 @@ export const AzkarSessionScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.88}
               accessibilityRole="button"
-              accessibilityLabel={isCompleted ? 'اكتمل هذا الذكر' : `تسبيحة، المتبقي ${toArabicNumber(remaining)}`}
+              accessibilityLabel={isCompleted ? t('اكتمل هذا الذكر', 'This dhikr is complete') : t(`تسبيحة، المتبقي ${toArabicNumber(remaining)}`, `Count, ${toArabicNumber(remaining)} remaining`)}
               onPress={handleTap}
               style={{ width: RING_SIZE, height: RING_SIZE, marginTop: 8, borderRadius: RING_SIZE / 2, alignItems: 'center', justifyContent: 'center', ...makeShadow('0 8px 24px rgba(93,58,34,0.16)', '#5D3A22', 0.16, 8) }}
             >
@@ -342,7 +355,7 @@ export const AzkarSessionScreen: React.FC = () => {
                 ) : (
                   <>
                     <TextUI size={40} weight="bold" color={p.ink} style={{ lineHeight: 46 }}>{toArabicNumber(remaining)}</TextUI>
-                    <TextUI size={13} color={p.muted}>متبقٍ</TextUI>
+                    <TextUI size={13} color={p.muted}>{t('متبقٍ', 'left')}</TextUI>
                   </>
                 )}
               </View>
@@ -350,12 +363,12 @@ export const AzkarSessionScreen: React.FC = () => {
 
             {/* Previous · reset · share · next */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <SmallAction icon={isRTL ? 'chevron-right' : 'chevron-left'} label="السابق" onPress={handlePrev} disabled={currentIndex === 0} />
-              <SmallAction icon="rotate-ccw" label="إعادة" onPress={handleResetCounter} disabled={counter === 0} />
-              <SmallAction icon="share-2" label="مشاركة" onPress={handleShare} />
-              <SmallAction icon={isRTL ? 'chevron-left' : 'chevron-right'} label="التالي" onPress={handleNext} />
+              <SmallAction icon={isRTL ? 'chevron-right' : 'chevron-left'} label={t('السابق', 'Previous')} onPress={handlePrev} disabled={currentIndex === 0} />
+              <SmallAction icon="rotate-ccw" label={t('إعادة', 'Reset')} onPress={handleResetCounter} disabled={counter === 0} />
+              <SmallAction icon="share-2" label={t('مشاركة', 'Share')} onPress={handleShare} />
+              <SmallAction icon={isRTL ? 'chevron-left' : 'chevron-right'} label={t('التالي', 'Next')} onPress={handleNext} />
             </View>
-            <TextUI size={12.5} color={p.muted} style={{ textAlign: 'center' }}>اسحب للذكر التالي · المس الحلقة للعدّ</TextUI>
+            <TextUI size={12.5} color={p.muted} style={{ textAlign: 'center' }}>{t('اسحب للذكر التالي · المس الحلقة للعدّ', 'Swipe for the next dhikr · Tap the ring to count')}</TextUI>
           </>
         )}
       </ScrollView>
@@ -365,14 +378,14 @@ export const AzkarSessionScreen: React.FC = () => {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
           <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 12, overflow: 'hidden' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-              <TextUI size={18} weight="bold" color={p.ink}>إعدادات الجلسة</TextUI>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setSettingsVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <TextUI size={18} weight="bold" color={p.ink}>{t('إعدادات الجلسة', 'Session settings')}</TextUI>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setSettingsVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="x" size={20} color={p.ink} />
               </TouchableOpacity>
             </View>
             <View style={{ borderTopWidth: 1, borderColor: p.divider }}>
               <Stepper
-                label="حجم الخط"
+                label={t('حجم الخط', 'Font size')}
                 valueLabel={toArabicNumber(fontSize)}
                 onDecrement={() => changeFontSize(-2)}
                 onIncrement={() => changeFontSize(2)}
@@ -386,11 +399,11 @@ export const AzkarSessionScreen: React.FC = () => {
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14 }}
               >
                 <View style={{ flex: 1 }}>
-                  <TextUI size={15} weight="bold" color={p.ink}>الانتقال التلقائي</TextUI>
-                  <TextUI size={12.5} color={p.muted}>الانتقال للذكر التالي عند إتمام العدد</TextUI>
+                  <TextUI size={15} weight="bold" color={p.ink}>{t('الانتقال التلقائي', 'Auto-advance')}</TextUI>
+                  <TextUI size={12.5} color={p.muted}>{t('الانتقال للذكر التالي عند إتمام العدد', 'Move to the next dhikr when the count is complete')}</TextUI>
                 </View>
                 <View style={{ minWidth: 64, minHeight: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: autoAdvance ? p.successBg : p.bgAlt, borderWidth: 1, borderColor: autoAdvance ? p.success : p.border }}>
-                  <TextUI size={13} weight="bold" color={autoAdvance ? p.successInk : p.muted}>{autoAdvance ? 'مفعّل' : 'متوقف'}</TextUI>
+                  <TextUI size={13} weight="bold" color={autoAdvance ? p.successInk : p.muted}>{autoAdvance ? t('مفعّل', 'On') : t('متوقف', 'Off')}</TextUI>
                 </View>
               </TouchableOpacity>
             </View>

@@ -2,11 +2,15 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { calculateAccuratePrayerTimes, PrayerOffsets } from './prayerCalculation';
 import { cityNow } from './cityTime';
+import { tr } from '../i18n/language';
 
 export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
 export const PRAYER_KEYS: PrayerKey[] = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export const PRAYER_NAMES_AR: Record<PrayerKey, string> = {
   fajr: 'الفجر', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء'
+};
+const PRAYER_NAMES_EN: Record<PrayerKey, string> = {
+  fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha'
 };
 
 export interface PrayerBellsConfig {
@@ -83,17 +87,17 @@ const AZKAR_DAYS = 4;
 async function ensureChannels() {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ADHAN, {
-    name: 'الأذان',
+    name: tr('الأذان', 'Adhan'),
     importance: Notifications.AndroidImportance.HIGH,
     sound: 'default'
   });
   await Notifications.setNotificationChannelAsync(CHANNEL_REMINDER, {
-    name: 'التذكير قبل الصلاة والإقامة',
+    name: tr('التذكير قبل الصلاة والإقامة', 'Pre-prayer and iqama reminders'),
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default'
   });
   await Notifications.setNotificationChannelAsync(CHANNEL_AZKAR, {
-    name: 'تذكير الأذكار',
+    name: tr('تذكير الأذكار', 'Adhkar reminders'),
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default'
   });
@@ -187,7 +191,7 @@ export const NotificationService = {
 
         for (const key of PRAYER_KEYS) {
           const s = config.prayers[key];
-          const name = PRAYER_NAMES_AR[key];
+          const name = tr(PRAYER_NAMES_AR[key], PRAYER_NAMES_EN[key]);
           const at = new Date(times[key].at.getTime());
           at.setSeconds(0, 0);
 
@@ -196,8 +200,8 @@ export const NotificationService = {
             alerts.push({
               kind: 'before',
               date: new Date(at.getTime() - s.beforeMinutes * 60000),
-              title: `اقترب أذان ${name}`,
-              body: `بعد ${s.beforeMinutes} دقيقة · ${cityNameAr}`,
+              title: tr(`اقترب أذان ${name}`, `${name} adhan is approaching`),
+              body: tr(`بعد ${s.beforeMinutes} دقيقة · ${cityNameAr}`, `In ${s.beforeMinutes} minutes · ${cityNameAr}`),
               channel: CHANNEL_REMINDER
             });
           }
@@ -205,8 +209,8 @@ export const NotificationService = {
             alerts.push({
               kind: 'adhan',
               date: at,
-              title: `حان الآن موعد أذان ${name}`,
-              body: `حي على الصلاة · ${cityNameAr}`,
+              title: tr(`حان الآن موعد أذان ${name}`, `It's time for the ${name} adhan`),
+              body: tr(`حي على الصلاة · ${cityNameAr}`, `Hayya ʿala as-salah · ${cityNameAr}`),
               channel: CHANNEL_ADHAN
             });
           }
@@ -214,8 +218,8 @@ export const NotificationService = {
             alerts.push({
               kind: 'iqama',
               date: new Date(at.getTime() + s.iqamaMinutes * 60000),
-              title: `إقامة صلاة ${name}`,
-              body: `بعد الأذان بـ ${s.iqamaMinutes} دقيقة`,
+              title: tr(`إقامة صلاة ${name}`, `${name} iqama`),
+              body: tr(`بعد الأذان بـ ${s.iqamaMinutes} دقيقة`, `${s.iqamaMinutes} minutes after the adhan`),
               channel: CHANNEL_REMINDER
             });
           }
@@ -275,8 +279,8 @@ export const NotificationService = {
         const day = new Date(cityToday.getFullYear(), cityToday.getMonth(), cityToday.getDate() + dayOffset, 12);
         const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod, timeZone, offsets);
         const reminders = [
-          { kind: 'morning', setting: config.morning, base: times.fajr.at, title: 'أذكار الصباح', categoryId: 'morning' },
-          { kind: 'evening', setting: config.evening, base: times.asr.at, title: 'أذكار المساء', categoryId: 'evening' }
+          { kind: 'morning', setting: config.morning, base: times.fajr.at, title: tr('أذكار الصباح', 'Morning adhkar'), categoryId: 'morning' },
+          { kind: 'evening', setting: config.evening, base: times.asr.at, title: tr('أذكار المساء', 'Evening adhkar'), categoryId: 'evening' }
         ];
         for (const r of reminders) {
           if (!r.setting.enabled) continue;
@@ -285,7 +289,7 @@ export const NotificationService = {
           if (date.getTime() <= now) continue;
           await Notifications.scheduleNotificationAsync({
             identifier: `${AZKAR_ID_PREFIX}${dayOffset}-${r.kind}`,
-            content: { title: r.title, body: 'تذكير بقراءة الأذكار', sound: true, data: { azkar: r.categoryId } },
+            content: { title: r.title, body: tr('تذكير بقراءة الأذكار', 'A reminder to read your adhkar'), sound: true, data: { azkar: r.categoryId } },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_AZKAR }
           }).catch(() => {});
         }
@@ -300,8 +304,8 @@ export const NotificationService = {
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'granted') {
-            new Notification('حان الآن موعد الصلاة', {
-              body: `تجربة تنبيه رفيق المسلم · ${cityNameAr}`,
+            new Notification(tr('حان الآن موعد الصلاة', 'It is now time for prayer'), {
+              body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Rafeeq Al-Muslim test alert · ${cityNameAr}`),
               icon: '/favicon.ico'
             });
           }
@@ -314,8 +318,8 @@ export const NotificationService = {
         await ensureChannels();
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'حان الآن موعد الصلاة',
-            body: `تجربة تنبيه رفيق المسلم · ${cityNameAr}`,
+            title: tr('حان الآن موعد الصلاة', 'It is now time for prayer'),
+            body: tr(`تجربة تنبيه رفيق المسلم · ${cityNameAr}`, `Rafeeq Al-Muslim test alert · ${cityNameAr}`),
             sound: true
           },
           trigger: null // Deliver immediately

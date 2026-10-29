@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from '../components/common/TextUI';
 import { usePalette } from '../theme/palette';
+import { useApp } from '../context/AppContext';
 
 export interface SettingsRow {
   key: string;
@@ -16,6 +17,7 @@ export interface SettingsRow {
 /** A card of tappable settings rows (label, current value, chevron), with an optional group title. */
 export const SettingsList: React.FC<{ title?: string; rows: SettingsRow[]; children?: React.ReactNode }> = ({ title, rows, children }) => {
   const p = usePalette();
+  const { isRTL } = useApp();
   return (
     <View style={{ gap: 8 }}>
       {title ? <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4 }}>{title}</TextUI> : null}
@@ -32,7 +34,7 @@ export const SettingsList: React.FC<{ title?: string; rows: SettingsRow[]; child
           >
             <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{row.label}</TextUI>
             {row.value ? <TextUI size={14} color={p.muted} numberOfLines={1} style={{ flexShrink: 1, maxWidth: '60%' }}>{row.value}</TextUI> : null}
-            <Feather name={row.expanded === undefined ? 'chevron-left' : row.expanded ? 'chevron-up' : 'chevron-down'} size={16} color={p.muted} />
+            <Feather name={row.expanded === undefined ? (isRTL ? 'chevron-left' : 'chevron-right') : row.expanded ? 'chevron-up' : 'chevron-down'} size={16} color={p.muted} />
           </TouchableOpacity>
         ))}
         {children}

@@ -1,4 +1,4 @@
-import { toArabicNumber, toStandardNumber } from './prayerCalculation';
+import { toArabicIndicDigits, toStandardNumber } from './prayerCalculation';
 
 export interface QuranVerse {
   surahId: number;
@@ -86,9 +86,9 @@ export function parseSurahVerses(surahData: any): ParsedSurah {
         allVerses.push({
           surahId: surahData.id,
           ayahNumber: stdNum,
-          arabicNumber: rawNum || toArabicNumber(stdNum),
+          arabicNumber: rawNum || toArabicIndicDigits(stdNum),
           text: vText,
-          badge: vBadge || `﴿${toArabicNumber(stdNum)}﴾`,
+          badge: vBadge || `﴿${toArabicIndicDigits(stdNum)}﴾`,
           pageNum,
           juzNum
         });

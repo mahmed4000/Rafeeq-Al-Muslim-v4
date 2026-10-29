@@ -68,7 +68,7 @@ export const RuqyahScreen: React.FC = () => {
           }}
         >
           <TextUI variant="captionBold" color={activeTab === 'quran' ? p.onPrimary : p.ink}>
-            📖 آيات الرقية
+            {t('📖 آيات الرقية', '📖 Ruqyah verses')}
           </TextUI>
         </TouchableOpacity>
 
@@ -87,7 +87,7 @@ export const RuqyahScreen: React.FC = () => {
           }}
         >
           <TextUI variant="captionBold" color={activeTab === 'sunnah' ? p.onPrimary : p.ink}>
-            🤲 أدعية السنة
+            {t('🤲 أدعية السنة', '🤲 Sunnah supplications')}
           </TextUI>
         </TouchableOpacity>
 
@@ -106,7 +106,7 @@ export const RuqyahScreen: React.FC = () => {
           }}
         >
           <TextUI variant="captionBold" color={activeTab === 'adab' ? p.onPrimary : p.ink}>
-            ✨ الآداب
+            {t('✨ الآداب', '✨ Etiquette')}
           </TextUI>
         </TouchableOpacity>
       </View>

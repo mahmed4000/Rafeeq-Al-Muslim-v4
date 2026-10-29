@@ -9,7 +9,7 @@ import { TOKENS, makeShadow } from '../constants/tokens';
 import { usePalette } from '../theme/palette';
 
 export const ZakatScreen: React.FC = () => {
-  const { goBack, t, triggerHaptic } = useApp();
+  const { goBack, t, isRTL, triggerHaptic } = useApp();
   const p = usePalette();
 
   const [activeTab, setActiveTab] = useState<'calculator' | 'fitr'>('calculator');
@@ -88,7 +88,7 @@ export const ZakatScreen: React.FC = () => {
           }}
         >
           <TextUI variant="captionBold" color={activeTab === 'calculator' ? p.onPrimary : p.ink}>
-            💰 زكاة الأموال والذهب
+            {t('💰 زكاة الأموال والذهب', '💰 Wealth & Gold Zakat')}
           </TextUI>
         </TouchableOpacity>
 
@@ -107,7 +107,7 @@ export const ZakatScreen: React.FC = () => {
           }}
         >
           <TextUI variant="captionBold" color={activeTab === 'fitr' ? p.onPrimary : p.ink}>
-            🌾 زكاة الفطر
+            {t('🌾 زكاة الفطر', '🌾 Zakat al-Fitr')}
           </TextUI>
         </TouchableOpacity>
       </View>
@@ -140,10 +140,10 @@ export const ZakatScreen: React.FC = () => {
 
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderColor: reachesNisab ? 'rgba(255,255,255,0.15)' : p.border }}>
                 <TextUI variant="caption" color={reachesNisab ? p.onHeroMuted : p.muted}>
-                  {reachesNisab ? '✅ بلغ النصاب وحال عليه الحول' : '⚠️ لم يبلغ النصاب الشرعي'}
+                  {reachesNisab ? t('✅ بلغ النصاب وحال عليه الحول', '✅ Nisab reached and a lunar year has passed') : t('⚠️ لم يبلغ النصاب الشرعي', '⚠️ Below the Nisab threshold')}
                 </TextUI>
                 <TextUI variant="caption" color={reachesNisab ? p.onHeroMuted : p.muted}>
-                  النصاب: {toArabicNumber(Math.round(nisabValue))}
+                  {t('النصاب:', 'Nisab:')} {toArabicNumber(Math.round(nisabValue))}
                 </TextUI>
               </View>
             </View>
@@ -178,7 +178,7 @@ export const ZakatScreen: React.FC = () => {
                   }}
                 >
                   <TextUI size={12} weight="bold" color={nisabStandard === 'gold' ? p.primaryInk : p.ink}>
-                    نصاب الذهب (٨٥ غرام)
+                    {t('نصاب الذهب (٨٥ غرام)', 'Gold Nisab (85 g)')}
                   </TextUI>
                 </TouchableOpacity>
 
@@ -196,7 +196,7 @@ export const ZakatScreen: React.FC = () => {
                   }}
                 >
                   <TextUI size={12} weight="bold" color={nisabStandard === 'silver' ? p.primaryInk : p.ink}>
-                    نصاب الفضة (٥٩٥ غرام)
+                    {t('نصاب الفضة (٥٩٥ غرام)', 'Silver Nisab (595 g)')}
                   </TextUI>
                 </TouchableOpacity>
               </View>
@@ -207,39 +207,39 @@ export const ZakatScreen: React.FC = () => {
               {/* Cash */}
               <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
                 <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
-                  💵 الأموال النقدية والمدخرات البنكية
+                  {t('💵 الأموال النقدية والمدخرات البنكية', '💵 Cash and bank savings')}
                 </TextUI>
                 <TextInput
-                  placeholder="٠"
+                  placeholder={t('٠', '0')}
                   placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={cash}
                   onChangeText={setCash}
-                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
 
               {/* Gold Grams */}
               <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
                 <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
-                  🥇 الذهب المدخر (عيار ٢٤ أو ٢١ أو ١٨)
+                  {t('🥇 الذهب المدخر (عيار ٢٤ أو ٢١ أو ١٨)', '🥇 Saved gold (24, 21 or 18 karat)')}
                 </TextUI>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput
-                    placeholder="عيار ٢٤ (غرام)"
+                    placeholder={t('عيار ٢٤ (غرام)', '24 karat (grams)')}
                     placeholderTextColor={p.muted}
                     keyboardType="numeric"
                     value={gold24}
                     onChangeText={setGold24}
-                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right', fontSize: 12 }}
+                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 12 }}
                   />
                   <TextInput
-                    placeholder="عيار ٢١ (غرام)"
+                    placeholder={t('عيار ٢١ (غرام)', '21 karat (grams)')}
                     placeholderTextColor={p.muted}
                     keyboardType="numeric"
                     value={gold21}
                     onChangeText={setGold21}
-                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right', fontSize: 12 }}
+                    style={{ flex: 1, backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 12 }}
                   />
                 </View>
               </View>
@@ -247,30 +247,30 @@ export const ZakatScreen: React.FC = () => {
               {/* Stocks / Trade goods */}
               <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
                 <TextUI size={13} weight="bold" color={p.ink} style={{ marginBottom: 6 }}>
-                  📈 الأسهم وعروض التجارة المعدة للبيع
+                  {t('📈 الأسهم وعروض التجارة المعدة للبيع', '📈 Stocks and trade goods held for sale')}
                 </TextUI>
                 <TextInput
-                  placeholder="القيمة السوقية الحالية"
+                  placeholder={t('القيمة السوقية الحالية', 'Current market value')}
                   placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={stocks}
                   onChangeText={setStocks}
-                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
 
               {/* Debts deduction */}
               <View style={{ backgroundColor: p.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p.border }}>
                 <TextUI size={13} weight="bold" color={p.danger} style={{ marginBottom: 6 }}>
-                  📉 الديون الحالّة والالتزامات المالية الواجبة (خصم)
+                  {t('📉 الديون الحالّة والالتزامات المالية الواجبة (خصم)', '📉 Debts and financial obligations now due (deducted)')}
                 </TextUI>
                 <TextInput
-                  placeholder="المبلغ الواجب سداده فوراً"
+                  placeholder={t('المبلغ الواجب سداده فوراً', 'Amount due for immediate payment')}
                   placeholderTextColor={p.muted}
                   keyboardType="numeric"
                   value={debts}
                   onChangeText={setDebts}
-                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: 'right' }}
+                  style={{ backgroundColor: p.bgAlt, borderRadius: 10, padding: 10, color: p.ink, textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
             </View>
@@ -287,19 +287,19 @@ export const ZakatScreen: React.FC = () => {
               }}
             >
               <TextUI size={14} color={p.onHeroMuted}>
-                إجمالي زكاة الفطر الواجب إخراجها
+                {t('إجمالي زكاة الفطر الواجب إخراجها', 'Total Zakat al-Fitr due')}
               </TextUI>
               <TextUI size={36} weight="bold" color={p.onHero} style={{ marginVertical: 8 }}>
                 {toArabicNumber(totalFitrDue)}
               </TextUI>
               <TextUI size={12} color={p.onHeroMuted}>
-                صاع نبوي من قوت البلد (أو القيمة التقديرية)
+                {t('صاع نبوي من قوت البلد (أو القيمة التقديرية)', "One Prophetic sa' of the local staple food (or its estimated value)")}
               </TextUI>
             </View>
 
             <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: p.border }}>
               <TextUI size={14} weight="bold" color={p.ink} style={{ marginBottom: 12 }}>
-                عدد أفراد الأسرة (عنك وعمن تلزمك نفقته):
+                {t('عدد أفراد الأسرة (عنك وعمن تلزمك نفقته):', 'Family members (yourself and those you are obliged to support):')}
               </TextUI>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>

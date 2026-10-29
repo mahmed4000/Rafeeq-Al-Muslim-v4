@@ -12,6 +12,10 @@ export const toArabicNumber = (num: number | string): string => {
   return num.toString().replace(/[0-9]/g, (w) => arabicDigits[+w]);
 };
 
+/** Always Arabic-Indic digits, for the mushaf itself (ayah markers, page ornaments) in any language. */
+export const toArabicIndicDigits = (num: number | string): string =>
+  num.toString().replace(/[0-9]/g, (w) => '٠١٢٣٤٥٦٧٨٩'[+w]);
+
 export const toStandardNumber = (str: string): string => {
   const arabicDigits: { [key: string]: string } = {
     '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',

@@ -8,6 +8,7 @@ import { AZKAR_CATEGORIES, AZKAR_DATABASE } from '../data/azkarData';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { StorageService } from '../services/storage';
 import { usePalette } from '../theme/palette';
+import { getUiLanguage } from '../i18n/language';
 
 type FilterGroup = 'all' | 'daily' | 'prayer' | 'occasions';
 
@@ -24,6 +25,7 @@ type SessionProgress = Record<string, { day: string; index: number; counter: num
 
 /** "١٢ ذكرًا" / "٣ أذكار" (Arabic plural agreement). */
 function adhkarAr(n: number): string {
+  if (getUiLanguage() === 'en') return `${toArabicNumber(n)} ${n === 1 ? 'dhikr' : 'adhkar'}`;
   if (n === 1) return 'ذكر واحد';
   if (n === 2) return 'ذكران';
   const tail = n % 100;
@@ -33,8 +35,13 @@ function adhkarAr(n: number): string {
 const countOf = (id: string) => (AZKAR_DATABASE[id] || []).length;
 
 export const AzkarCategoriesScreen: React.FC = () => {
-  const { navigate, t, triggerHaptic } = useApp();
+  const { navigate, t, triggerHaptic, isRTL, lang } = useApp();
   const p = usePalette();
+  const titleOf = (cat: { titleAr: string; titleEn: string }) => (lang === 'en' ? cat.titleEn : cat.titleAr);
+  const stoppedLabel = (at: number, total?: number) =>
+    total === undefined
+      ? t(`توقفت عند ${toArabicNumber(at + 1)}`, `stopped at ${toArabicNumber(at + 1)}`)
+      : t(`توقفت عند ${toArabicNumber(at + 1)} من ${toArabicNumber(total)}`, `Stopped at ${toArabicNumber(at + 1)} of ${toArabicNumber(total)}`);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<FilterGroup>('all');
@@ -68,7 +75,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
     return AZKAR_CATEGORIES.filter((cat) => {
       if (selectedGroup !== 'all' && cat.group !== selectedGroup) return false;
       if (!q) return true;
-      const titleMatch = cat.titleAr.toLowerCase().includes(q) || cat.titleEn.toLowerCase().includes(q) || cat.subtitleAr.toLowerCase().includes(q);
+      const titleMatch = cat.titleAr.toLowerCase().includes(q) || cat.titleEn.toLowerCase().includes(q) || cat.subtitleAr.toLowerCase().includes(q) || cat.subtitleEn.toLowerCase().includes(q);
       // Virtue lines are hidden in sessions until sourced, so they are not searched either.
       const contentMatch = (AZKAR_DATABASE[cat.id] || []).some((item) => item.ar.includes(q) || item.en.toLowerCase().includes(q));
       return titleMatch || contentMatch;
@@ -90,7 +97,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
       <TouchableOpacity
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`${cat.titleAr}، ${adhkarAr(total)}${at ? `، توقفت عند ${toArabicNumber(at + 1)}` : ''}`}
+        accessibilityLabel={`${titleOf(cat)}${t('، ', ', ')}${adhkarAr(total)}${at ? `${t('، ', ', ')}${stoppedLabel(at)}` : ''}`}
         onPress={() => openSession(id)}
         style={{ flex: 1, gap: 8, padding: 14, borderRadius: 18, backgroundColor: isNow ? p.hero : p.surface, borderWidth: 1, borderColor: isNow ? p.hero : p.border }}
       >
@@ -104,9 +111,9 @@ export const AzkarCategoriesScreen: React.FC = () => {
             </View>
           ) : null}
         </View>
-        <TextUI size={16} weight="bold" color={isNow ? p.onHero : p.ink}>{cat.titleAr}</TextUI>
+        <TextUI size={16} weight="bold" color={isNow ? p.onHero : p.ink}>{titleOf(cat)}</TextUI>
         <TextUI size={13} color={isNow ? p.onHeroMuted : p.muted}>
-          {at ? `توقفت عند ${toArabicNumber(at + 1)} من ${toArabicNumber(total)}` : adhkarAr(total)}
+          {at ? stoppedLabel(at, total) : adhkarAr(total)}
         </TextUI>
         <View style={{ height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: isNow ? 'rgba(250,241,230,0.2)' : p.border }}>
           <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${total ? Math.round((at / total) * 100) : 0}%` }} />
@@ -152,7 +159,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
             onChangeText={setSearchQuery}
             placeholder={t('باب أو كلمة من الذكر', 'Category or a word from the dhikr')}
             placeholderTextColor={p.muted}
-            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 15, paddingVertical: 10 }}
+            style={{ flex: 1, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 15, paddingVertical: 10 }}
           />
           {searchQuery ? (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('مسح البحث', 'Clear search')} onPress={() => setSearchQuery('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
@@ -202,7 +209,7 @@ export const AzkarCategoriesScreen: React.FC = () => {
                   key={cat.id}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={`${cat.titleAr}، ${adhkarAr(total)}`}
+                  accessibilityLabel={`${titleOf(cat)}${t('، ', ', ')}${adhkarAr(total)}`}
                   onPress={() => openSession(cat.id)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, minHeight: 64, borderTopWidth: i ? 1 : 0, borderColor: p.border }}
                 >
@@ -210,11 +217,11 @@ export const AzkarCategoriesScreen: React.FC = () => {
                     <Feather name={cat.icon as any} size={20} color={p.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <TextUI size={16} weight="bold" color={p.ink}>{cat.titleAr}</TextUI>
-                    <TextUI size={13} color={p.muted} numberOfLines={1}>{at ? `توقفت عند ${toArabicNumber(at + 1)} من ${toArabicNumber(total)}` : cat.subtitleAr}</TextUI>
+                    <TextUI size={16} weight="bold" color={p.ink}>{titleOf(cat)}</TextUI>
+                    <TextUI size={13} color={p.muted} numberOfLines={1}>{at ? stoppedLabel(at, total) : t(cat.subtitleAr, cat.subtitleEn)}</TextUI>
                   </View>
                   <TextUI size={13} color={p.muted}>{adhkarAr(total)}</TextUI>
-                  <Feather name="chevron-left" size={16} color={p.muted} />
+                  <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
                 </TouchableOpacity>
               );
             })}

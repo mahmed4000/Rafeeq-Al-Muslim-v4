@@ -10,7 +10,7 @@ import { makeShadow } from '../constants/tokens';
 import { usePalette } from '../theme/palette';
 
 export const Hadith40Screen: React.FC = () => {
-  const { goBack, t, triggerHaptic } = useApp();
+  const { goBack, t, isRTL, triggerHaptic } = useApp();
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(1);
 
@@ -61,7 +61,7 @@ export const Hadith40Screen: React.FC = () => {
             style={{
               flex: 1,
               color: p.ink,
-              textAlign: 'right',
+              textAlign: isRTL ? 'right' : 'left',
               fontSize: 14
             }}
           />
@@ -146,7 +146,7 @@ export const Hadith40Screen: React.FC = () => {
                       }}
                     >
                       <TextUI variant="captionBold" color={p.primaryInk} style={{ marginBottom: 4 }}>
-                        💡 الفوائد والدروس المستفادة:
+                        {t('💡 الفوائد والدروس المستفادة:', '💡 Benefits and lessons learned:')}
                       </TextUI>
                       <View style={{ gap: 5 }}>
                         {item.lessons.map((lesson: string, index: number) => (

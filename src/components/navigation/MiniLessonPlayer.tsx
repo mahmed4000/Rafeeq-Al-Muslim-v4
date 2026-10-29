@@ -10,18 +10,18 @@ import { usePalette } from '../../theme/palette';
 
 /** Floating "now playing" bar above the tab bar while a Haramain lesson is loaded (from the design). */
 export const MiniLessonPlayer: React.FC = () => {
-  const { navigate, triggerHaptic } = useApp();
+  const { navigate, triggerHaptic, t, isRTL } = useApp();
   const player = useLessonPlayer();
   const p = usePalette();
   const track = player.track;
   if (!track) return null;
 
   const ratio = player.totalSecs ? Math.min(1, player.currentSecs / player.totalSecs) : 0;
-  const speedLabel = `${toArabicNumber(String(player.speed).replace('.', '٫'))}×`;
+  const speedLabel = `${toArabicNumber(String(player.speed).replace('.', isRTL ? '٫' : '.'))}×`;
 
   return (
     <View
-      accessibilityLabel="المشغّل المصغّر"
+      accessibilityLabel={t('المشغّل المصغّر', 'Mini player')}
       style={{
         marginHorizontal: 12,
         marginBottom: 8,
@@ -37,7 +37,7 @@ export const MiniLessonPlayer: React.FC = () => {
     >
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={player.playing ? 'إيقاف مؤقت' : 'تشغيل'}
+        accessibilityLabel={player.playing ? t('إيقاف مؤقت', 'Pause') : t('تشغيل', 'Play')}
         onPress={() => { triggerHaptic('light'); player.toggle(); }}
         style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.accent }}
       >
@@ -49,11 +49,11 @@ export const MiniLessonPlayer: React.FC = () => {
       </TouchableOpacity>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={`فتح الدرس: ${track.title}، الدرس ${toArabicNumber(track.lessonNumber)}`}
+        accessibilityLabel={t(`فتح الدرس: ${track.title}، الدرس ${toArabicNumber(track.lessonNumber)}`, `Open lesson: ${track.title}, lesson ${toArabicNumber(track.lessonNumber)}`)}
         onPress={() => navigate('haramain_lesson', { courseId: track.courseId, lessonId: track.lessonId })}
         style={{ flex: 1, minHeight: 44, justifyContent: 'center', gap: 4 }}
       >
-        <TextUI size={14} weight="bold" color={p.onHero} numberOfLines={1}>{`${track.title} — الدرس ${toArabicNumber(track.lessonNumber)}`}</TextUI>
+        <TextUI size={14} weight="bold" color={p.onHero} numberOfLines={1}>{t(`${track.title} — الدرس ${toArabicNumber(track.lessonNumber)}`, `${track.title} — Lesson ${toArabicNumber(track.lessonNumber)}`)}</TextUI>
         <View style={{ height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: 'rgba(250,241,230,0.2)' }}>
           <View style={{ height: 3, borderRadius: 2, backgroundColor: p.accent, width: `${Math.round(ratio * 100)}%` }} />
         </View>
@@ -61,7 +61,7 @@ export const MiniLessonPlayer: React.FC = () => {
       <TextUI size={13} weight="bold" color={p.onHeroMuted}>{speedLabel}</TextUI>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel="إيقاف الدرس وإغلاق المشغّل"
+        accessibilityLabel={t('إيقاف الدرس وإغلاق المشغّل', 'Stop the lesson and close the player')}
         onPress={() => { triggerHaptic('light'); player.stop(); }}
         style={{ width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }}
       >

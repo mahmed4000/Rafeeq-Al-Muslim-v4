@@ -10,13 +10,13 @@ import { getHijriParts, hijriMonthName, gregorianMonthName } from '../services/h
 import { cityNow, fromCityClock, zoneOffsetMinutes } from '../services/cityTime';
 
 type Mode = 'hijri' | 'gregorian';
-const COLUMNS: { key: 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha'; label: string }[] = [
-  { key: 'fajr', label: 'الفجر' },
-  { key: 'sunrise', label: 'الشروق' },
-  { key: 'dhuhr', label: 'الظهر' },
-  { key: 'asr', label: 'العصر' },
-  { key: 'maghrib', label: 'المغرب' },
-  { key: 'isha', label: 'العشاء' }
+const COLUMNS: { key: 'fajr' | 'sunrise' | 'dhuhr' | 'asr' | 'maghrib' | 'isha'; label: string; labelEn: string }[] = [
+  { key: 'fajr', label: 'الفجر', labelEn: 'Fajr' },
+  { key: 'sunrise', label: 'الشروق', labelEn: 'Sunrise' },
+  { key: 'dhuhr', label: 'الظهر', labelEn: 'Dhuhr' },
+  { key: 'asr', label: 'العصر', labelEn: 'Asr' },
+  { key: 'maghrib', label: 'المغرب', labelEn: 'Maghrib' },
+  { key: 'isha', label: 'العشاء', labelEn: 'Isha' }
 ];
 
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);
@@ -47,7 +47,7 @@ function gregorianMonthDates(offset: number, now: Date): Date[] {
 }
 
 export const PrayerMonthScreen: React.FC = () => {
-  const { goBack, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust, t } = useApp();
+  const { goBack, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust, t, isRTL, lang } = useApp();
   const p = usePalette();
   const [mode, setMode] = useState<Mode>('hijri');
   const [offset, setOffset] = useState(0);
@@ -76,13 +76,13 @@ export const PrayerMonthScreen: React.FC = () => {
     const last = dates[dates.length - 1];
     const h = hijriOf(first);
     const title = mode === 'hijri'
-      ? `${hijriMonthName(h.month)} ${toArabicNumber(h.year)} هـ`
+      ? `${hijriMonthName(h.month)} ${toArabicNumber(h.year)} ${lang === 'en' ? 'AH' : 'هـ'}`
       : `${gregorianMonthName(first.getMonth())} ${toArabicNumber(first.getFullYear())}`;
     const span = mode === 'hijri'
       ? `${gregorianMonthName(first.getMonth())}${first.getMonth() !== last.getMonth() ? ` – ${gregorianMonthName(last.getMonth())}` : ''} ${toArabicNumber(last.getFullYear())}`
       : `${hijriMonthName(hijriOf(first).month)} – ${hijriMonthName(hijriOf(last).month)}`;
-    return { rows: built, label: title, subLabel: `${span} · ${currentCity.nameAr}` };
-  }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust]);
+    return { rows: built, label: title, subLabel: `${span} · ${lang === 'en' ? currentCity.nameEn : currentCity.nameAr}` };
+  }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets, hijriAdjust, lang]);
 
   const navButton = (icon: 'chevron-right' | 'chevron-left', onPress: () => void, a11y: string) => (
     <TouchableOpacity onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -95,12 +95,12 @@ export const PrayerMonthScreen: React.FC = () => {
       <ScreenHeader title={t('مواقيت الشهر', 'Monthly Times')} onBack={goBack} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, padding: 4, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-          {navButton('chevron-right', () => setOffset((o) => o - 1), 'الشهر السابق')}
-          <TouchableOpacity onPress={() => setOffset(0)} accessibilityRole="button" accessibilityLabel="العودة إلى الشهر الحالي" style={{ alignItems: 'center', flex: 1 }}>
+          {navButton(isRTL ? 'chevron-right' : 'chevron-left', () => setOffset((o) => o - 1), t('الشهر السابق', 'Previous month'))}
+          <TouchableOpacity onPress={() => setOffset(0)} accessibilityRole="button" accessibilityLabel={t('العودة إلى الشهر الحالي', 'Back to the current month')} style={{ alignItems: 'center', flex: 1 }}>
             <TextUI size={16} weight="bold" color={p.ink} align="center">{label}</TextUI>
             <TextUI size={12.5} color={p.muted} align="center">{subLabel}</TextUI>
           </TouchableOpacity>
-          {navButton('chevron-left', () => setOffset((o) => o + 1), 'الشهر التالي')}
+          {navButton(isRTL ? 'chevron-left' : 'chevron-right', () => setOffset((o) => o + 1), t('الشهر التالي', 'Next month'))}
         </View>
 
         <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderRadius: 999, padding: 4, backgroundColor: p.bgAlt }}>
@@ -114,7 +114,7 @@ export const PrayerMonthScreen: React.FC = () => {
                 accessibilityState={{ selected: active }}
                 style={{ flex: 1, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? p.surface : 'transparent' }}
               >
-                <TextUI size={14} weight={active ? 'bold' : 'regular'} color={active ? p.primaryInk : p.muted}>{m === 'hijri' ? 'الشهر الهجري' : 'الشهر الميلادي'}</TextUI>
+                <TextUI size={14} weight={active ? 'bold' : 'regular'} color={active ? p.primaryInk : p.muted}>{m === 'hijri' ? t('الشهر الهجري', 'Hijri month') : t('الشهر الميلادي', 'Gregorian month')}</TextUI>
               </TouchableOpacity>
             );
           })}
@@ -122,20 +122,20 @@ export const PrayerMonthScreen: React.FC = () => {
 
         <View style={{ borderRadius: 16, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <View style={{ flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 4, backgroundColor: p.hero }}>
-            <TextUI size={12.5} weight="bold" color={p.onHero} align="center" style={{ width: 50 }}>اليوم</TextUI>
+            <TextUI size={12.5} weight="bold" color={p.onHero} align="center" style={{ width: 50 }}>{t('اليوم', 'Day')}</TextUI>
             {COLUMNS.map((c) => (
-              <TextUI key={c.key} size={12.5} weight="bold" color={p.onHero} align="center" style={{ flex: 1 }}>{c.label}</TextUI>
+              <TextUI key={c.key} size={12.5} weight="bold" color={p.onHero} align="center" style={{ flex: 1 }}>{t(c.label, c.labelEn)}</TextUI>
             ))}
           </View>
           {rows.map((r) => (
             <View key={r.key}>
               {r.dstChanged ? (
                 <View style={{ paddingVertical: 6, paddingHorizontal: 10, backgroundColor: p.soft }}>
-                  <TextUI size={12} color={p.primaryInk} align="center">تغيّر التوقيت (الصيفي/الشتوي) من هذا اليوم</TextUI>
+                  <TextUI size={12} color={p.primaryInk} align="center">{t('تغيّر التوقيت (الصيفي/الشتوي) من هذا اليوم', 'Clocks change (summer/winter time) from this day')}</TextUI>
                 </View>
               ) : null}
               <View
-                accessibilityLabel={r.isToday ? 'اليوم' : undefined}
+                accessibilityLabel={r.isToday ? t('اليوم', 'Today') : undefined}
                 style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingVertical: 6, paddingHorizontal: 4, borderTopWidth: 1, borderColor: p.divider, backgroundColor: r.isToday ? p.soft : 'transparent' }}
               >
                 <View style={{ width: 50, alignItems: 'center' }}>
@@ -152,7 +152,10 @@ export const PrayerMonthScreen: React.FC = () => {
           ))}
         </View>
         <TextUI size={12.5} color={p.muted} style={{ lineHeight: 20 }}>
-          {`محسوبة لموقع ${currentCity.nameAr}${currentCity.timeZone ? ' وبتوقيتها المحلي' : ' بتوقيت جهازك'}. التاريخ الهجري وفق تقويم أم القرى وقد يختلف يومًا عن رؤية الهلال في بلدك.`}
+          {t(
+            `محسوبة لموقع ${currentCity.nameAr}${currentCity.timeZone ? ' وبتوقيتها المحلي' : ' بتوقيت جهازك'}. التاريخ الهجري وفق تقويم أم القرى وقد يختلف يومًا عن رؤية الهلال في بلدك.`,
+            `Calculated for ${currentCity.nameEn}${currentCity.timeZone ? ' in its local time' : ' in your device time'}. The Hijri date follows the Umm al-Qura calendar and may differ by a day from the moon sighting in your country.`
+          )}
         </TextUI>
       </ScrollView>
     </View>

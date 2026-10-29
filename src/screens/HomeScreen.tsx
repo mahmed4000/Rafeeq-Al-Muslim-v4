@@ -17,32 +17,37 @@ import { surahById, surahForPage } from '../services/quranPages';
 import { cityNow, differsFromDevice } from '../services/cityTime';
 import { AudioService, LessonResumeRecord } from '../services/audioService';
 import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
+import { getUiLanguage, tr } from '../i18n/language';
 
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
 const AFTER_PRAYER_WINDOW = 30;
 
-const STRIP: { key: keyof PrayerTimeValues; label: string }[] = [
-  { key: 'fajr', label: 'الفجر' },
-  { key: 'sunrise', label: 'الشروق' },
-  { key: 'dhuhr', label: 'الظهر' },
-  { key: 'asr', label: 'العصر' },
-  { key: 'maghrib', label: 'المغرب' },
-  { key: 'isha', label: 'العشاء' }
+const STRIP: { key: keyof PrayerTimeValues; label: string; labelEn: string }[] = [
+  { key: 'fajr', label: 'الفجر', labelEn: 'Fajr' },
+  { key: 'sunrise', label: 'الشروق', labelEn: 'Sunrise' },
+  { key: 'dhuhr', label: 'الظهر', labelEn: 'Dhuhr' },
+  { key: 'asr', label: 'العصر', labelEn: 'Asr' },
+  { key: 'maghrib', label: 'المغرب', labelEn: 'Maghrib' },
+  { key: 'isha', label: 'العشاء', labelEn: 'Isha' }
 ];
 
-const MORE: { screen: string; title: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { screen: 'tasbih', title: 'المسبحة', icon: 'circle' },
-  { screen: 'qibla', title: 'القبلة', icon: 'compass' },
-  { screen: 'allah_names', title: 'أسماء الله الحسنى', icon: 'star' },
-  { screen: 'hadith_40', title: 'الأربعون النووية', icon: 'award' },
-  { screen: 'ruqyah', title: 'الرقية الشرعية', icon: 'shield' },
-  { screen: 'zakat_calculator', title: 'حاسبة الزكاة', icon: 'percent' }
+const PRAYER_NAMES_EN: Record<PrayerKey, string> = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+const prayerName = (k: PrayerKey) => tr(PRAYER_NAMES_AR[k], PRAYER_NAMES_EN[k]);
+
+const MORE: { screen: string; title: string; titleEn: string; icon: keyof typeof Feather.glyphMap }[] = [
+  { screen: 'tasbih', title: 'المسبحة', titleEn: 'Tasbih', icon: 'circle' },
+  { screen: 'qibla', title: 'القبلة', titleEn: 'Qibla', icon: 'compass' },
+  { screen: 'allah_names', title: 'أسماء الله الحسنى', titleEn: 'Names of Allah', icon: 'star' },
+  { screen: 'hadith_40', title: 'الأربعون النووية', titleEn: "Nawawi's Forty", icon: 'award' },
+  { screen: 'ruqyah', title: 'الرقية الشرعية', titleEn: 'Ruqyah', icon: 'shield' },
+  { screen: 'zakat_calculator', title: 'حاسبة الزكاة', titleEn: 'Zakat Calculator', icon: 'percent' }
 ];
 
 const toMin = (t: { hours: number; minutes: number }) => t.hours * 60 + t.minutes;
 
 /** "صفحة واحدة", "صفحتان", "٣ صفحات", "١١ صفحة" (Arabic number agreement). */
 const pagesText = (n: number) => {
+  if (getUiLanguage() === 'en') return n === 1 ? '1 page' : `${toArabicNumber(n)} pages`;
   if (n === 1) return 'صفحة واحدة';
   if (n === 2) return 'صفحتان';
   const mod = n % 100;
@@ -70,23 +75,25 @@ function pickNowCard(times: PrayerTimeValues, now: Date): NowCard {
   const m = now.getHours() * 60 + now.getMinutes();
   const category = (id: string) => AZKAR_CATEGORIES.find((c) => c.id === id)!;
 
+  const title = (c: { titleAr: string; titleEn: string }) => tr(c.titleAr, c.titleEn);
+
   const justPrayed = PRAYER_KEYS.find((k) => m >= toMin(times[k]) && m < toMin(times[k]) + AFTER_PRAYER_WINDOW);
   if (justPrayed) {
     const c = category('after_prayer');
-    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: `بعد صلاة ${PRAYER_NAMES_AR[justPrayed]}`, icon: 'check-circle' };
+    return { kind: 'adhkar', categoryId: c.id, title: title(c), subtitle: tr(`بعد صلاة ${PRAYER_NAMES_AR[justPrayed]}`, `After ${PRAYER_NAMES_EN[justPrayed]} prayer`), icon: 'check-circle' };
   }
   // Windows follow the subtitles already shown on the adhkar categories.
   if (m >= toMin(times.fajr) && m < toMin(times.sunrise)) {
     const c = category('morning');
-    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'sun' };
+    return { kind: 'adhkar', categoryId: c.id, title: title(c), subtitle: tr(c.subtitleAr, c.subtitleEn), icon: 'sun' };
   }
   if (m >= toMin(times.asr) && m < toMin(times.maghrib)) {
     const c = category('evening');
-    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'moon' };
+    return { kind: 'adhkar', categoryId: c.id, title: title(c), subtitle: tr(c.subtitleAr, c.subtitleEn), icon: 'moon' };
   }
   if (m >= toMin(times.isha) || m < toMin(times.fajr)) {
     const c = category('sleep');
-    return { kind: 'adhkar', categoryId: c.id, title: c.titleAr, subtitle: c.subtitleAr, icon: 'moon' };
+    return { kind: 'adhkar', categoryId: c.id, title: title(c), subtitle: tr(c.subtitleAr, c.subtitleEn), icon: 'moon' };
   }
   if (now.getDay() === 5 && m < toMin(times.maghrib)) return { kind: 'kahf' };
   return { kind: 'quran' };
@@ -116,7 +123,7 @@ const ProgressBar: React.FC<{ p: Palette; percent: number; height?: number }> = 
 );
 
 export const HomeScreen: React.FC = () => {
-  const { navigate, t, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust } = useApp();
+  const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust } = useApp();
   const p = usePalette();
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
@@ -168,11 +175,17 @@ export const HomeScreen: React.FC = () => {
   const nowCard = pickNowCard(prayerTimes, now);
   const progress = khatma && !khatma.completedAt ? getKhatmaProgress(khatma) : null;
   const countdown = next.countdownText.replace(/^-/, '');
+  const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
+  const nextName = t(next.nameAr, next.nameEn);
+  const forwardIcon = isRTL ? 'chevron-left' : 'chevron-right';
+  const bookmarkSurah = readingBookmark
+    ? (lang === 'en' ? surahById(readingBookmark.surahId).nameEn || readingBookmark.surahName : readingBookmark.surahName)
+    : '';
 
   const renderNowCard = () => {
     let icon: keyof typeof Feather.glyphMap = 'book-open';
-    let title = 'وِرد القرآن';
-    let subtitle = 'افتح المصحف واقرأ ما تيسّر';
+    let title = t('وِرد القرآن', 'Daily Quran reading');
+    let subtitle = t('افتح المصحف واقرأ ما تيسّر', 'Open the Mushaf and read what you can');
     let action = () => navigate('quran_index');
     if (nowCard.kind === 'adhkar') {
       icon = nowCard.icon;
@@ -181,15 +194,17 @@ export const HomeScreen: React.FC = () => {
       action = () => navigate('azkar_session', { categoryId: nowCard.categoryId });
     } else if (nowCard.kind === 'kahf') {
       icon = 'star';
-      title = 'سورة الكهف';
-      subtitle = 'قراءة سورة الكهف يوم الجمعة';
+      title = t('سورة الكهف', 'Surah Al-Kahf');
+      subtitle = t('قراءة سورة الكهف يوم الجمعة', 'Reading Surah Al-Kahf on Friday');
       action = () => openReaderAt(18);
     } else if (progress && !progress.isComplete) {
       const left = Math.max(0, progress.todayTarget - progress.readToday);
-      subtitle = left > 0 ? `بقي من وِرد اليوم ${pagesText(left)}` : 'أتممت وِرد اليوم، بارك الله فيك';
+      subtitle = left > 0
+        ? t(`بقي من وِرد اليوم ${pagesText(left)}`, `${pagesText(left)} left of today's reading`)
+        : t('أتممت وِرد اليوم، بارك الله فيك', "You finished today's reading, may Allah bless you");
       action = () => openReaderAtPage(progress.nextPage);
     } else if (readingBookmark) {
-      subtitle = `تابع من سورة ${readingBookmark.surahName}`;
+      subtitle = t(`تابع من سورة ${readingBookmark.surahName}`, `Continue from Surah ${bookmarkSurah}`);
       action = () => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah);
     }
     return (
@@ -198,11 +213,11 @@ export const HomeScreen: React.FC = () => {
           <Feather name={icon} size={22} color={p.primary} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <TextUI size={12.5} weight="bold" color={p.accentInk}>الآن</TextUI>
+          <TextUI size={12.5} weight="bold" color={p.accentInk}>{t('الآن', 'Now')}</TextUI>
           <TextUI size={17} weight="bold" color={p.ink}>{title}</TextUI>
           <TextUI size={13} color={p.muted} numberOfLines={2}>{subtitle}</TextUI>
         </View>
-        <PrimaryButton p={p} label="ابدأ" onPress={() => { triggerHaptic('light'); action(); }} />
+        <PrimaryButton p={p} label={t('ابدأ', 'Start')} onPress={() => { triggerHaptic('light'); action(); }} />
       </Card>
     );
   };
@@ -214,17 +229,17 @@ export const HomeScreen: React.FC = () => {
         <Card p={p} style={{ gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <TextUI size={16} weight="bold" color={p.ink}>{khatma!.name}</TextUI>
-            <TextUI size={13} color={p.muted}>{`وِرد اليوم: ${pagesText(progress.todayTarget)}`}</TextUI>
+            <TextUI size={13} color={p.muted}>{t(`وِرد اليوم: ${pagesText(progress.todayTarget)}`, `Today: ${pagesText(progress.todayTarget)}`)}</TextUI>
           </View>
-          <TextUI size={14} color={p.muted}>{`سورة ${surah.nameAr} · صفحة ${toArabicNumber(progress.nextPage)}`}</TextUI>
+          <TextUI size={14} color={p.muted}>{t(`سورة ${surah.nameAr} · صفحة ${toArabicNumber(progress.nextPage)}`, `Surah ${surah.nameEn} · Page ${toArabicNumber(progress.nextPage)}`)}</TextUI>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <ProgressBar p={p} percent={progress.percent} />
-            <TextUI size={13} weight="bold" color={p.muted}>{`${toArabicNumber(progress.percent)}٪`}</TextUI>
+            <TextUI size={13} weight="bold" color={p.muted}>{t(`${toArabicNumber(progress.percent)}٪`, `${toArabicNumber(progress.percent)}%`)}</TextUI>
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <PrimaryButton p={p} label="أكمل وِردك" onPress={() => openReaderAtPage(progress.nextPage)} />
+            <PrimaryButton p={p} label={t('أكمل وِردك', 'Continue reading')} onPress={() => openReaderAtPage(progress.nextPage)} />
             <TouchableOpacity accessibilityRole="button" onPress={() => navigate('khatma')} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
-              <TextUI size={14} weight="bold" color={p.primary}>تفاصيل الختمة</TextUI>
+              <TextUI size={14} weight="bold" color={p.primary}>{t('تفاصيل الختمة', 'Khatma details')}</TextUI>
             </TouchableOpacity>
           </View>
         </Card>
@@ -233,14 +248,17 @@ export const HomeScreen: React.FC = () => {
     if (readingBookmark) {
       return (
         <Card p={p} style={{ gap: 10 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>آخر قراءة</TextUI>
+          <TextUI size={16} weight="bold" color={p.ink}>{t('آخر قراءة', 'Last read')}</TextUI>
           <TextUI size={14} color={p.muted}>
-            {`سورة ${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}${readingBookmark.page ? ` · صفحة ${toArabicNumber(readingBookmark.page)}` : ''}`}
+            {t(
+              `سورة ${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}${readingBookmark.page ? ` · صفحة ${toArabicNumber(readingBookmark.page)}` : ''}`,
+              `Surah ${bookmarkSurah} · Ayah ${toArabicNumber(readingBookmark.ayah)}${readingBookmark.page ? ` · Page ${toArabicNumber(readingBookmark.page)}` : ''}`
+            )}
           </TextUI>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <PrimaryButton p={p} label="تابع القراءة" onPress={() => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah)} />
+            <PrimaryButton p={p} label={t('تابع القراءة', 'Continue reading')} onPress={() => openReaderAt(readingBookmark.surahId, readingBookmark.page, readingBookmark.ayah)} />
             <TouchableOpacity accessibilityRole="button" onPress={() => navigate('khatma')} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
-              <TextUI size={14} weight="bold" color={p.primary}>ابدأ ختمة</TextUI>
+              <TextUI size={14} weight="bold" color={p.primary}>{t('ابدأ ختمة', 'Start a khatma')}</TextUI>
             </TouchableOpacity>
           </View>
         </Card>
@@ -251,10 +269,10 @@ export const HomeScreen: React.FC = () => {
         <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Feather name="book-open" size={20} color={p.primary} />
           <View style={{ flex: 1 }}>
-            <TextUI size={15} weight="bold" color={p.ink}>ابدأ ختمة</TextUI>
-            <TextUI size={13} color={p.muted}>حدّد المدة ويوزّع التطبيق الصفحات على الأيام</TextUI>
+            <TextUI size={15} weight="bold" color={p.ink}>{t('ابدأ ختمة', 'Start a khatma')}</TextUI>
+            <TextUI size={13} color={p.muted}>{t('حدّد المدة ويوزّع التطبيق الصفحات على الأيام', 'Pick a duration and the app spreads the pages over the days')}</TextUI>
           </View>
-          <Feather name="chevron-left" size={18} color={p.muted} />
+          <Feather name={forwardIcon} size={18} color={p.muted} />
         </Card>
       </TouchableOpacity>
     );
@@ -269,23 +287,23 @@ export const HomeScreen: React.FC = () => {
           <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Feather name="headphones" size={20} color={p.primary} />
             <View style={{ flex: 1 }}>
-              <TextUI size={15} weight="bold" color={p.ink}>دروس الحرمين</TextUI>
-              <TextUI size={13} color={p.muted}>كراسي العلماء في المسجد الحرام والمسجد النبوي</TextUI>
+              <TextUI size={15} weight="bold" color={p.ink}>{t('دروس الحرمين', 'Haramain lessons')}</TextUI>
+              <TextUI size={13} color={p.muted}>{t('كراسي العلماء في المسجد الحرام والمسجد النبوي', "Scholars' lessons at the Grand Mosque and the Prophet's Mosque")}</TextUI>
             </View>
-            <Feather name="chevron-left" size={18} color={p.muted} />
+            <Feather name={forwardIcon} size={18} color={p.muted} />
           </Card>
         </TouchableOpacity>
       );
     }
     const percent = listening.totalSecs > 0 ? Math.round((listening.currentSecs / listening.totalSecs) * 100) : 0;
     const position = listening.totalSecs > 0
-      ? `توقفت عند ${clockAr(listening.currentSecs)} من ${clockAr(listening.totalSecs)}`
-      : `توقفت عند ${clockAr(listening.currentSecs)}`;
+      ? t(`توقفت عند ${clockAr(listening.currentSecs)} من ${clockAr(listening.totalSecs)}`, `Stopped at ${clockAr(listening.currentSecs)} of ${clockAr(listening.totalSecs)}`)
+      : t(`توقفت عند ${clockAr(listening.currentSecs)}`, `Stopped at ${clockAr(listening.currentSecs)}`);
     return (
       <TouchableOpacity
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`متابعة الاستماع: ${lesson.titleAr}، ${course.scholarAr}، ${position}`}
+        accessibilityLabel={t(`متابعة الاستماع: ${lesson.titleAr}، ${course.scholarAr}، ${position}`, `Continue listening: ${lesson.titleAr}, ${course.scholarAr}, ${position}`)}
         onPress={() => { triggerHaptic('light'); navigate('haramain_lesson', { courseId: course.id, lessonId: lesson.id, autoplay: true }); }}
       >
         <Card p={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
@@ -293,8 +311,8 @@ export const HomeScreen: React.FC = () => {
             <Feather name="play" size={18} color={p.primary} style={{ marginLeft: 2 }} />
           </View>
           <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-            <TextUI size={13} color={p.muted}>متابعة الاستماع · دروس الحرمين</TextUI>
-            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{`${lesson.titleAr} — الدرس ${toArabicNumber(lesson.number)}`}</TextUI>
+            <TextUI size={13} color={p.muted}>{t('متابعة الاستماع · دروس الحرمين', 'Continue listening · Haramain lessons')}</TextUI>
+            <TextUI size={15} weight="bold" color={p.ink} numberOfLines={1}>{t(`${lesson.titleAr} — الدرس ${toArabicNumber(lesson.number)}`, `${lesson.titleAr} — Lesson ${toArabicNumber(lesson.number)}`)}</TextUI>
             <TextUI size={12.5} color={p.muted} numberOfLines={1}>{`${course.scholarAr} · ${position}`}</TextUI>
             {percent > 0 ? <View style={{ flexDirection: 'row' }}><ProgressBar p={p} percent={percent} height={4} /></View> : null}
           </View>
@@ -312,22 +330,22 @@ export const HomeScreen: React.FC = () => {
       {/* Header: name, city, settings, dates */}
       <View style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <TextUI font="amiri" size={26} weight="bold" color={p.primaryInk}>رفيق المسلم</TextUI>
+          <TextUI font="amiri" size={26} weight="bold" color={p.primaryInk}>{t('رفيق المسلم', 'Rafeeq Al-Muslim')}</TextUI>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TouchableOpacity
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`}
+              accessibilityLabel={t(`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`, `City: ${cityName}. Tap to update location`)}
               onPress={() => { triggerHaptic('light'); refreshLocation(); }}
               style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
               <Feather name="map-pin" size={15} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1}>{currentCity.nameAr}</TextUI>
+              <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1}>{cityName}</TextUI>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="الإعدادات"
+              accessibilityLabel={t('الإعدادات', 'Settings')}
               onPress={() => navigate('settings')}
               style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
@@ -347,17 +365,17 @@ export const HomeScreen: React.FC = () => {
       <TouchableOpacity
         activeOpacity={0.92}
         accessibilityRole="button"
-        accessibilityLabel={`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`}
+        accessibilityLabel={t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
         onPress={() => navigate('prayer_times')}
         style={{ borderRadius: 24, padding: 18, flexDirection: 'row', gap: 16, backgroundColor: p.hero, shadowColor: '#5D3A22', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 5 }}
       >
         <SkyArch phase={skyPhase(prayerTimes, now)} />
         <View style={{ flex: 1, gap: 4, justifyContent: 'center' }}>
-          <TextUI size={14} color={p.onHeroMuted}>{next.isTomorrow ? 'الصلاة القادمة (غدًا)' : 'الصلاة القادمة'}</TextUI>
-          {otherZone ? <TextUI size={12.5} color={p.onHeroMuted}>{`بتوقيت ${currentCity.nameAr}`}</TextUI> : null}
-          <TextUI size={22} weight="bold" color={p.onHero}>{`${next.nameAr} بعد`}</TextUI>
+          <TextUI size={14} color={p.onHeroMuted}>{next.isTomorrow ? t('الصلاة القادمة (غدًا)', 'Next prayer (tomorrow)') : t('الصلاة القادمة', 'Next prayer')}</TextUI>
+          {otherZone ? <TextUI size={12.5} color={p.onHeroMuted}>{t(`بتوقيت ${currentCity.nameAr}`, `${cityName} time`)}</TextUI> : null}
+          <TextUI size={22} weight="bold" color={p.onHero}>{t(`${next.nameAr} بعد`, `${nextName} in`)}</TextUI>
           <TextUI size={36} weight="bold" color={p.onHero} style={{ lineHeight: 44, letterSpacing: 1 }}>{countdown}</TextUI>
-          <TextUI size={14} color={p.onHeroMuted}>{`الأذان ${next.time}`}</TextUI>
+          <TextUI size={14} color={p.onHeroMuted}>{t(`الأذان ${next.time}`, `Adhan ${next.time}`)}</TextUI>
           <View style={{ marginTop: 8, height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: 'rgba(250,241,230,0.18)' }}>
             <View style={{ width: `${next.progress}%`, height: '100%', backgroundColor: p.accent }} />
           </View>
@@ -365,17 +383,18 @@ export const HomeScreen: React.FC = () => {
       </TouchableOpacity>
 
       {/* Today's times strip */}
-      <View accessibilityLabel="مواقيت اليوم" style={{ flexDirection: 'row', gap: 2, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
+      <View accessibilityLabel={t('مواقيت اليوم', "Today's prayer times")} style={{ flexDirection: 'row', gap: 2, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
         {STRIP.map((s) => {
           const isNext = s.key === next.id;
           const time = prayerTimes[s.key].timeStr.split(' ')[0];
+          const label = t(s.label, s.labelEn);
           return (
             <View
               key={s.key}
-              accessibilityLabel={`${s.label} ${prayerTimes[s.key].timeStr}${isNext ? '، القادمة' : ''}`}
+              accessibilityLabel={`${label} ${prayerTimes[s.key].timeStr}${isNext ? t('، القادمة', ', next') : ''}`}
               style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8, borderRadius: 12, backgroundColor: isNext ? p.soft : 'transparent' }}
             >
-              <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{s.label}</TextUI>
+              <TextUI size={13} weight={isNext ? 'bold' : 'medium'} color={isNext ? p.primary : p.muted} numberOfLines={1}>{label}</TextUI>
               <TextUI size={15} weight="bold" color={s.key === 'sunrise' ? p.muted : p.ink} numberOfLines={1}>{time}</TextUI>
             </View>
           );
@@ -385,8 +404,8 @@ export const HomeScreen: React.FC = () => {
       {/* Optional private prayer tracker */}
       <View style={{ gap: 6, paddingHorizontal: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <TextUI size={15} weight="bold" color={p.ink}>صلوات اليوم</TextUI>
-          <TextUI size={12.5} color={p.muted}>اختياري · يبقى على جهازك فقط</TextUI>
+          <TextUI size={15} weight="bold" color={p.ink}>{t('صلوات اليوم', "Today's prayers")}</TextUI>
+          <TextUI size={12.5} color={p.muted}>{t('اختياري · يبقى على جهازك فقط', 'Optional · stays on your device only')}</TextUI>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           {PRAYER_KEYS.map((key) => {
@@ -400,13 +419,13 @@ export const HomeScreen: React.FC = () => {
                 role="checkbox"
                 aria-checked={done}
                 aria-disabled={!entered && !done}
-                accessibilityLabel={`صلاة ${PRAYER_NAMES_AR[key]}`}
+                accessibilityLabel={t(`صلاة ${PRAYER_NAMES_AR[key]}`, `${PRAYER_NAMES_EN[key]} prayer`)}
                 style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, opacity: !entered && !done ? 0.45 : 1 }}
               >
                 <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? p.success : 'transparent', borderWidth: 1.5, borderColor: done ? p.success : p.border }}>
                   {done ? <Feather name="check" size={15} color="#FFFDF9" /> : null}
                 </View>
-                <TextUI size={11.5} color={done ? p.successInk : p.muted}>{PRAYER_NAMES_AR[key]}</TextUI>
+                <TextUI size={11.5} color={done ? p.successInk : p.muted}>{prayerName(key)}</TextUI>
               </TouchableOpacity>
             );
           })}
@@ -417,7 +436,7 @@ export const HomeScreen: React.FC = () => {
 
       {/* Continue */}
       <View style={{ gap: 10 }}>
-        <TextUI size={17} weight="bold" color={p.ink}>تابع</TextUI>
+        <TextUI size={17} weight="bold" color={p.ink}>{t('تابع', 'Continue')}</TextUI>
         {renderContinue()}
         {renderListening()}
       </View>
@@ -435,7 +454,7 @@ export const HomeScreen: React.FC = () => {
               style={{ width: '31%', flexGrow: 1, minHeight: 84, borderRadius: 14, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
             >
               <Feather name={item.icon} size={20} color={p.primary} />
-              <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={2}>{item.title}</TextUI>
+              <TextUI size={12.5} weight="medium" color={p.ink} align="center" numberOfLines={2}>{t(item.title, item.titleEn)}</TextUI>
             </TouchableOpacity>
           ))}
         </View>
@@ -443,11 +462,11 @@ export const HomeScreen: React.FC = () => {
 
       {/* Ayah of the day */}
       <Card p={p} style={{ gap: 8, alignItems: 'center', paddingVertical: 18 }}>
-        <TextUI size={12.5} weight="bold" color={p.accentInk} style={{ alignSelf: 'flex-start' }}>آية اليوم</TextUI>
+        <TextUI size={12.5} weight="bold" color={p.accentInk} style={{ alignSelf: 'flex-start' }}>{t('آية اليوم', 'Ayah of the day')}</TextUI>
         <TextUI font="amiri" size={22} color={p.quranInk} align="center" style={{ lineHeight: 42 }}>
           إِنَّ ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّـٰلِحَـٰتِ سَيَجْعَلُ لَهُمُ ٱلرَّحْمَـٰنُ وُدًّۭا
         </TextUI>
-        <TextUI size={13} color={p.muted}>مريم: ٩٦</TextUI>
+        <TextUI size={13} color={p.muted}>{t('مريم: ٩٦', 'Maryam: 96')}</TextUI>
       </Card>
     </ScrollView>
   );

@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from '../components/common/TextUI';
 import { usePalette } from '../theme/palette';
+import { useApp } from '../context/AppContext';
 
 interface ScreenHeaderProps {
   title: string;
@@ -14,6 +15,7 @@ interface ScreenHeaderProps {
 /** Identity 2.0 header: back arrow, title and subtitle at the start, optional action at the end. */
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle, onBack, right }) => {
   const p = usePalette();
+  const { t, isRTL } = useApp();
   return (
     <View
       style={{
@@ -29,10 +31,10 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle, onB
         <TouchableOpacity
           onPress={onBack}
           accessibilityRole="button"
-          accessibilityLabel="رجوع"
+          accessibilityLabel={t('رجوع', 'Back')}
           style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Feather name="arrow-right" size={22} color={p.primary} />
+          <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={p.primary} />
         </TouchableOpacity>
       ) : null}
       <View style={{ flex: 1 }}>

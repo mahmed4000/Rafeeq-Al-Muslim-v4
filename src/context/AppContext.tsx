@@ -312,7 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!prefsLoaded) return;
     const timer = setTimeout(() => {
       NotificationService.schedulePrayerAlerts(
-        currentCity.nameAr,
+        lang === 'en' ? currentCity.nameEn : currentCity.nameAr,
         currentCity.lat,
         currentCity.lng,
         alertsConfig,
@@ -323,7 +323,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }, 800);
     return () => clearTimeout(timer);
-  }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev]);
+    // `lang`: alert text is written in the interface language, so reschedule when it changes.
+  }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev, lang]);
 
   // Same rolling window for the adhkar reminders (after Fajr / after Asr).
   useEffect(() => {
@@ -340,7 +341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }, 1200);
     return () => clearTimeout(timer);
-  }, [prefsLoaded, currentCity, azkarReminders, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev]);
+  }, [prefsLoaded, currentCity, azkarReminders, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev, lang]);
 
   // Persist the Quran font size after pinch/zoom settles.
   useEffect(() => {
@@ -472,7 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const city: City = {
           id: 'live_gps',
           nameAr: cityName,
-          nameEn: cityName,
+          nameEn: geo ? (geo.city || geo.subregion || geo.region || 'My current location') : 'My current location',
           country: geo?.country || 'الموقع المباشر',
           countryAr: geo?.country || 'الموقع المباشر',
           countryEn: geo?.country || 'Current Location',
@@ -495,8 +496,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // They are for the city's current date and shown in the city's clock.
   const prayerTimes = useMemo(
     () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, cityNow(cityTimeZone), calculationMethod, asrMethod, cityTimeZone, prayerOffsets),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     // `lang` re-formats the times (digits, AM/PM) when the interface language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, prayerOffsets, dayKey, lang]
   );
 

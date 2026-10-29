@@ -10,7 +10,7 @@ import { makeShadow } from '../constants/tokens';
 import { usePalette } from '../theme/palette';
 
 export const AllahNamesScreen: React.FC = () => {
-  const { goBack, t, triggerHaptic } = useApp();
+  const { goBack, t, isRTL, triggerHaptic } = useApp();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -60,7 +60,7 @@ export const AllahNamesScreen: React.FC = () => {
             style={{
               flex: 1,
               color: p.ink,
-              textAlign: 'right',
+              textAlign: isRTL ? 'right' : 'left',
               fontSize: 14
             }}
           />

@@ -1,4 +1,5 @@
 import { StorageService } from './storage';
+import { tr } from '../i18n/language';
 
 export const MUSHAF_PAGES = 604;
 const KHATMA_KEY = 'rafeeq_khatma_v1';
@@ -78,7 +79,7 @@ export const KhatmaService = {
     const page = Math.max(1, Math.min(MUSHAF_PAGES, Math.round(startPage)));
     const khatma: Khatma = {
       id: `k-${Date.now()}`,
-      name: name.trim() || 'ختمتي',
+      name: name.trim() || tr('ختمتي', 'My Khatma'),
       startPage: page,
       totalDays: Math.max(1, Math.round(totalDays)),
       startDate: today,

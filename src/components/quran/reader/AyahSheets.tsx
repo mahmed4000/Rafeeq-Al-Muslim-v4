@@ -7,6 +7,7 @@ import { toArabicNumber } from '../../../services/prayerCalculation';
 import { type QuranVerse, QURAN_RECITERS } from '../../../services/quranParser';
 import { QURAN_DATA } from './readerShared';
 import { usePalette } from '../../../theme/palette';
+import { useApp } from '../../../context/AppContext';
 
 export interface AyahActionSheetProps {
   actionModalVisible: boolean;
@@ -28,6 +29,10 @@ export interface AyahActionSheetProps {
 
 export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVisible, activeAyah, currentSurah, setActionModalVisible, openAyahTafsir, playAyahAudio, currentReciterObj, setReciterModalVisible, toggleBookmark, isBookmarked, handleShareAyah, setAyahNoteText, ayahNotes, ayahNoteKey, setAyahNoteModalVisible }) => {
   const p = usePalette();
+  const { t, isRTL, lang } = useApp();
+  const en = lang === 'en';
+  const activeSurahData = QURAN_DATA.find((item) => item.id === activeAyah?.surahId) || currentSurah;
+  const reciterName = en ? currentReciterObj.nameEn : currentReciterObj.nameAr;
   return (
     <Modal visible={actionModalVisible} animationType="slide" transparent>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
@@ -41,9 +46,11 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <TextUI size={16} weight="bold" color={p.ink}>
-              خيارات الآية {toArabicNumber(activeAyah?.ayahNumber || 1)} • سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr}
+              {en
+                ? `Verse ${toArabicNumber(activeAyah?.ayahNumber || 1)} options • Surah ${activeSurahData?.nameEn || ''}`
+                : <>خيارات الآية {toArabicNumber(activeAyah?.ayahNumber || 1)} • سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr}</>}
             </TextUI>
-            <TouchableOpacity onPress={() => setActionModalVisible(false)}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setActionModalVisible(false)}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
@@ -72,8 +79,8 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
             >
               <Feather name="book-open" size={18} color={p.primary} />
-              <TextUI size={14} weight="bold" color={p.ink}>تفسير الآية • اختر من عدة تفاسير</TextUI>
-              <Feather name="chevron-left" size={16} color={p.muted} />
+              <TextUI size={14} weight="bold" color={p.ink}>{t('تفسير الآية • اختر من عدة تفاسير', 'Verse tafsir • choose from several tafsirs')}</TextUI>
+              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
             </TouchableOpacity>
 
             {/* Play Audio */}
@@ -94,7 +101,7 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
             >
               <Feather name="play" size={18} color={p.onPrimary} />
               <TextUI size={14} weight="bold" color={p.onPrimary}>
-                استمع للآية بصوت {currentReciterObj.nameAr}
+                {en ? `Listen to the verse by ${reciterName}` : <>استمع للآية بصوت {currentReciterObj.nameAr}</>}
               </TextUI>
             </TouchableOpacity>
 
@@ -104,8 +111,8 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
             >
               <Feather name="mic" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</TextUI>
-              <Feather name="chevron-left" size={16} color={p.muted} />
+              <TextUI size={14} weight="medium" color={p.ink}>{en ? `Change reciter • current: ${reciterName}` : <>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</>}</TextUI>
+              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
             </TouchableOpacity>
 
             {/* Set Bookmark */}
@@ -125,7 +132,7 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
             >
               <Feather name="bookmark" size={18} color={p.primary} />
               <TextUI size={14} weight="medium" color={p.ink}>
-                {activeAyah && isBookmarked(activeAyah) ? 'إزالة العلامة عن هذه الآية' : 'إضافة علامة عند هذه الآية'}
+                {activeAyah && isBookmarked(activeAyah) ? t('إزالة العلامة عن هذه الآية', 'Remove bookmark from this verse') : t('إضافة علامة عند هذه الآية', 'Bookmark this verse')}
               </TextUI>
             </TouchableOpacity>
 
@@ -146,7 +153,7 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
             >
               <Feather name="share-2" size={18} color={p.primary} />
               <TextUI size={14} weight="medium" color={p.ink}>
-                مشاركة الآية الكريمة
+                {t('مشاركة الآية الكريمة', 'Share the verse')}
               </TextUI>
             </TouchableOpacity>
 
@@ -160,7 +167,7 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
             >
               <Feather name="edit-3" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>{activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? 'عرض أو تعديل ملاحظتي على الآية' : 'إضافة ملاحظة على الآية'}</TextUI>
+              <TextUI size={14} weight="medium" color={p.ink}>{activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? t('عرض أو تعديل ملاحظتي على الآية', 'View or edit my note on the verse') : t('إضافة ملاحظة على الآية', 'Add a note on the verse')}</TextUI>
             </TouchableOpacity>
           </View>
         </View>
@@ -180,15 +187,16 @@ export interface AyahNoteSheetProps {
 
 export const AyahNoteSheet: React.FC<AyahNoteSheetProps> = ({ ayahNoteModalVisible, setAyahNoteModalVisible, activeAyah, ayahNoteText, setAyahNoteText, saveAyahNote }) => {
   const p = usePalette();
+  const { t, isRTL } = useApp();
   return (
     <Modal visible={ayahNoteModalVisible} animationType="fade" transparent onRequestClose={() => setAyahNoteModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 22 }}>
         <View style={{ backgroundColor: p.surface, borderRadius: 20, padding: 18 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>ملاحظة على الآية {toArabicNumber(activeAyah?.ayahNumber || 1)}</TextUI>
-          <TextInput value={ayahNoteText} onChangeText={setAyahNoteText} placeholder="اكتب فائدة أو تدبرًا أو مرجعًا" placeholderTextColor={p.muted} multiline textAlign="right" style={{ minHeight: 110, marginTop: 14, padding: 12, borderWidth: 1, borderColor: p.border, borderRadius: 12, color: p.ink, textAlignVertical: 'top' }} />
+          <TextUI size={16} weight="bold" color={p.ink}>{t('ملاحظة على الآية', 'Note on verse')} {toArabicNumber(activeAyah?.ayahNumber || 1)}</TextUI>
+          <TextInput value={ayahNoteText} onChangeText={setAyahNoteText} placeholder={t('اكتب فائدة أو تدبرًا أو مرجعًا', 'Write a benefit, a reflection or a reference')} placeholderTextColor={p.muted} multiline textAlign={isRTL ? 'right' : 'left'} style={{ minHeight: 110, marginTop: 14, padding: 12, borderWidth: 1, borderColor: p.border, borderRadius: 12, color: p.ink, textAlignVertical: 'top' }} />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 18, marginTop: 14 }}>
-            <TouchableOpacity onPress={() => setAyahNoteModalVisible(false)}><TextUI size={13} color={p.muted}>إلغاء</TextUI></TouchableOpacity>
-            <TouchableOpacity onPress={saveAyahNote}><TextUI size={13} weight="bold" color={p.primary}>حفظ الملاحظة</TextUI></TouchableOpacity>
+            <TouchableOpacity onPress={() => setAyahNoteModalVisible(false)}><TextUI size={13} color={p.muted}>{t('إلغاء', 'Cancel')}</TextUI></TouchableOpacity>
+            <TouchableOpacity onPress={saveAyahNote}><TextUI size={13} weight="bold" color={p.primary}>{t('حفظ الملاحظة', 'Save note')}</TextUI></TouchableOpacity>
           </View>
         </View>
       </View>

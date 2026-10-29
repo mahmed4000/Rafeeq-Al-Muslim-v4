@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { tr } from '../../i18n/language';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -37,10 +38,10 @@ export class SafeErrorBoundary extends React.Component<ErrorBoundaryProps, Error
             <Feather name="alert-triangle" size={32} color="#8C5E3C" />
           </View>
           <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#5D3A22', marginBottom: 10, textAlign: 'center' }}>
-            نعتذر، حدثت مشكلة غير متوقعة
+            {tr('نعتذر، حدثت مشكلة غير متوقعة', 'Sorry, something unexpected went wrong')}
           </Text>
           <Text style={{ fontSize: 13, color: '#7D6858', textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
-            جاري العمل على تحسين التجربة. يمكنك النقر أدناه للمحاولة مرة أخرى بأمان.
+            {tr('جاري العمل على تحسين التجربة. يمكنك النقر أدناه للمحاولة مرة أخرى بأمان.', "We're working on improving the experience. You can tap below to safely try again.")}
           </Text>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -53,7 +54,7 @@ export class SafeErrorBoundary extends React.Component<ErrorBoundaryProps, Error
             }}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
-              إعادة التحميل
+              {tr('إعادة التحميل', 'Reload')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,5 @@
 import { StorageService } from './storage';
+import { tr } from '../i18n/language';
 
 export interface TafsirEdition {
   id: number;
@@ -7,6 +8,11 @@ export interface TafsirEdition {
   author: string;
   badge: string;
   description: string;
+  // English interface labels for the edition (the tafsir text itself stays Arabic).
+  nameEn: string;
+  authorEn: string;
+  badgeEn: string;
+  descriptionEn: string;
 }
 
 export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
@@ -16,7 +22,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'التفسير الميسر',
     author: 'مجمع الملك فهد لطباعة المصحف الشريف',
     badge: 'موجز ومعتمد',
-    description: 'تفسير واضح وموجز أعدته نخبة من كبار العلماء بإشراف مجمع الملك فهد.'
+    description: 'تفسير واضح وموجز أعدته نخبة من كبار العلماء بإشراف مجمع الملك فهد.',
+    nameEn: 'Al-Tafsir al-Muyassar',
+    authorEn: 'King Fahd Complex for the Printing of the Holy Quran',
+    badgeEn: 'Concise and approved',
+    descriptionEn: 'A clear, concise tafsir prepared by a group of senior scholars under the supervision of the King Fahd Complex.'
   },
   {
     id: 91,
@@ -24,7 +34,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'تفسير السعدي',
     author: 'الشيخ عبد الرحمن بن ناصر السعدي',
     badge: 'سهل وتدبري',
-    description: 'تيسير الكريم الرحمن في تفسير كلام المنان، ميسر وسلس يركز على مقاصد الآيات.'
+    description: 'تيسير الكريم الرحمن في تفسير كلام المنان، ميسر وسلس يركز على مقاصد الآيات.',
+    nameEn: 'Tafsir al-Sa’di',
+    authorEn: 'Sheikh Abd al-Rahman ibn Nasir al-Sa’di',
+    badgeEn: 'Easy and reflective',
+    descriptionEn: 'Taysir al-Karim al-Rahman: an easy, flowing tafsir that focuses on the aims of the verses.'
   },
   {
     id: 14,
@@ -32,7 +46,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'تفسير ابن كثير',
     author: 'الحافظ عماد الدين ابن كثير',
     badge: 'التفسير بالمأثور',
-    description: 'تفسير القرآن العظيم، عمدة التفاسير المأثورة عن السلف مع إيراد الأحاديث والآثار.'
+    description: 'تفسير القرآن العظيم، عمدة التفاسير المأثورة عن السلف مع إيراد الأحاديث والآثار.',
+    nameEn: 'Tafsir Ibn Kathir',
+    authorEn: 'Al-Hafiz Imad al-Din Ibn Kathir',
+    badgeEn: 'Narration-based tafsir',
+    descriptionEn: 'Tafsir al-Quran al-Azim: a mainstay of tafsir transmitted from the early generations, citing hadiths and reports.'
   },
   {
     id: 94,
@@ -40,7 +58,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'تفسير البغوي',
     author: 'الإمام الحسين بن مسعود البغوي',
     badge: 'معالم التنزيل',
-    description: 'كتاب جليل يجمع بين الرواية والدراية، متوسط الحجم وسهل العبارة.'
+    description: 'كتاب جليل يجمع بين الرواية والدراية، متوسط الحجم وسهل العبارة.',
+    nameEn: 'Tafsir al-Baghawi',
+    authorEn: 'Imam al-Husayn ibn Mas’ud al-Baghawi',
+    badgeEn: 'Ma’alim al-Tanzil',
+    descriptionEn: 'A distinguished work combining narration and understanding, of moderate length and plain wording.'
   },
   {
     id: 90,
@@ -48,7 +70,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'تفسير القرطبي',
     author: 'الإمام أبو عبد الله القرطبي',
     badge: 'أحكام القرآن',
-    description: 'الجامع لأحكام القرآن، موسوعة في استنباط الأحكام الشرعية والفقهية من الآيات.'
+    description: 'الجامع لأحكام القرآن، موسوعة في استنباط الأحكام الشرعية والفقهية من الآيات.',
+    nameEn: 'Tafsir al-Qurtubi',
+    authorEn: 'Imam Abu Abdullah al-Qurtubi',
+    badgeEn: 'Rulings of the Quran',
+    descriptionEn: 'Al-Jami li-Ahkam al-Quran: an encyclopedia for deriving legal and jurisprudential rulings from the verses.'
   },
   {
     id: 15,
@@ -56,7 +82,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'تفسير الطبري',
     author: 'الإمام محمد بن جرير الطبري',
     badge: 'إمام المفسرين',
-    description: 'جامع البيان عن تأويل آي القرآن، أعظم التفاسير المسندة وأصل علم التفسير.'
+    description: 'جامع البيان عن تأويل آي القرآن، أعظم التفاسير المسندة وأصل علم التفسير.',
+    nameEn: 'Tafsir al-Tabari',
+    authorEn: 'Imam Muhammad ibn Jarir al-Tabari',
+    badgeEn: 'Imam of the exegetes',
+    descriptionEn: 'Jami al-Bayan: the greatest tafsir with chains of narration and the foundation of the science of tafsir.'
   },
   {
     id: 93,
@@ -64,7 +94,11 @@ export const AVAILABLE_TAFSIR_EDITIONS: TafsirEdition[] = [
     name: 'التفسير الوسيط',
     author: 'د. محمد سيد طنطاوي',
     badge: 'معاصر وشامل',
-    description: 'تفسير معاصر يجمع بين الدقة اللغوية والبيان العقدي والتربوي بأسلوب رصين.'
+    description: 'تفسير معاصر يجمع بين الدقة اللغوية والبيان العقدي والتربوي بأسلوب رصين.',
+    nameEn: 'Al-Tafsir al-Wasit',
+    authorEn: 'Dr. Muhammad Sayyid Tantawi',
+    badgeEn: 'Contemporary and comprehensive',
+    descriptionEn: 'A contemporary tafsir combining linguistic precision with doctrinal and educational explanation in a sober style.'
   }
 ];
 
@@ -205,7 +239,7 @@ export async function fetchAyahTafsir(
   }
 
   if (!fetchedText) {
-    throw new Error('تعذر تحميل نص التفسير حالياً، يرجى التحقق من اتصال الإنترنت أو اختيار تفسير آخر.');
+    throw new Error(tr('تعذر تحميل نص التفسير حالياً، يرجى التحقق من اتصال الإنترنت أو اختيار تفسير آخر.', 'Could not load the tafsir text right now. Check your internet connection or choose another tafsir.'));
   }
 
   // Save in caches

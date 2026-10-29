@@ -9,17 +9,29 @@ import { PROPHET_MOSQUE_COURSES, MAKKAH_MOSQUE_COURSES } from '../data/haramainD
 import { AudioService, DownloadedLessonRecord, LessonResumeRecord } from '../services/audioService';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { usePalette } from '../theme/palette';
+import { getUiLanguage } from '../i18n/language';
 
 const SCIENCE_ORDER = ['العقيدة', 'القرآن', 'التفسير', 'الحديث', 'الفقه', 'أصول الفقه', 'سيرة ورقائق'];
+// English names for the subject chips and group headings (the data's categoryEn varies per course).
+const SCIENCE_EN: Record<string, string> = {
+  'العقيدة': 'Creed',
+  'القرآن': 'Quran',
+  'التفسير': 'Tafsir',
+  'الحديث': 'Hadith',
+  'الفقه': 'Fiqh',
+  'أصول الفقه': 'Usul al-Fiqh',
+  'سيرة ورقائق': 'Seerah & Heart Softeners'
+};
 type Mosque = 'makkah' | 'madinah';
 
-const MOSQUE_TABS: { id: Mosque; label: string }[] = [
-  { id: 'makkah', label: 'المسجد الحرام' },
-  { id: 'madinah', label: 'المسجد النبوي' }
+const MOSQUE_TABS: { id: Mosque; label: string; labelEn: string }[] = [
+  { id: 'makkah', label: 'المسجد الحرام', labelEn: 'Al-Masjid Al-Haram' },
+  { id: 'madinah', label: 'المسجد النبوي', labelEn: "The Prophet's Mosque" }
 ];
 
 /** "١٢ درسًا" / "٣ دروس" (Arabic plural agreement). */
 function lessonsAr(n: number): string {
+  if (getUiLanguage() === 'en') return `${toArabicNumber(n)} ${n === 1 ? 'lesson' : 'lessons'}`;
   if (n === 1) return 'درس واحد';
   if (n === 2) return 'درسان';
   const tail = n % 100;
@@ -27,8 +39,14 @@ function lessonsAr(n: number): string {
 }
 
 export const HaramainLessonsScreen: React.FC = () => {
-  const { navigate, triggerHaptic } = useApp();
+  const { navigate, triggerHaptic, t, isRTL, lang } = useApp();
   const p = usePalette();
+  const isEn = lang === 'en';
+  const categoryLabel = (category: string) => {
+    if (!isEn) return category;
+    if (category === 'الكل') return 'All';
+    return SCIENCE_EN[category] || category;
+  };
 
   const [activeMosqueTab, setActiveMosqueTab] = useState<Mosque>('makkah');
   const [courseSearch, setCourseSearch] = useState('');
@@ -74,12 +92,12 @@ export const HaramainLessonsScreen: React.FC = () => {
   /** Status line and progress for a course card, from saved listening positions and downloads. */
   const courseStatus = (course: any): { label: string; ratio: number } => {
     const total = course.lessons?.length || 0;
-    if (total > 0 && course.lessons.every((lesson: any) => downloadedMap[lesson.id])) return { label: 'مُنزَّل', ratio: 1 };
+    if (total > 0 && course.lessons.every((lesson: any) => downloadedMap[lesson.id])) return { label: t('مُنزَّل', 'Downloaded'), ratio: 1 };
     const reached = resumeRecords
       .filter((r) => r.courseId === course.id)
       .reduce((max, r) => Math.max(max, r.lessonNumber || 0), 0);
-    if (!reached) return { label: 'جديد', ratio: 0 };
-    return { label: `تابعت حتى الدرس ${toArabicNumber(reached)}`, ratio: total ? Math.min(1, reached / total) : 0 };
+    if (!reached) return { label: t('جديد', 'New'), ratio: 0 };
+    return { label: t(`تابعت حتى الدرس ${toArabicNumber(reached)}`, `Listened up to lesson ${toArabicNumber(reached)}`), ratio: total ? Math.min(1, reached / total) : 0 };
   };
 
   const switchMosque = (id: Mosque) => {
@@ -94,7 +112,7 @@ export const HaramainLessonsScreen: React.FC = () => {
     try {
       await WebBrowser.openBrowserAsync('https://droos.prh.gov.sa/ElHaramain/books');
     } catch {
-      Alert.alert('تعذّر فتح المكتبة', 'تحقق من اتصال الإنترنت ثم حاول مرة أخرى.');
+      Alert.alert(t('تعذّر فتح المكتبة', 'Could not open the library'), t('تحقق من اتصال الإنترنت ثم حاول مرة أخرى.', 'Check your internet connection and try again.'));
     }
   };
 
@@ -108,7 +126,7 @@ export const HaramainLessonsScreen: React.FC = () => {
       >
         {/* Title and downloads */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TextUI size={26} weight="bold" color={p.ink}>دروس الحرمين</TextUI>
+          <TextUI size={26} weight="bold" color={p.ink}>{t('دروس الحرمين', 'Haramain Lessons')}</TextUI>
           <TouchableOpacity
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -116,7 +134,7 @@ export const HaramainLessonsScreen: React.FC = () => {
             style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
           >
             <Feather name="download" size={16} color={p.primary} />
-            <TextUI size={14} weight="medium" color={p.ink}>التنزيلات</TextUI>
+            <TextUI size={14} weight="medium" color={p.ink}>{t('التنزيلات', 'Downloads')}</TextUI>
           </TouchableOpacity>
         </View>
 
@@ -132,7 +150,7 @@ export const HaramainLessonsScreen: React.FC = () => {
                 onPress={() => switchMosque(tab.id)}
                 style={{ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: active ? p.surface : 'transparent' }}
               >
-                <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{tab.label}</TextUI>
+                <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{t(tab.label, tab.labelEn)}</TextUI>
               </TouchableOpacity>
             );
           })}
@@ -142,15 +160,15 @@ export const HaramainLessonsScreen: React.FC = () => {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <Feather name="search" size={18} color={p.muted} />
           <TextInput
-            accessibilityLabel="بحث في الدروس"
-            placeholder="كتاب، شيخ، أو موضوع"
+            accessibilityLabel={t('بحث في الدروس', 'Search lessons')}
+            placeholder={t('كتاب، شيخ، أو موضوع', 'Book, scholar, or topic')}
             placeholderTextColor={p.muted}
             value={courseSearch}
             onChangeText={setCourseSearch}
-            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 15, paddingVertical: 10 }}
+            style={{ flex: 1, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 15, paddingVertical: 10 }}
           />
           {courseSearch ? (
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="مسح البحث" onPress={() => setCourseSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('مسح البحث', 'Clear search')} onPress={() => setCourseSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={16} color={p.muted} />
             </TouchableOpacity>
           ) : null}
@@ -168,27 +186,29 @@ export const HaramainLessonsScreen: React.FC = () => {
                 onPress={() => { triggerHaptic('light'); setSelectedCategory(category); }}
                 style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 999, backgroundColor: selected ? p.primary : p.soft }}
               >
-                <TextUI size={14} weight={selected ? 'bold' : 'medium'} color={selected ? p.onPrimary : p.primaryInk}>{category}</TextUI>
+                <TextUI size={14} weight={selected ? 'bold' : 'medium'} color={selected ? p.onPrimary : p.primaryInk}>{categoryLabel(category)}</TextUI>
               </TouchableOpacity>
             );
           })}
         </View>
 
         {/* Courses by subject */}
-        <TextUI size={17} weight="bold" color={p.ink} style={{ marginTop: 4 }}>الكراسي العلمية</TextUI>
+        <TextUI size={17} weight="bold" color={p.ink} style={{ marginTop: 4 }}>{t('الكراسي العلمية', 'Scholarly Courses')}</TextUI>
         {groupedCourses.map(({ category, items }: any) => (
           <View key={category} style={{ gap: 10 }}>
             {selectedCategory === 'الكل' ? (
-              <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4 }}>{`${category} · ${toArabicNumber(items.length)}`}</TextUI>
+              <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4 }}>{`${categoryLabel(category)} · ${toArabicNumber(items.length)}`}</TextUI>
             ) : null}
             {items.map((course: any) => {
               const status = courseStatus(course);
+              const courseTitle = isEn && course.titleEn ? course.titleEn : course.titleAr;
+              const sep = t('، ', ', ');
               return (
                 <TouchableOpacity
                   key={course.id}
                   activeOpacity={0.85}
                   accessibilityRole="button"
-                  accessibilityLabel={`${course.titleAr}، ${course.scholarAr}، ${lessonsAr(course.lessons.length)}، ${status.label}`}
+                  accessibilityLabel={`${courseTitle}${sep}${course.scholarAr}${sep}${lessonsAr(course.lessons.length)}${sep}${status.label}`}
                   onPress={() => navigate('haramain_book', { courseId: course.id })}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
                 >
@@ -197,9 +217,9 @@ export const HaramainLessonsScreen: React.FC = () => {
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
                     <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: p.soft }}>
-                      <TextUI size={12} weight="bold" color={p.primaryInk}>{course.categoryAr}</TextUI>
+                      <TextUI size={12} weight="bold" color={p.primaryInk}>{isEn ? (course.categoryEn || categoryLabel(course.categoryAr)) : course.categoryAr}</TextUI>
                     </View>
-                    <TextUI size={16} weight="bold" color={p.ink}>{course.titleAr}</TextUI>
+                    <TextUI size={16} weight="bold" color={p.ink}>{courseTitle}</TextUI>
                     <TextUI size={13} color={p.muted}>{`${course.scholarAr} · ${lessonsAr(course.lessons.length)} · ${status.label}`}</TextUI>
                     <View style={{ height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border, marginTop: 2 }}>
                       <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${Math.round(status.ratio * 100)}%` }} />
@@ -213,7 +233,7 @@ export const HaramainLessonsScreen: React.FC = () => {
         {filteredCourses.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 36, gap: 8 }}>
             <Feather name="search" size={26} color={p.muted} />
-            <TextUI size={15} weight="bold" color={p.ink}>لا توجد سلاسل مطابقة</TextUI>
+            <TextUI size={15} weight="bold" color={p.ink}>{t('لا توجد سلاسل مطابقة', 'No matching series')}</TextUI>
           </View>
         ) : null}
 
@@ -226,10 +246,10 @@ export const HaramainLessonsScreen: React.FC = () => {
         >
           <Feather name="globe" size={18} color={p.primary} />
           <View style={{ flex: 1 }}>
-            <TextUI size={14} weight="bold" color={p.ink}>المكتبة العلمية الكاملة للحرمين</TextUI>
-            <TextUI size={12.5} color={p.muted}>الموقع الرسمي لدروس الحرمين</TextUI>
+            <TextUI size={14} weight="bold" color={p.ink}>{t('المكتبة العلمية الكاملة للحرمين', 'Full Haramain Scholarly Library')}</TextUI>
+            <TextUI size={12.5} color={p.muted}>{t('الموقع الرسمي لدروس الحرمين', 'Official Haramain lessons website')}</TextUI>
           </View>
-          <Feather name="arrow-up-left" size={17} color={p.muted} />
+          <Feather name={isRTL ? 'arrow-up-left' : 'arrow-up-right'} size={17} color={p.muted} />
         </TouchableOpacity>
       </ScrollView>
     </View>

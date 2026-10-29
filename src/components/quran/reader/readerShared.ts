@@ -6,12 +6,13 @@ export type ReadingMode = 'page' | 'surah' | 'tafsir';
 export type JumpType = 'page' | 'surah' | 'juz';
 export type PlaybackRange = 'page' | 'surah' | 'juz' | 'quran';
 
+// `label` is Arabic, `labelEn` English; pick one at render time with t(label, labelEn).
 export const SCROLL_SPEED_OPTIONS = [
-  { label: 'بطيء ١×', speed: 12 },
-  { label: 'متزن ٢×', speed: 22 },
-  { label: 'متوسط ٣×', speed: 36 },
-  { label: 'سريع ٤×', speed: 55 },
-  { label: 'فائق ٥×', speed: 80 }
+  { label: 'بطيء ١×', labelEn: 'Slow 1×', speed: 12 },
+  { label: 'متزن ٢×', labelEn: 'Steady 2×', speed: 22 },
+  { label: 'متوسط ٣×', labelEn: 'Medium 3×', speed: 36 },
+  { label: 'سريع ٤×', labelEn: 'Fast 4×', speed: 55 },
+  { label: 'فائق ٥×', labelEn: 'Very fast 5×', speed: 80 }
 ];
 
 export interface PlaybackSettings {

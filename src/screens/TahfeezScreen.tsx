@@ -11,10 +11,12 @@ import { toArabicNumber } from '../services/prayerCalculation';
 import { parseSurahVerses, QURAN_RECITERS, getAyahAudioUrl } from '../services/quranParser';
 import { normalizeArabic } from '../services/quranSearch';
 import { playClip, wait, AyahPlayback } from '../services/ayahPlayer';
+import { getUiLanguage } from '../i18n/language';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 const SETTINGS_KEY = 'rafeeq_tahfeez_settings_v1';
 const PAUSE_LABELS = ['بدون مهلة', 'بطول الآية', 'ضعف الآية'];
+const PAUSE_LABELS_EN = ['No pause', 'Ayah length', 'Twice ayah length'];
 
 interface TahfeezSettings {
   reciterId: string;
@@ -36,10 +38,14 @@ const DEFAULTS: TahfeezSettings = {
   pauseFactor: 1
 };
 
-const times = (n: number) => (n === 1 ? 'مرة' : n === 2 ? 'مرتان' : `${toArabicNumber(n)} مرات`);
+const times = (n: number) => getUiLanguage() === 'en'
+  ? (n === 1 ? 'once' : n === 2 ? 'twice' : `${toArabicNumber(n)} times`)
+  : (n === 1 ? 'مرة' : n === 2 ? 'مرتان' : `${toArabicNumber(n)} مرات`);
 
 export const TahfeezScreen: React.FC = () => {
-  const { goBack, triggerHaptic, t } = useApp();
+  const { goBack, triggerHaptic, t, isRTL, lang } = useApp();
+  const isEn = lang === 'en';
+  const nameOf = (item: { nameAr: string; nameEn?: string }) => (isEn && item.nameEn ? item.nameEn : item.nameAr);
   const p = usePalette();
 
   const [settings, setSettings] = useState<TahfeezSettings>(DEFAULTS);
@@ -118,7 +124,7 @@ export const TahfeezScreen: React.FC = () => {
       }
     } catch (e) {
       if (!alive()) return;
-      setError('تعذّر تشغيل التلاوة. تحقق من الاتصال بالإنترنت أو جرّب قارئًا آخر.');
+      setError(t('تعذّر تشغيل التلاوة. تحقق من الاتصال بالإنترنت أو جرّب قارئًا آخر.', 'Could not play the recitation. Check your internet connection or try another reciter.'));
       setRunning(false);
       setStatus(null);
     }
@@ -127,7 +133,7 @@ export const TahfeezScreen: React.FC = () => {
   const ayahCount = settings.toAyah - settings.fromAyah + 1;
   const card = { borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, overflow: 'hidden' as const };
   const filteredSurahs = surahQuery.trim()
-    ? QURAN_DATA.filter((s) => normalizeArabic(s.nameAr).includes(normalizeArabic(surahQuery)) || String(s.id) === surahQuery.trim())
+    ? QURAN_DATA.filter((s) => normalizeArabic(s.nameAr).includes(normalizeArabic(surahQuery)) || String(s.nameEn || '').toLowerCase().includes(surahQuery.trim().toLowerCase()) || String(s.id) === surahQuery.trim())
     : QURAN_DATA;
 
   const renderSession = () => {
@@ -144,11 +150,14 @@ export const TahfeezScreen: React.FC = () => {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: status.listening ? p.soft : p.successBg }}>
               <Feather name={status.listening ? 'headphones' : 'mic'} size={16} color={status.listening ? p.primaryInk : p.successInk} />
               <TextUI size={15} weight="bold" color={status.listening ? p.primaryInk : p.successInk}>
-                {status.listening ? 'استمع' : 'ردّد الآن بصوتك'}
+                {status.listening ? t('استمع', 'Listen') : t('ردّد الآن بصوتك', 'Now repeat aloud')}
               </TextUI>
             </View>
             <TextUI size={14} color={p.muted} align="center">
-              {`الآية ${toArabicNumber(status.ayah)} · التكرار ${toArabicNumber(status.rep)} من ${toArabicNumber(settings.ayahRepeat)} · المقطع ${toArabicNumber(status.round)} من ${toArabicNumber(settings.rangeRepeat)}`}
+              {t(
+                `الآية ${toArabicNumber(status.ayah)} · التكرار ${toArabicNumber(status.rep)} من ${toArabicNumber(settings.ayahRepeat)} · المقطع ${toArabicNumber(status.round)} من ${toArabicNumber(settings.rangeRepeat)}`,
+                `Ayah ${toArabicNumber(status.ayah)} · Repeat ${toArabicNumber(status.rep)} of ${toArabicNumber(settings.ayahRepeat)} · Round ${toArabicNumber(status.round)} of ${toArabicNumber(settings.rangeRepeat)}`
+              )}
             </TextUI>
           </View>
         ) : null}
@@ -157,7 +166,7 @@ export const TahfeezScreen: React.FC = () => {
           accessibilityRole="button"
           style={{ minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: p.primary, alignItems: 'center', justifyContent: 'center' }}
         >
-          <TextUI size={16} weight="bold" color={p.primary}>إيقاف الجلسة</TextUI>
+          <TextUI size={16} weight="bold" color={p.primary}>{t('إيقاف الجلسة', 'Stop session')}</TextUI>
         </TouchableOpacity>
       </View>
     );
@@ -168,24 +177,24 @@ export const TahfeezScreen: React.FC = () => {
       <TouchableOpacity onPress={() => setPicker('reciter')} accessibilityRole="button" style={{ ...card, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 56 }}>
         <Feather name="headphones" size={20} color={p.primary} />
         <View style={{ flex: 1 }}>
-          <TextUI size={13} color={p.muted}>القارئ</TextUI>
-          <TextUI size={16} weight="bold" color={p.ink}>{reciter.nameAr}</TextUI>
+          <TextUI size={13} color={p.muted}>{t('القارئ', 'Reciter')}</TextUI>
+          <TextUI size={16} weight="bold" color={p.ink}>{nameOf(reciter)}</TextUI>
         </View>
-        <TextUI size={14} weight="bold" color={p.primary}>تغيير</TextUI>
+        <TextUI size={14} weight="bold" color={p.primary}>{t('تغيير', 'Change')}</TextUI>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setPicker('surah')} accessibilityRole="button" style={{ ...card, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 56 }}>
         <Feather name="book-open" size={20} color={p.primary} />
         <View style={{ flex: 1 }}>
-          <TextUI size={13} color={p.muted}>السورة</TextUI>
-          <TextUI font="amiri" size={20} weight="bold" color={p.ink}>{surah.nameAr}</TextUI>
+          <TextUI size={13} color={p.muted}>{t('السورة', 'Surah')}</TextUI>
+          <TextUI font="amiri" size={20} weight="bold" color={p.ink}>{nameOf(surah)}</TextUI>
         </View>
-        <TextUI size={13} color={p.muted}>{`${toArabicNumber(versesCount)} آية`}</TextUI>
+        <TextUI size={13} color={p.muted}>{`${toArabicNumber(versesCount)} ${t('آية', versesCount === 1 ? 'ayah' : 'ayahs')}`}</TextUI>
       </TouchableOpacity>
 
       <View style={card}>
         <Stepper
-          label="من الآية"
+          label={t('من الآية', 'From ayah')}
           valueLabel={toArabicNumber(settings.fromAyah)}
           onDecrement={() => update({ fromAyah: settings.fromAyah - 1 })}
           onIncrement={() => update({ fromAyah: settings.fromAyah + 1, toAyah: Math.max(settings.toAyah, settings.fromAyah + 1) })}
@@ -193,7 +202,7 @@ export const TahfeezScreen: React.FC = () => {
           canIncrement={settings.fromAyah < versesCount}
         />
         <Stepper
-          label="إلى الآية"
+          label={t('إلى الآية', 'To ayah')}
           valueLabel={toArabicNumber(settings.toAyah)}
           onDecrement={() => update({ toAyah: settings.toAyah - 1 })}
           onIncrement={() => update({ toAyah: settings.toAyah + 1 })}
@@ -204,8 +213,8 @@ export const TahfeezScreen: React.FC = () => {
 
       <View style={card}>
         <Stepper
-          label="تكرار المقطع كاملًا"
-          sub={`الآيات ${toArabicNumber(settings.fromAyah)}–${toArabicNumber(settings.toAyah)}`}
+          label={t('تكرار المقطع كاملًا', 'Repeat the whole passage')}
+          sub={`${t('الآيات', 'Ayahs')} ${toArabicNumber(settings.fromAyah)}–${toArabicNumber(settings.toAyah)}`}
           valueLabel={times(settings.rangeRepeat)}
           onDecrement={() => update({ rangeRepeat: settings.rangeRepeat - 1 })}
           onIncrement={() => update({ rangeRepeat: settings.rangeRepeat + 1 })}
@@ -213,8 +222,8 @@ export const TahfeezScreen: React.FC = () => {
           canIncrement={settings.rangeRepeat < 20}
         />
         <Stepper
-          label="تكرار كل آية"
-          sub="قبل الانتقال للتالية"
+          label={t('تكرار كل آية', 'Repeat each ayah')}
+          sub={t('قبل الانتقال للتالية', 'Before moving to the next')}
           valueLabel={times(settings.ayahRepeat)}
           onDecrement={() => update({ ayahRepeat: settings.ayahRepeat - 1 })}
           onIncrement={() => update({ ayahRepeat: settings.ayahRepeat + 1 })}
@@ -222,9 +231,9 @@ export const TahfeezScreen: React.FC = () => {
           canIncrement={settings.ayahRepeat < 20}
         />
         <Stepper
-          label="مهلة الترديد بعد الآية"
-          sub="لتعيدها بصوتك"
-          valueLabel={PAUSE_LABELS[settings.pauseFactor]}
+          label={t('مهلة الترديد بعد الآية', 'Pause to repeat after each ayah')}
+          sub={t('لتعيدها بصوتك', 'To repeat it aloud')}
+          valueLabel={t(PAUSE_LABELS[settings.pauseFactor], PAUSE_LABELS_EN[settings.pauseFactor])}
           onDecrement={() => update({ pauseFactor: settings.pauseFactor - 1 })}
           onIncrement={() => update({ pauseFactor: settings.pauseFactor + 1 })}
           canDecrement={settings.pauseFactor > 0}
@@ -233,7 +242,10 @@ export const TahfeezScreen: React.FC = () => {
       </View>
 
       <TextUI size={13} color={p.muted}>
-        {`${toArabicNumber(ayahCount)} آيات × ${toArabicNumber(settings.ayahRepeat * settings.rangeRepeat)} سماع لكل آية. التلاوة تحتاج اتصالًا بالإنترنت.`}
+        {t(
+          `${toArabicNumber(ayahCount)} آيات × ${toArabicNumber(settings.ayahRepeat * settings.rangeRepeat)} سماع لكل آية. التلاوة تحتاج اتصالًا بالإنترنت.`,
+          `${toArabicNumber(ayahCount)} ${ayahCount === 1 ? 'ayah' : 'ayahs'} × ${toArabicNumber(settings.ayahRepeat * settings.rangeRepeat)} listens per ayah. Recitation needs an internet connection.`
+        )}
       </TextUI>
       {error ? <TextUI size={14} color="#B34743">{error}</TextUI> : null}
       <TouchableOpacity
@@ -241,7 +253,7 @@ export const TahfeezScreen: React.FC = () => {
         accessibilityRole="button"
         style={{ minHeight: 52, borderRadius: 14, backgroundColor: p.primary, alignItems: 'center', justifyContent: 'center' }}
       >
-        <TextUI size={16} weight="bold" color={p.onPrimary}>ابدأ الجلسة</TextUI>
+        <TextUI size={16} weight="bold" color={p.onPrimary}>{t('ابدأ الجلسة', 'Start session')}</TextUI>
       </TouchableOpacity>
     </View>
   );
@@ -250,7 +262,7 @@ export const TahfeezScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <ScreenHeader
         title={t('جلسة الحفظ', 'Memorization')}
-        subtitle={running ? `${surah.nameAr} ${toArabicNumber(settings.fromAyah)}–${toArabicNumber(settings.toAyah)}` : undefined}
+        subtitle={running ? `${nameOf(surah)}${toArabicNumber(settings.fromAyah)}–${toArabicNumber(settings.toAyah)}` : undefined}
         onBack={() => { stop(); goBack(); }}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
@@ -262,8 +274,8 @@ export const TahfeezScreen: React.FC = () => {
           <View style={{ maxHeight: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: p.bg, paddingTop: 10 }}>
             <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: p.track, marginBottom: 6 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 }}>
-              <TextUI size={18} weight="bold" color={p.ink} style={{ flex: 1 }}>{picker === 'reciter' ? 'اختر القارئ' : 'اختر السورة'}</TextUI>
-              <TouchableOpacity onPress={() => setPicker(null)} accessibilityRole="button" accessibilityLabel="إغلاق" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <TextUI size={18} weight="bold" color={p.ink} style={{ flex: 1 }}>{picker === 'reciter' ? t('اختر القارئ', 'Choose a reciter') : t('اختر السورة', 'Choose a surah')}</TextUI>
+              <TouchableOpacity onPress={() => setPicker(null)} accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="x" size={20} color={p.muted} />
               </TouchableOpacity>
             </View>
@@ -273,10 +285,10 @@ export const TahfeezScreen: React.FC = () => {
                 <TextInput
                   value={surahQuery}
                   onChangeText={setSurahQuery}
-                  placeholder="ابحث عن سورة"
+                  placeholder={t('ابحث عن سورة', 'Search for a surah')}
                   placeholderTextColor={p.muted}
-                  accessibilityLabel="بحث عن سورة"
-                  style={{ flex: 1, minHeight: 44, color: p.ink, textAlign: 'right', fontFamily: Platform.OS === 'web' ? 'Tajawal, sans-serif' : 'Tajawal_400Regular' }}
+                  accessibilityLabel={t('بحث عن سورة', 'Search for a surah')}
+                  style={{ flex: 1, minHeight: 44, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontFamily: Platform.OS === 'web' ? 'Tajawal, sans-serif' : 'Tajawal_400Regular' }}
                 />
               </View>
             ) : null}
@@ -291,7 +303,7 @@ export const TahfeezScreen: React.FC = () => {
                     accessibilityRole="button"
                     style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, borderBottomWidth: 1, borderColor: p.divider, gap: 10 }}
                   >
-                    <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{item.nameAr}</TextUI>
+                    <TextUI size={15} color={p.ink} style={{ flex: 1 }}>{nameOf(item)}</TextUI>
                     {item.id === settings.reciterId ? <Feather name="check" size={18} color={p.primary} /> : null}
                   </TouchableOpacity>
                 )}
@@ -309,8 +321,8 @@ export const TahfeezScreen: React.FC = () => {
                     style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, borderBottomWidth: 1, borderColor: p.divider, gap: 12 }}
                   >
                     <TextUI size={13} weight="bold" color={p.accentInk} style={{ width: 30, textAlign: 'center' }}>{toArabicNumber(item.id)}</TextUI>
-                    <TextUI font="amiri" size={19} weight="bold" color={p.ink} style={{ flex: 1 }}>{item.nameAr}</TextUI>
-                    <TextUI size={13} color={p.muted}>{`${toArabicNumber(item.verses)} آية`}</TextUI>
+                    <TextUI font="amiri" size={19} weight="bold" color={p.ink} style={{ flex: 1 }}>{nameOf(item)}</TextUI>
+                    <TextUI size={13} color={p.muted}>{`${toArabicNumber(item.verses)} ${t('آية', item.verses === 1 ? 'ayah' : 'ayahs')}`}</TextUI>
                   </TouchableOpacity>
                 )}
               />

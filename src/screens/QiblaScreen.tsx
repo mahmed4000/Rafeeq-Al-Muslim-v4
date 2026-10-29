@@ -13,7 +13,7 @@ import { toArabicNumber } from '../services/prayerCalculation';
 const ALIGN_TOLERANCE = 4; // degrees
 
 export const QiblaScreen: React.FC = () => {
-  const { goBack, t, currentCity, refreshLocation, triggerHaptic } = useApp();
+  const { goBack, t, lang, currentCity, refreshLocation, triggerHaptic } = useApp();
   const p = usePalette();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -98,15 +98,15 @@ export const QiblaScreen: React.FC = () => {
 
   const statusChip = () => {
     if (sensorLive === false) {
-      return { bg: p.soft, fg: p.primaryInk, icon: 'info' as const, text: 'البوصلة غير متاحة هنا · الاتجاه من الشمال' };
+      return { bg: p.soft, fg: p.primaryInk, icon: 'info' as const, text: t('البوصلة غير متاحة هنا · الاتجاه من الشمال', 'Compass not available here · bearing from north') };
     }
-    if (isAligned) return { bg: p.successBg, fg: p.successInk, icon: 'check' as const, text: 'أنت متجه نحو القبلة' };
+    if (isAligned) return { bg: p.successBg, fg: p.successInk, icon: 'check' as const, text: t('أنت متجه نحو القبلة', 'You are facing the Qibla') };
     const deg = toArabicNumber(Math.abs(Math.round(diff)));
     return {
       bg: p.soft,
       fg: p.primaryInk,
       icon: (diff < 0 ? 'rotate-cw' : 'rotate-ccw') as 'rotate-cw' | 'rotate-ccw',
-      text: diff < 0 ? `أدر الهاتف يمينًا ${deg}°` : `أدر الهاتف يسارًا ${deg}°`
+      text: diff < 0 ? t(`أدر الهاتف يمينًا ${deg}°`, `Turn the phone right ${deg}°`) : t(`أدر الهاتف يسارًا ${deg}°`, `Turn the phone left ${deg}°`)
     };
   };
   const chip = statusChip();
@@ -115,10 +115,10 @@ export const QiblaScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <ScreenHeader
         title={t('القبلة', 'Qibla')}
-        subtitle={`${currentCity.nameAr} · ${currentCity.countryAr}`}
+        subtitle={lang === 'en' ? `${currentCity.nameEn} · ${currentCity.countryEn}` : `${currentCity.nameAr} · ${currentCity.countryAr}`}
         onBack={goBack}
         right={
-          <TouchableOpacity onPress={refreshLocation} accessibilityRole="button" accessibilityLabel="تحديث الموقع" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity onPress={refreshLocation} accessibilityRole="button" accessibilityLabel={t('تحديث الموقع', 'Update location')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Feather name="navigation" size={18} color={p.primary} />
           </TouchableOpacity>
         }
@@ -132,7 +132,7 @@ export const QiblaScreen: React.FC = () => {
 
         <View
           accessibilityRole="image"
-          accessibilityLabel={`القبلة على ${toArabicNumber(qiblaTarget)} درجة من الشمال`}
+          accessibilityLabel={t(`القبلة على ${toArabicNumber(qiblaTarget)} درجة من الشمال`, `Qibla is ${toArabicNumber(qiblaTarget)} degrees from north`)}
           style={{
             alignSelf: 'center',
             width: dial,
@@ -146,10 +146,10 @@ export const QiblaScreen: React.FC = () => {
           }}
         >
           <View style={{ position: 'absolute', top: 14, left: 14, right: 14, bottom: 14, borderRadius: dial / 2, borderWidth: 1, borderStyle: 'dashed', borderColor: p.border }} />
-          <TextUI size={14} weight="bold" color={p.primary} style={{ position: 'absolute', top: 20 }}>ش</TextUI>
-          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', bottom: 20 }}>ج</TextUI>
-          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', right: 22 }}>ق</TextUI>
-          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', left: 22 }}>غ</TextUI>
+          <TextUI size={14} weight="bold" color={p.primary} style={{ position: 'absolute', top: 20 }}>{t('ش', 'N')}</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', bottom: 20 }}>{t('ج', 'S')}</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', right: 22 }}>{t('ق', 'E')}</TextUI>
+          <TextUI size={14} weight="bold" color={p.muted} style={{ position: 'absolute', left: 22 }}>{t('غ', 'W')}</TextUI>
 
           <View style={{ position: 'absolute', width: dial, height: dial, alignItems: 'center', transform: [{ rotate: `${needleAngle}deg` }] }}>
             <View style={{ marginTop: -14, width: 34, height: 34, borderRadius: 9, backgroundColor: '#2D1E16', borderWidth: 2, borderColor: isAligned ? p.success : p.accent }} />
@@ -160,12 +160,12 @@ export const QiblaScreen: React.FC = () => {
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1, borderRadius: 16, padding: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-            <TextUI size={13} color={p.muted}>الاتجاه من الشمال</TextUI>
+            <TextUI size={13} color={p.muted}>{t('الاتجاه من الشمال', 'Bearing from north')}</TextUI>
             <TextUI size={22} weight="bold" color={p.ink}>{`${toArabicNumber(qiblaTarget)}°`}</TextUI>
           </View>
           <View style={{ flex: 1, borderRadius: 16, padding: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-            <TextUI size={13} color={p.muted}>المسافة إلى الكعبة</TextUI>
-            <TextUI size={22} weight="bold" color={p.ink}>{`${toArabicNumber(distanceKm.toLocaleString('en-US').replace(',', '٬'))} كم`}</TextUI>
+            <TextUI size={13} color={p.muted}>{t('المسافة إلى الكعبة', 'Distance to the Kaaba')}</TextUI>
+            <TextUI size={22} weight="bold" color={p.ink}>{t(`${toArabicNumber(distanceKm.toLocaleString('en-US').replace(',', '٬'))} كم`, `${distanceKm.toLocaleString('en-US')} km`)}</TextUI>
           </View>
         </View>
 
@@ -173,8 +173,8 @@ export const QiblaScreen: React.FC = () => {
           <Feather name="info" size={18} color={lowAccuracy ? '#7A2E2B' : p.primary} />
           <TextUI size={13} color={lowAccuracy ? '#7A2E2B' : p.primaryInk} style={{ flex: 1, lineHeight: 21 }}>
             {lowAccuracy
-              ? 'دقة البوصلة منخفضة الآن. حرّك الهاتف على شكل الرقم ٨ عدة مرات.'
-              : 'القراءة غير مستقرة؟ ضع الهاتف أفقيًا، وابتعد عن المعادن والمغناطيس، وحرّكه على شكل الرقم ٨.'}
+              ? t('دقة البوصلة منخفضة الآن. حرّك الهاتف على شكل الرقم ٨ عدة مرات.', 'Compass accuracy is low right now. Move the phone in a figure 8 a few times.')
+              : t('القراءة غير مستقرة؟ ضع الهاتف أفقيًا، وابتعد عن المعادن والمغناطيس، وحرّكه على شكل الرقم ٨.', 'Reading unstable? Hold the phone flat, keep away from metal and magnets, and move it in a figure 8.')}
           </TextUI>
         </View>
       </ScrollView>

@@ -11,31 +11,36 @@ import { cityNow } from '../services/cityTime';
 import { useNextPrayer } from '../hooks/useNextPrayer';
 import { SettingsList } from '../ui/SettingsList';
 import { usePalette } from '../theme/palette';
+import { tr } from '../i18n/language';
 
 type RowKey = keyof PrayerTimeValues;
 
-const ROWS: { key: RowKey; nameAr: string }[] = [
-  { key: 'fajr', nameAr: 'الفجر' },
-  { key: 'sunrise', nameAr: 'الشروق' },
-  { key: 'dhuhr', nameAr: 'الظهر' },
-  { key: 'asr', nameAr: 'العصر' },
-  { key: 'maghrib', nameAr: 'المغرب' },
-  { key: 'isha', nameAr: 'العشاء' }
+const ROWS: { key: RowKey; nameAr: string; nameEn: string }[] = [
+  { key: 'fajr', nameAr: 'الفجر', nameEn: 'Fajr' },
+  { key: 'sunrise', nameAr: 'الشروق', nameEn: 'Sunrise' },
+  { key: 'dhuhr', nameAr: 'الظهر', nameEn: 'Dhuhr' },
+  { key: 'asr', nameAr: 'العصر', nameEn: 'Asr' },
+  { key: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib' },
+  { key: 'isha', nameAr: 'العشاء', nameEn: 'Isha' }
 ];
 
-/** "بعد ٣١ دقيقة" / "بعد ٢ س ١٠ د" */
+/** "بعد ٣١ دقيقة" / "بعد ٢ س ١٠ د" ("in 31 min" / "in 2 h 10 min" in English) */
 function inAr(secs: number): string {
   const mins = Math.max(1, Math.ceil(secs / 60));
-  if (mins < 60) return `بعد ${toArabicNumber(mins)} دقيقة`;
+  if (mins < 60) return tr(`بعد ${toArabicNumber(mins)} دقيقة`, `in ${toArabicNumber(mins)} min`);
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m ? `بعد ${toArabicNumber(h)} س ${toArabicNumber(m)} د` : `بعد ${toArabicNumber(h)} س`;
+  return m
+    ? tr(`بعد ${toArabicNumber(h)} س ${toArabicNumber(m)} د`, `in ${toArabicNumber(h)} h ${toArabicNumber(m)} min`)
+    : tr(`بعد ${toArabicNumber(h)} س`, `in ${toArabicNumber(h)} h`);
 }
 
 export const PrayerTimesScreen: React.FC = () => {
   const {
     navigate,
     t,
+    isRTL,
+    lang,
     currentCity,
     prayerTimes,
     prayerBells,
@@ -74,7 +79,7 @@ export const PrayerTimesScreen: React.FC = () => {
   const adjustedCount = countOffsets(prayerOffsets);
 
   const dateInfo = getFullDateInfo(day, hijriAdjust);
-  const dayLabel = dayOffset === 0 ? 'اليوم' : dayOffset === 1 ? 'غدًا' : dayOffset === -1 ? 'أمس' : '';
+  const dayLabel = dayOffset === 0 ? t('اليوم', 'Today') : dayOffset === 1 ? t('غدًا', 'Tomorrow') : dayOffset === -1 ? t('أمس', 'Yesterday') : '';
   const dayTitle = dayLabel ? `${dayLabel} · ${dateInfo.gregorianDayName}` : dateInfo.gregorianDayName;
 
   // Status on today's list: the prayer whose time is running and the next one.
@@ -91,26 +96,33 @@ export const PrayerTimesScreen: React.FC = () => {
     return 'isha';
   })();
   const noteFor = (k: RowKey): string => {
-    if (k === 'sunrise') return 'ليس وقت صلاة';
+    if (k === 'sunrise') return t('ليس وقت صلاة', 'Not a prayer time');
     if (!isToday) return '';
     if (k === nextKey) {
       const alert = alertsConfig.enabled ? alertsConfig.prayers[k] : null;
-      return alert?.before ? `${inAr(next.diffSeconds)} · تنبيه قبل ${toArabicNumber(alert.beforeMinutes)} د` : inAr(next.diffSeconds);
+      return alert?.before
+        ? t(`${inAr(next.diffSeconds)} · تنبيه قبل ${toArabicNumber(alert.beforeMinutes)} د`, `${inAr(next.diffSeconds)} · alert ${toArabicNumber(alert.beforeMinutes)} min before`)
+        : inAr(next.diffSeconds);
     }
-    if (k === currentKey) return 'الوقت الحالي';
-    if (nowMins >= minsOf(k)) return 'انتهى';
+    if (k === currentKey) return t('الوقت الحالي', 'Current time');
+    if (nowMins >= minsOf(k)) return t('انتهى', 'Passed');
     return '';
   };
 
   const values = prayerSettingValues(calculationMethod, asrMethod, prayerOffsets, prayerBells);
   const openSheet = (s: PrayerSheet) => { triggerHaptic('light'); setSheet(s); };
   const settingsRows = [
-    { key: 'city', label: 'المدينة', value: `${currentCity.nameAr} · ${currentCity.countryAr}`, onPress: () => openSheet('city') },
-    { key: 'calc', label: 'طريقة الحساب', value: values.calc, onPress: () => openSheet('calc') },
-    { key: 'asr', label: 'حساب العصر', value: values.asr, onPress: () => openSheet('asr') },
-    { key: 'offsets', label: 'تعديل يدوي للأوقات', value: values.offsets, onPress: () => openSheet('offsets') },
-    { key: 'alerts', label: 'الأذان والإقامة', value: values.alerts, onPress: () => navigate('adhan_settings') },
-    { key: 'month', label: 'مواقيت الشهر', onPress: () => navigate('prayer_month') }
+    {
+      key: 'city',
+      label: t('المدينة', 'City'),
+      value: lang === 'en' ? `${currentCity.nameEn} · ${currentCity.countryEn}` : `${currentCity.nameAr} · ${currentCity.countryAr}`,
+      onPress: () => openSheet('city')
+    },
+    { key: 'calc', label: t('طريقة الحساب', 'Calculation method'), value: values.calc, onPress: () => openSheet('calc') },
+    { key: 'asr', label: t('حساب العصر', 'Asr calculation'), value: values.asr, onPress: () => openSheet('asr') },
+    { key: 'offsets', label: t('تعديل يدوي للأوقات', 'Manual time adjustments'), value: values.offsets, onPress: () => openSheet('offsets') },
+    { key: 'alerts', label: t('الأذان والإقامة', 'Adhan & iqamah'), value: values.alerts, onPress: () => navigate('adhan_settings') },
+    { key: 'month', label: t('مواقيت الشهر', 'Monthly timetable'), onPress: () => navigate('prayer_month') }
   ];
 
   const shiftDay = (delta: number) => {
@@ -141,12 +153,12 @@ export const PrayerTimesScreen: React.FC = () => {
 
         {/* Day picker */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, padding: 4, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="اليوم السابق" onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Feather name="chevron-right" size={20} color={p.primary} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم السابق', 'Previous day')} onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel={isToday ? `${dayTitle}، ${dateInfo.hijriFormatted}` : `${dayTitle}، ${dateInfo.hijriFormatted}. اضغط للعودة إلى اليوم`}
+            accessibilityLabel={isToday ? t(`${dayTitle}، ${dateInfo.hijriFormatted}`, `${dayTitle}, ${dateInfo.hijriFormatted}`) : t(`${dayTitle}، ${dateInfo.hijriFormatted}. اضغط للعودة إلى اليوم`, `${dayTitle}, ${dateInfo.hijriFormatted}. Tap to return to today`)}
             disabled={isToday}
             onPress={() => shiftDay(-dayOffset)}
             style={{ flex: 1, alignItems: 'center', paddingVertical: 2 }}
@@ -154,8 +166,8 @@ export const PrayerTimesScreen: React.FC = () => {
             <TextUI size={15} weight="bold" color={p.ink}>{dayTitle}</TextUI>
             <TextUI size={13} color={p.muted} numberOfLines={1}>{`${dateInfo.hijriFormatted} · ${dateInfo.gregorianDate}`}</TextUI>
           </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="اليوم التالي" onPress={() => shiftDay(1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Feather name="chevron-left" size={20} color={p.primary} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم التالي', 'Next day')} onPress={() => shiftDay(1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.primary} />
           </TouchableOpacity>
         </View>
 
@@ -174,7 +186,7 @@ export const PrayerTimesScreen: React.FC = () => {
               >
                 <View style={{ width: 6, height: 28, borderRadius: 3, backgroundColor: isNext ? p.accent : isCurrent ? p.success : 'transparent' }} />
                 <View style={{ flex: 1 }}>
-                  <TextUI size={17} weight={isNext ? 'bold' : 'medium'} color={row.key === 'sunrise' ? p.muted : p.ink}>{row.nameAr}</TextUI>
+                  <TextUI size={17} weight={isNext ? 'bold' : 'medium'} color={row.key === 'sunrise' ? p.muted : p.ink}>{t(row.nameAr, row.nameEn)}</TextUI>
                   {note ? <TextUI size={12.5} color={p.muted}>{note}</TextUI> : null}
                 </View>
                 <TextUI size={18} weight="bold" color={p.ink}>{times[row.key].timeStr}</TextUI>
@@ -183,7 +195,7 @@ export const PrayerTimesScreen: React.FC = () => {
                     activeOpacity={0.7}
                     accessibilityRole="switch"
                     accessibilityState={{ checked: bellOn }}
-                    accessibilityLabel={`تنبيه ${row.nameAr}`}
+                    accessibilityLabel={t(`تنبيه ${row.nameAr}`, `${row.nameEn} alert`)}
                     onPress={() => togglePrayerBell(bellKey)}
                     style={{ width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
                   >
@@ -199,7 +211,7 @@ export const PrayerTimesScreen: React.FC = () => {
         {adjustedCount ? (
           <TouchableOpacity accessibilityRole="button" onPress={() => openSheet('offsets')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 32, marginTop: -4 }}>
             <Feather name="sliders" size={13} color={p.muted} />
-            <TextUI size={12.5} color={p.muted}>بعض الأوقات معدّلة يدويًا</TextUI>
+            <TextUI size={12.5} color={p.muted}>{t('بعض الأوقات معدّلة يدويًا', 'Some times are adjusted manually')}</TextUI>
           </TouchableOpacity>
         ) : null}
 

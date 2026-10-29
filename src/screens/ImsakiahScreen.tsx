@@ -13,7 +13,7 @@ import { cityNow } from '../services/cityTime';
 const IMSAK_MINUTES_BEFORE_FAJR = 10;
 
 export const ImsakiahScreen: React.FC = () => {
-  const { goBack, t, currentCity, calculationMethod, asrMethod, prayerOffsets } = useApp();
+  const { goBack, t, lang, currentCity, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
 
   // Generate 30 days of Ramadan / Hijri calendar
@@ -39,7 +39,7 @@ export const ImsakiahScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('إمساكية رمضان المبارك', 'Ramadan Imsakiah')}
-        subtitle={`${currentCity.nameAr} • ٣٠ يوماً`}
+        subtitle={lang === 'en' ? `${currentCity.nameEn} • 30 days` : `${currentCity.nameAr} • ٣٠ يوماً`}
         onBack={goBack}
       />
 
@@ -59,12 +59,12 @@ export const ImsakiahScreen: React.FC = () => {
             marginBottom: 8
           }}
         >
-          <TextUI variant="captionBold" color={p.onHero} style={{ width: 44, textAlign: 'center' }}>اليوم</TextUI>
-          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الإمساك</TextUI>
-          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الفجر</TextUI>
-          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>الشروق</TextUI>
-          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>المغرب</TextUI>
-          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>العشاء</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ width: 44, textAlign: 'center' }}>{t('اليوم', 'Day')}</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>{t('الإمساك', 'Imsak')}</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>{t('الفجر', 'Fajr')}</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>{t('الشروق', 'Sunrise')}</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>{t('المغرب', 'Maghrib')}</TextUI>
+          <TextUI variant="captionBold" color={p.onHero} style={{ flex: 1, textAlign: 'center' }}>{t('العشاء', 'Isha')}</TextUI>
         </View>
 
         {/* Days Rows */}

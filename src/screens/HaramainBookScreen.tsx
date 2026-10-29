@@ -9,9 +9,10 @@ import { toArabicNumber } from '../services/prayerCalculation';
 import { AudioService, DownloadedLessonRecord } from '../services/audioService';
 import { usePalette } from '../theme/palette';
 import { useScreenParams } from '../navigation/routes';
+import { localizeDuration } from '../i18n/language';
 
 export const HaramainBookScreen: React.FC = () => {
-  const { goBack, navigate, triggerHaptic } = useApp();
+  const { goBack, navigate, triggerHaptic, t, isRTL, lang } = useApp();
   const screenParams = useScreenParams();
   const p = usePalette();
   const course: any = useMemo(() => [...PROPHET_MOSQUE_COURSES, ...MAKKAH_MOSQUE_COURSES]
@@ -30,7 +31,7 @@ export const HaramainBookScreen: React.FC = () => {
     setDownloading((prev) => new Set(prev).add(lesson.id));
     const result = await AudioService.downloadLesson(course, lesson, () => {});
     if (result) setDownloadedMap((prev) => ({ ...prev, [lesson.id]: result }));
-    else Alert.alert('تعذّر التحميل', 'تحقق من اتصال الإنترنت ثم أعد المحاولة.');
+    else Alert.alert(t('تعذّر التحميل', 'Download failed'), t('تحقق من اتصال الإنترنت ثم أعد المحاولة.', 'Check your internet connection and try again.'));
     setDownloading((prev) => {
       const next = new Set(prev);
       next.delete(lesson.id);
@@ -38,29 +39,32 @@ export const HaramainBookScreen: React.FC = () => {
     });
   };
 
-  if (!course) return <View style={{ flex: 1, backgroundColor: p.bg }}><Header title="السلسلة غير موجودة" onBack={goBack} /></View>;
+  const isEn = lang === 'en';
+  const categoryText: string = isEn ? (course?.categoryEn || course?.categoryAr) : course?.categoryAr;
+
+  if (!course) return <View style={{ flex: 1, backgroundColor: p.bg }}><Header title={t('السلسلة غير موجودة', 'Series not found')} onBack={goBack} /></View>;
 
   return <View style={{ flex: 1, backgroundColor: p.bg }}>
-    <Header title="تفاصيل الكتاب والسلسلة" subtitle={course.categoryAr} onBack={goBack} />
+    <Header title={t('تفاصيل الكتاب والسلسلة', 'Book & Series Details')} subtitle={categoryText} onBack={goBack} />
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 36 }} keyboardShouldPersistTaps="handled">
       <View style={{ backgroundColor: p.surface, borderRadius: 22, borderWidth: 1, borderColor: p.border, padding: 20 }}>
         <View style={{ width: 52, height: 52, borderRadius: 17, backgroundColor: p.hero, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
           <Feather name="book-open" size={24} color={p.onHero} />
         </View>
-        <TextUI variant="h2" color={p.ink}>{course.titleAr}</TextUI>
+        <TextUI variant="h2" color={p.ink}>{isEn && course.titleEn ? course.titleEn : course.titleAr}</TextUI>
         <TextUI variant="bodyMedium" weight="bold" color={p.primary} style={{ marginTop: 6 }}>{course.scholarAr}</TextUI>
-        <TextUI variant="caption" color={p.muted} style={{ marginTop: 4 }}>{course.roleAr || 'من دروس الحرمين الشريفين'} • {course.categoryAr}</TextUI>
+        <TextUI variant="caption" color={p.muted} style={{ marginTop: 4 }}>{course.roleAr || t('من دروس الحرمين الشريفين', 'From the lessons of the Two Holy Mosques')} • {categoryText}</TextUI>
         <TextUI variant="body" color={p.ink} style={{ lineHeight: 22, marginTop: 14 }}>{course.descriptionAr}</TextUI>
         <View style={{ flexDirection: 'row', gap: 18, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderColor: p.border }}>
-          <TextUI variant="caption" color={p.muted}>{toArabicNumber(course.lessons.length)} درس مسجل</TextUI>
+          <TextUI variant="caption" color={p.muted}>{toArabicNumber(course.lessons.length)} {t('درس مسجل', course.lessons.length === 1 ? 'recorded lesson' : 'recorded lessons')}</TextUI>
           <TextUI variant="caption" color={p.muted}>{course.badge}</TextUI>
         </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 10 }}>
-        <TextUI variant="h3" color={p.ink}>دروس السلسلة</TextUI>
-        <TextUI variant="caption" color={p.muted}>{toArabicNumber(lessons.length)} درس</TextUI>
+        <TextUI variant="h3" color={p.ink}>{t('دروس السلسلة', 'Series Lessons')}</TextUI>
+        <TextUI variant="caption" color={p.muted}>{toArabicNumber(lessons.length)} {t('درس', lessons.length === 1 ? 'lesson' : 'lessons')}</TextUI>
       </View>
-      <TextInput value={query} onChangeText={setQuery} placeholder="ابحث في عناوين الدروس" placeholderTextColor={p.muted} style={{ backgroundColor: p.surface, color: p.ink, borderWidth: 1, borderColor: p.border, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, textAlign: 'right', marginBottom: 10 }} />
+      <TextInput value={query} onChangeText={setQuery} placeholder={t('ابحث في عناوين الدروس', 'Search lesson titles')} placeholderTextColor={p.muted} style={{ backgroundColor: p.surface, color: p.ink, borderWidth: 1, borderColor: p.border, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, textAlign: isRTL ? 'right' : 'left', marginBottom: 10 }} />
       <View style={{ backgroundColor: p.surface, borderRadius: 18, borderWidth: 1, borderColor: p.border, paddingHorizontal: 14, paddingVertical: 2 }}>
         {lessons.map((lesson: any, index: number) => {
           const isDownloaded = !!downloadedMap[lesson.id];
@@ -71,13 +75,13 @@ export const HaramainBookScreen: React.FC = () => {
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: p.soft, alignItems: 'center', justifyContent: 'center' }}><TextUI variant="captionBold" color={p.primaryInk}>{toArabicNumber(lesson.number)}</TextUI></View>
               <View style={{ flex: 1 }}>
                 <TextUI variant="bodyMedium" weight="bold" color={p.ink}>{lesson.titleAr}</TextUI>
-                <TextUI variant="caption" color={p.muted} style={{ marginTop: 3 }}>{lesson.duration || 'درس صوتي'} • اضغط للاستماع وتدوين الفوائد</TextUI>
+                <TextUI variant="caption" color={p.muted} style={{ marginTop: 3 }}>{localizeDuration(lesson.duration) || t('درس صوتي', 'Audio lesson')} • {t('اضغط للاستماع وتدوين الفوائد', 'Tap to listen and take notes')}</TextUI>
               </View>
               <Feather name="play-circle" size={22} color={p.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel={isDownloaded ? `الدرس ${toArabicNumber(lesson.number)} منزَّل` : `تنزيل الدرس ${toArabicNumber(lesson.number)}`}
+              accessibilityLabel={isDownloaded ? t(`الدرس ${toArabicNumber(lesson.number)} منزَّل`, `Lesson ${toArabicNumber(lesson.number)} downloaded`) : t(`تنزيل الدرس ${toArabicNumber(lesson.number)}`, `Download lesson ${toArabicNumber(lesson.number)}`)}
               accessibilityState={{ disabled: isDownloaded || isDownloading, busy: isDownloading }}
               disabled={isDownloaded || isDownloading}
               onPress={() => handleDownload(lesson)}
@@ -91,7 +95,7 @@ export const HaramainBookScreen: React.FC = () => {
             </TouchableOpacity>
           </View>;
         })}
-        {lessons.length === 0 ? <TextUI variant="body" color={p.muted} style={{ padding: 18 }}>لا توجد دروس مطابقة.</TextUI> : null}
+        {lessons.length === 0 ? <TextUI variant="body" color={p.muted} style={{ padding: 18 }}>{t('لا توجد دروس مطابقة.', 'No matching lessons.')}</TextUI> : null}
       </View>
     </ScrollView>
   </View>;

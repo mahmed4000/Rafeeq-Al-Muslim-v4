@@ -44,7 +44,7 @@ export const DownloadsScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <Header
         title={t('إدارة التنزيلات والمساحة', 'Downloads & Storage')}
-        subtitle={`${toArabicNumber(downloadedList.length)} دروس محفوظة للاستماع أوفلاين`}
+        subtitle={t(`${toArabicNumber(downloadedList.length)} دروس محفوظة للاستماع أوفلاين`, `${toArabicNumber(downloadedList.length)} lessons saved for offline listening`)}
         onBack={goBack}
       />
 
@@ -69,10 +69,10 @@ export const DownloadsScreen: React.FC = () => {
         >
           <View>
             <TextUI variant="caption" color={p.muted}>
-              المساحة المستخدمة من ذاكرة الهاتف
+              {t('المساحة المستخدمة من ذاكرة الهاتف', 'Phone storage used')}
             </TextUI>
             <TextUI variant="h1" size={24} color={p.primaryInk} style={{ marginTop: 4 }}>
-              {toArabicNumber(totalMB.toFixed(1))} ميجابايت
+              {toArabicNumber(totalMB.toFixed(1))} {t('ميجابايت', 'MB')}
             </TextUI>
           </View>
 
@@ -94,10 +94,10 @@ export const DownloadsScreen: React.FC = () => {
           <View style={{ alignItems: 'center', paddingVertical: 40 }}>
             <Feather name="download-cloud" size={48} color={p.muted} style={{ marginBottom: 12, opacity: 0.5 }} />
             <TextUI variant="h4" color={p.ink}>
-              لا توجد دروس محملة حالياً
+              {t('لا توجد دروس محملة حالياً', 'No downloaded lessons yet')}
             </TextUI>
             <TextUI variant="caption" color={p.muted} style={{ marginTop: 4, textAlign: 'center' }}>
-              يمكنك تحميل دروس وسلاسل كراسي الحرمين الشريفين للاستماع إليها بدون اتصال بالإنترنت.
+              {t('يمكنك تحميل دروس وسلاسل كراسي الحرمين الشريفين للاستماع إليها بدون اتصال بالإنترنت.', 'You can download lessons and series from the Two Holy Mosques study circles to listen to without an internet connection.')}
             </TextUI>
           </View>
         ) : (
@@ -122,10 +122,10 @@ export const DownloadsScreen: React.FC = () => {
                     {item.titleAr}
                   </TextUI>
                   <TextUI variant="bodyMedium" color={p.primary} style={{ marginTop: 2 }}>
-                    {item.scholarAr}
+                    {t(item.scholarAr, item.scholarAr === 'المدرس بالحرم الشريف' ? 'Teacher at the Holy Mosque' : item.scholarAr)}
                   </TextUI>
                   <TextUI variant="caption" color={p.muted} style={{ marginTop: 2 }}>
-                    💾 {item.sizeMB} • {item.downloadedAt}
+                    💾 {t(item.sizeMB, item.sizeMB.replace('ميجابايت', 'MB'))} • {t(item.downloadedAt, item.downloadedAt === 'اليوم' ? 'Today' : item.downloadedAt)}
                   </TextUI>
                 </View>
 

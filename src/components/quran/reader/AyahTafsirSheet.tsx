@@ -3,11 +3,12 @@ import React from 'react';
 import { View, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from '../../common/TextUI';
-import { toArabicNumber } from '../../../services/prayerCalculation';
+import { toArabicNumber, toArabicIndicDigits } from '../../../services/prayerCalculation';
 import { type QuranVerse, type parseSurahVerses } from '../../../services/quranParser';
 import { AVAILABLE_TAFSIR_EDITIONS } from '../../../services/tafsirService';
 import { QURAN_DATA } from './readerShared';
 import { usePalette } from '../../../theme/palette';
+import { useApp } from '../../../context/AppContext';
 
 export interface AyahTafsirSheetProps {
   tafsirModalVisible: boolean;
@@ -43,6 +44,8 @@ export interface AyahTafsirSheetProps {
 
 export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVisible, setTafsirModalVisible, activeAyah, currentSurah, activePage, handleChangeTafsirFontSize, renderAyahMarker, playingAyahNum, playingSurahId, stopAudio, playAyahAudio, toggleBookmark, isBookmarked, handleShareAyah, setAyahNoteText, ayahNotes, ayahNoteKey, setAyahNoteModalVisible, setActionModalVisible, tafsirEditions, selectedTafsirId, handleSelectTafsir, tafsirLoading, tafsirError, loadAyahTafsir, activeTafsirText, tafsirFontSize, handleNavigateAyahTafsir, parsedSurah }) => {
   const p = usePalette();
+  const { t, isRTL, lang } = useApp();
+  const selectedEdition = tafsirEditions.find((e) => e.id === selectedTafsirId);
   return (
     <Modal visible={tafsirModalVisible} animationType="slide" transparent onRequestClose={() => setTafsirModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
@@ -55,10 +58,12 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
             <View style={{ alignItems: 'flex-end', flex: 1 }}>
               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
                 <Feather name="book-open" size={17} color={p.primary} />
-                <TextUI size={17} weight="bold" color={p.ink}>تفسير الآية الكريمة</TextUI>
+                <TextUI size={17} weight="bold" color={p.ink}>{t('تفسير الآية الكريمة', 'Verse tafsir')}</TextUI>
               </View>
               <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr} • الآية {toArabicNumber(Number(activeAyah?.ayahNumber) || 1)} • صفحة {toArabicNumber(activeAyah?.pageNum || activePage)} • جزء {toArabicNumber(activeAyah?.juzNum || currentSurah.juz || 1)}
+                {lang === 'en'
+                  ? <>Surah {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameEn || currentSurah.nameEn} • Verse {toArabicNumber(Number(activeAyah?.ayahNumber) || 1)} • Page {toArabicNumber(activeAyah?.pageNum || activePage)} • Juz {toArabicNumber(activeAyah?.juzNum || currentSurah.juz || 1)}</>
+                  : <>سورة {QURAN_DATA.find((item) => item.id === activeAyah?.surahId)?.nameAr || currentSurah.nameAr} • الآية {toArabicNumber(Number(activeAyah?.ayahNumber) || 1)} • صفحة {toArabicNumber(activeAyah?.pageNum || activePage)} • جزء {toArabicNumber(activeAyah?.juzNum || currentSurah.juz || 1)}</>}
               </TextUI>
             </View>
 
@@ -68,7 +73,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 activeOpacity={0.7}
                 onPress={() => handleChangeTafsirFontSize(-1)}
                 style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center' }}
-                accessibilityLabel="تصغير خط التفسير"
+                accessibilityLabel={t('تصغير خط التفسير', 'Decrease tafsir font size')}
               >
                 <TextUI size={12} weight="bold" color={p.ink}>-A</TextUI>
               </TouchableOpacity>
@@ -77,7 +82,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 activeOpacity={0.7}
                 onPress={() => handleChangeTafsirFontSize(1)}
                 style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center' }}
-                accessibilityLabel="تكبير خط التفسير"
+                accessibilityLabel={t('تكبير خط التفسير', 'Increase tafsir font size')}
               >
                 <TextUI size={12} weight="bold" color={p.ink}>+A</TextUI>
               </TouchableOpacity>
@@ -86,7 +91,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 activeOpacity={0.7}
                 onPress={() => setTafsirModalVisible(false)}
                 style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
-                accessibilityLabel="إغلاق التفسير"
+                accessibilityLabel={t('إغلاق التفسير', 'Close tafsir')}
               >
                 <Feather name="x" size={18} color={p.ink} />
               </TouchableOpacity>
@@ -97,7 +102,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
           <View style={{ backgroundColor: p.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: p.border, marginBottom: 10 }}>
             <TextUI quran size={18} color={p.ink} style={{ textAlign: 'center', lineHeight: 32 }}>
               {activeAyah?.text}{' '}
-              {activeAyah ? renderAyahMarker(toArabicNumber(activeAyah.ayahNumber), false, activeAyah, 18) : null}
+              {activeAyah ? renderAyahMarker(toArabicIndicDigits(activeAyah.ayahNumber), false, activeAyah, 18) : null}
             </TextUI>
 
             {/* Action Toolbar */}
@@ -136,7 +141,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                   weight="bold"
                   color={playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? p.onPrimary : p.ink}
                 >
-                  {playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? 'إيقاف' : 'استماع'}
+                  {playingAyahNum === activeAyah?.ayahNumber && playingSurahId === activeAyah?.surahId ? t('إيقاف', 'Stop') : t('استماع', 'Listen')}
                 </TextUI>
               </TouchableOpacity>
 
@@ -166,7 +171,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                   weight="medium"
                   color={(activeAyah && isBookmarked(activeAyah)) ? p.primaryInk : p.ink}
                 >
-                  {(activeAyah && isBookmarked(activeAyah)) ? 'محفوظة' : 'علامة'}
+                  {(activeAyah && isBookmarked(activeAyah)) ? t('محفوظة', 'Saved') : t('علامة', 'Bookmark')}
                 </TextUI>
               </TouchableOpacity>
 
@@ -187,7 +192,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 }}
               >
                 <Feather name="share-2" size={13} color={p.primary} />
-                <TextUI size={11} weight="medium" color={p.ink}>مشاركة</TextUI>
+                <TextUI size={11} weight="medium" color={p.ink}>{t('مشاركة', 'Share')}</TextUI>
               </TouchableOpacity>
 
               {/* Note */}
@@ -219,7 +224,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                   weight="medium"
                   color={activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? p.success : p.ink}
                 >
-                  تدبر
+                  {t('تدبر', 'Reflect')}
                 </TextUI>
               </TouchableOpacity>
 
@@ -243,7 +248,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 }}
               >
                 <Feather name="more-horizontal" size={13} color={p.muted} />
-                <TextUI size={11} weight="medium" color={p.muted}>المزيد</TextUI>
+                <TextUI size={11} weight="medium" color={p.muted}>{t('المزيد', 'More')}</TextUI>
               </TouchableOpacity>
             </View>
           </View>
@@ -251,9 +256,9 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
           {/* Tafsir Selector Horizontal Bar */}
           <View style={{ marginBottom: 6 }}>
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <TextUI size={12} weight="bold" color={p.muted}>اختر كتاب التفسير ({toArabicNumber(tafsirEditions.length)} تفاسير):</TextUI>
+              <TextUI size={12} weight="bold" color={p.muted}>{lang === 'en' ? <>Choose a tafsir ({toArabicNumber(tafsirEditions.length)} tafsirs):</> : <>اختر كتاب التفسير ({toArabicNumber(tafsirEditions.length)} تفاسير):</>}</TextUI>
               <TextUI size={11} color={p.primary} weight="bold">
-                {tafsirEditions.find((e) => e.id === selectedTafsirId)?.badge}
+                {selectedEdition && t(selectedEdition.badge, selectedEdition.badgeEn)}
               </TextUI>
             </View>
 
@@ -283,7 +288,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                   >
                     {selected && <Feather name="check" size={13} color={p.onPrimary} />}
                     <TextUI size={12} weight="bold" color={selected ? p.onPrimary : p.ink}>
-                      {edition.name}
+                      {t(edition.name, edition.nameEn)}
                     </TextUI>
                   </TouchableOpacity>
                 );
@@ -294,7 +299,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
           {/* Selected Book Info */}
           <View style={{ paddingHorizontal: 2, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
             <TextUI size={11} color={p.muted} numberOfLines={1} style={{ flexShrink: 1 }}>
-              المؤلف: {tafsirEditions.find((e) => e.id === selectedTafsirId)?.author}
+              {t('المؤلف:', 'Author:')} {selectedEdition && t(selectedEdition.author, selectedEdition.authorEn)}
             </TextUI>
           </View>
 
@@ -314,7 +319,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
             {tafsirLoading ? (
               <View style={{ paddingVertical: 36, alignItems: 'center', gap: 10 }}>
                 <ActivityIndicator color={p.primary} size="small" />
-                <TextUI size={12} color={p.muted}>جارٍ جلب التفسير من المصدر المعتمد...</TextUI>
+                <TextUI size={12} color={p.muted}>{t('جارٍ جلب التفسير من المصدر المعتمد...', 'Fetching the tafsir from the approved source...')}</TextUI>
               </View>
             ) : tafsirError ? (
               <View style={{ alignItems: 'center', paddingVertical: 24, gap: 10 }}>
@@ -326,7 +331,7 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                   onPress={() => loadAyahTafsir(selectedTafsirId)}
                   style={{ backgroundColor: p.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 }}
                 >
-                  <TextUI size={12} weight="bold" color={p.onPrimary}>إعادة المحاولة</TextUI>
+                  <TextUI size={12} weight="bold" color={p.onPrimary}>{t('إعادة المحاولة', 'Retry')}</TextUI>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -370,12 +375,12 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 opacity: (activeAyah ? activeAyah.ayahNumber <= 1 : true) ? 0.35 : 1
               }}
             >
-              <Feather name="chevron-right" size={16} color={p.ink} />
-              <TextUI size={11} weight="medium" color={p.ink}>الآية السابقة</TextUI>
+              <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={16} color={p.ink} />
+              <TextUI size={11} weight="medium" color={p.ink}>{t('الآية السابقة', 'Previous verse')}</TextUI>
             </TouchableOpacity>
 
             <TextUI size={11} color={p.muted}>
-              الآية {toArabicNumber(activeAyah?.ayahNumber || 1)} من {toArabicNumber(parsedSurah.verses.length)}
+              {t('الآية', 'Verse')} {toArabicNumber(activeAyah?.ayahNumber || 1)} {t('من', 'of')} {toArabicNumber(parsedSurah.verses.length)}
             </TextUI>
 
             <TouchableOpacity
@@ -394,8 +399,8 @@ export const AyahTafsirSheet: React.FC<AyahTafsirSheetProps> = ({ tafsirModalVis
                 opacity: (activeAyah ? activeAyah.ayahNumber >= parsedSurah.verses.length : true) ? 0.35 : 1
               }}
             >
-              <Feather name="chevron-left" size={16} color={p.ink} />
-              <TextUI size={11} weight="medium" color={p.ink}>الآية التالية</TextUI>
+              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.ink} />
+              <TextUI size={11} weight="medium" color={p.ink}>{t('الآية التالية', 'Next verse')}</TextUI>
             </TouchableOpacity>
           </View>
         </View>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert } from 'react-native';
 import { createAudioPlayer } from 'expo-audio';
 import { AudioService } from '../services/audioService';
+import { tr } from '../i18n/language';
 
 /** The Haramain lesson being played, independent of which screen is open. */
 export interface LessonTrack {
@@ -62,7 +63,7 @@ export const LessonPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const saved = await AudioService.getDownloadedLessons();
     const source = saved[lesson.id]?.localUri || lesson.audioUrl || course.audioStreamUrl;
     if (!source) {
-      Alert.alert('تعذر تشغيل الدرس', 'لا يتوفر رابط صوتي لهذا الدرس.');
+      Alert.alert(tr('تعذر تشغيل الدرس', "Couldn't play the lesson"), tr('لا يتوفر رابط صوتي لهذا الدرس.', 'No audio link is available for this lesson.'));
       return;
     }
     release();
@@ -88,7 +89,7 @@ export const LessonPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ 
       player.play();
     } catch {
       setLoading(false);
-      Alert.alert('تعذر تشغيل الدرس', 'تحقق من اتصال الإنترنت ثم حاول مرة أخرى.');
+      Alert.alert(tr('تعذر تشغيل الدرس', "Couldn't play the lesson"), tr('تحقق من اتصال الإنترنت ثم حاول مرة أخرى.', 'Check your internet connection and try again.'));
     }
   };
 

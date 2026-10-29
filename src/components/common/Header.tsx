@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { TextUI } from './TextUI';
 import { TOKENS } from '../../constants/tokens';
 import { usePalette } from '../../theme/palette';
+import { useApp } from '../../context/AppContext';
 
 interface HeaderProps {
   title: string;
@@ -18,9 +19,11 @@ export const Header: React.FC<HeaderProps> = ({
   subtitle,
   onBack,
   rightAction,
-  isRTL = true
+  isRTL: isRTLProp
 }) => {
   const p = usePalette();
+  const { t, isRTL: ctxRTL } = useApp();
+  const isRTL = isRTLProp ?? ctxRTL;
 
   return (
     <View
@@ -44,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="رجوع"
+            accessibilityLabel={t('رجوع', 'Back')}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -59,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Feather name={isRTL ? "arrow-right" : "arrow-left"} size={15} color={p.primary} />
             <TextUI variant="captionBold" color={p.primary}>
-              رجوع
+              {t('رجوع', 'Back')}
             </TextUI>
           </TouchableOpacity>
         ) : (

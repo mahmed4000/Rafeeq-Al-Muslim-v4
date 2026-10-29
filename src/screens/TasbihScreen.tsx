@@ -66,7 +66,7 @@ export const TasbihScreen: React.FC = () => {
       <ScreenHeader
         title={t('السبحة', 'Tasbih')}
         onBack={goBack}
-        right={<TextUI size={13} color={p.muted} style={{ paddingHorizontal: 12 }}>{`اليوم: ${toArabicNumber(todayTotal)}`}</TextUI>}
+        right={<TextUI size={13} color={p.muted} style={{ paddingHorizontal: 12 }}>{t(`اليوم: ${toArabicNumber(todayTotal)}`, `Today: ${toArabicNumber(todayTotal)}`)}</TextUI>}
       />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 14, flexGrow: 1 }}>
@@ -105,8 +105,8 @@ export const TasbihScreen: React.FC = () => {
           onPress={press}
           accessibilityRole="button"
           accessibilityLabel={target > 0
-            ? `تسبيحة، ${toArabicNumber(count)} من ${toArabicNumber(target)}`
-            : `تسبيحة، العدد ${toArabicNumber(count)}`}
+            ? t(`تسبيحة، ${toArabicNumber(count)} من ${toArabicNumber(target)}`, `Count, ${toArabicNumber(count)} of ${toArabicNumber(target)}`)
+            : t(`تسبيحة، العدد ${toArabicNumber(count)}`, `Count, ${toArabicNumber(count)}`)}
           style={({ pressed }) => ({
             alignSelf: 'center',
             width: 190,
@@ -122,7 +122,7 @@ export const TasbihScreen: React.FC = () => {
         >
           <TextUI size={56} weight="bold" color={p.ink} align="center" style={{ lineHeight: 64 }}>{toArabicNumber(count)}</TextUI>
           <TextUI size={14} color={p.muted} align="center">
-            {target > 0 ? `من ${toArabicNumber(target)} · الدورة ${toArabicNumber(round)}` : 'عدّ حر'}
+            {target > 0 ? t(`من ${toArabicNumber(target)} · الدورة ${toArabicNumber(round)}`, `of ${toArabicNumber(target)} · Round ${toArabicNumber(round)}`) : t('عدّ حر', 'Free count')}
           </TextUI>
         </Pressable>
 
@@ -141,17 +141,17 @@ export const TasbihScreen: React.FC = () => {
                 onPress={() => { setTarget(value); setCount(0); setRound(1); }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={value > 0 ? `الهدف ${value}` : 'عدّ حر'}
+                accessibilityLabel={value > 0 ? t(`الهدف ${value}`, `Target ${value}`) : t('عدّ حر', 'Free count')}
                 style={{ minWidth: 60, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: active ? p.accent : p.border, backgroundColor: active ? p.soft : 'transparent' }}
               >
-                <TextUI size={15} weight="bold" color={active ? p.primaryInk : p.muted}>{value > 0 ? toArabicNumber(value) : 'حر'}</TextUI>
+                <TextUI size={15} weight="bold" color={active ? p.primaryInk : p.muted}>{value > 0 ? toArabicNumber(value) : t('حر', 'Free')}</TextUI>
               </TouchableOpacity>
             );
           })}
           <TouchableOpacity
             onPress={resetCounter}
             accessibilityRole="button"
-            accessibilityLabel="تصفير العدّاد"
+            accessibilityLabel={t('تصفير العدّاد', 'Reset counter')}
             style={{ width: 48, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: p.border }}
           >
             <Feather name="rotate-ccw" size={18} color={p.muted} />

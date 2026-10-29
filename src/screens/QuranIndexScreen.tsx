@@ -10,16 +10,17 @@ import { QURAN_JUZ_INDEX, QURAN_HIZB_INDEX, QuranHizbIndexItem, QuranJuzIndexIte
 import { QURAN_RECITERS } from '../services/quranParser';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { searchQuranUniversal, splitTextForHighlight, VerseSearchResult } from '../services/quranSearch';
+import { getUiLanguage } from '../i18n/language';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 const RECITER_STORAGE_KEY = 'quran.selected-reciter';
 type IndexTab = 'surah' | 'juz' | 'hizb' | 'bookmarks';
 
-const TABS: { id: IndexTab; label: string }[] = [
-  { id: 'surah', label: 'السور' },
-  { id: 'juz', label: 'الأجزاء' },
-  { id: 'hizb', label: 'الأحزاب' },
-  { id: 'bookmarks', label: 'العلامات' }
+const TABS: { id: IndexTab; label: string; labelEn: string }[] = [
+  { id: 'surah', label: 'السور', labelEn: 'Surahs' },
+  { id: 'juz', label: 'الأجزاء', labelEn: 'Juz' },
+  { id: 'hizb', label: 'الأحزاب', labelEn: 'Hizb' },
+  { id: 'bookmarks', label: 'العلامات', labelEn: 'Bookmarks' }
 ];
 
 /** "٢٩ أكتوبر" from an ISO date, or '' if it cannot be read. */
@@ -30,6 +31,7 @@ function shortDateAr(iso: string): string {
 
 /** "٧ آيات" / "٢٨٦ آية" (Arabic plural agreement for counts). */
 function versesAr(n: number): string {
+  if (getUiLanguage() === 'en') return `${toArabicNumber(n)} ${n === 1 ? 'verse' : 'verses'}`;
   if (n === 2) return 'آيتان';
   const tail = n % 100;
   return `${toArabicNumber(n)} ${tail >= 3 && tail <= 10 ? 'آيات' : 'آية'}`;
@@ -62,7 +64,15 @@ const NumberDiamond: React.FC<{ n: number; p: Palette }> = ({ n, p }) => (
 );
 
 export const QuranIndexScreen: React.FC = () => {
-  const { navigate, t, setSelectedSurah, readingBookmark, bookmarks, removeBookmark, triggerHaptic } = useApp();
+  const { navigate, t, isRTL, lang, setSelectedSurah, readingBookmark, bookmarks, removeBookmark, triggerHaptic } = useApp();
+  const en = lang === 'en';
+  const fwdChevron = isRTL ? 'chevron-left' : 'chevron-right';
+  /** Surah name for labels: English transliteration in English, otherwise the given Arabic name. */
+  const surahLabel = (id: number, nameAr: string) => {
+    if (!en) return nameAr;
+    return QURAN_DATA.find((entry) => entry.id === id)?.nameEn || nameAr;
+  };
+  const surahType = (type: string) => (en ? (type === 'مدنية' ? 'Medinan' : type === 'مكية' ? 'Meccan' : type) : type);
   const [activeTab, setActiveTab] = useState<IndexTab>('surah');
   const [search, setSearch] = useState('');
   const [selectedReciter, setSelectedReciter] = useState(QURAN_RECITERS[0].id);
@@ -127,20 +137,26 @@ export const QuranIndexScreen: React.FC = () => {
       <TouchableOpacity
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`سورة ${item.nameAr}، ${item.type}، ${versesAr(item.verses)}، صفحة ${toArabicNumber(item.mushafPageStart || 1)}`}
+        accessibilityLabel={en
+          ? `Surah ${item.nameEn}, ${surahType(item.type)}, ${versesAr(item.verses)}, page ${toArabicNumber(item.mushafPageStart || 1)}`
+          : `سورة ${item.nameAr}، ${item.type}، ${versesAr(item.verses)}، صفحة ${toArabicNumber(item.mushafPageStart || 1)}`}
         onPress={() => openReader(item, 'page')}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingStart: 8 }}
       >
         <NumberDiamond n={item.id} p={p} />
         <View style={{ flex: 1 }}>
-          <TextUI size={20} weight="bold" color={p.ink} style={{ fontFamily: 'Amiri_700Bold', lineHeight: 30 }}>{item.nameAr}</TextUI>
-          <TextUI size={12.5} color={p.muted}>{`${item.type} · ${versesAr(item.verses)}`}</TextUI>
+          {en ? (
+            <TextUI size={17} weight="bold" color={p.ink}>{item.nameEn}</TextUI>
+          ) : (
+            <TextUI size={20} weight="bold" color={p.ink} style={{ fontFamily: 'Amiri_700Bold', lineHeight: 30 }}>{item.nameAr}</TextUI>
+          )}
+          <TextUI size={12.5} color={p.muted}>{`${surahType(item.type)} · ${versesAr(item.verses)}`}</TextUI>
         </View>
-        <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.mushafPageStart || 1)}`}</TextUI>
+        <TextUI size={13} color={p.muted}>{`${t('ص', 'p.')} ${toArabicNumber(item.mushafPageStart || 1)}`}</TextUI>
       </TouchableOpacity>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={`تشغيل سورة ${item.nameAr}`}
+        accessibilityLabel={t(`تشغيل سورة ${item.nameAr}`, `Play Surah ${item.nameEn}`)}
         onPress={() => openReader(item, 'page', item.mushafPageStart || 1, 1, true)}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
       >
@@ -162,12 +178,14 @@ export const QuranIndexScreen: React.FC = () => {
       >
         <NumberDiamond n={item.juz} p={p} />
         <View style={{ flex: 1 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>{`الجزء ${toArabicNumber(item.juz)}`}</TextUI>
+          <TextUI size={16} weight="bold" color={p.ink}>{t(`الجزء ${toArabicNumber(item.juz)}`, `Juz ${toArabicNumber(item.juz)}`)}</TextUI>
           <TextUI size={12.5} color={p.muted}>
-            {`من ${item.startSurahNameAr} · آية ${toArabicNumber(item.startAyah)} · الحزبان ${toArabicNumber(hizbStart)} و${toArabicNumber(hizbStart + 1)}`}
+            {en
+              ? `From ${surahLabel(item.startSurahId, item.startSurahNameAr)} · verse ${toArabicNumber(item.startAyah)} · Hizb ${toArabicNumber(hizbStart)} & ${toArabicNumber(hizbStart + 1)}`
+              : `من ${item.startSurahNameAr} · آية ${toArabicNumber(item.startAyah)} · الحزبان ${toArabicNumber(hizbStart)} و${toArabicNumber(hizbStart + 1)}`}
           </TextUI>
         </View>
-        <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`ص ${toArabicNumber(item.startPage)}`}</TextUI>
+        <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`${t('ص', 'p.')} ${toArabicNumber(item.startPage)}`}</TextUI>
       </TouchableOpacity>
     );
   };
@@ -184,13 +202,15 @@ export const QuranIndexScreen: React.FC = () => {
       <NumberDiamond n={item.hizb} p={p} />
       <View style={{ flex: 1 }}>
         <TextUI size={12.5} color={p.muted}>
-          {`الحزب ${toArabicNumber(item.hizb)} · الجزء ${toArabicNumber(item.juz)} · ${item.startSurahNameAr} ${toArabicNumber(item.startAyah)}`}
+          {en
+            ? `Hizb ${toArabicNumber(item.hizb)} · Juz ${toArabicNumber(item.juz)} · ${surahLabel(item.startSurahId, item.startSurahNameAr)} ${toArabicNumber(item.startAyah)}`
+            : `الحزب ${toArabicNumber(item.hizb)} · الجزء ${toArabicNumber(item.juz)} · ${item.startSurahNameAr} ${toArabicNumber(item.startAyah)}`}
         </TextUI>
         <TextUI variant="quranVerse" size={17} color={p.ink} numberOfLines={1}>
           «{item.beginningSnippet}»
         </TextUI>
       </View>
-      <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`ص ${toArabicNumber(item.startPage)}`}</TextUI>
+      <TextUI size={13} color={p.muted} style={{ paddingEnd: 6 }}>{`${t('ص', 'p.')} ${toArabicNumber(item.startPage)}`}</TextUI>
     </TouchableOpacity>
   );
 
@@ -203,7 +223,9 @@ export const QuranIndexScreen: React.FC = () => {
       <TouchableOpacity
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`علامة: ${item.surahName}، الآية ${toArabicNumber(item.ayah)}، صفحة ${toArabicNumber(item.page)}`}
+        accessibilityLabel={en
+          ? `Bookmark: ${surahLabel(item.surahId, item.surahName)}, verse ${toArabicNumber(item.ayah)}, page ${toArabicNumber(item.page)}`
+          : `علامة: ${item.surahName}، الآية ${toArabicNumber(item.ayah)}، صفحة ${toArabicNumber(item.page)}`}
         onPress={() => openReader(surahById(item.surahId), 'page', item.page, item.ayah)}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingStart: 8 }}
       >
@@ -211,14 +233,16 @@ export const QuranIndexScreen: React.FC = () => {
           <Feather name="bookmark" size={20} color={p.accentInk} />
         </View>
         <View style={{ flex: 1 }}>
-          <TextUI size={16} weight="bold" color={p.ink}>{`${item.surahName} · الآية ${toArabicNumber(item.ayah)}`}</TextUI>
-          <TextUI size={12.5} color={p.muted}>{[`الجزء ${toArabicNumber(item.juz)}`, shortDateAr(item.date)].filter(Boolean).join(' · ')}</TextUI>
+          <TextUI size={16} weight="bold" color={p.ink}>{en ? `${surahLabel(item.surahId, item.surahName)} · Verse ${toArabicNumber(item.ayah)}` : `${item.surahName} · الآية ${toArabicNumber(item.ayah)}`}</TextUI>
+          <TextUI size={12.5} color={p.muted}>{[t(`الجزء ${toArabicNumber(item.juz)}`, `Juz ${toArabicNumber(item.juz)}`), shortDateAr(item.date)].filter(Boolean).join(' · ')}</TextUI>
         </View>
-        <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.page)}`}</TextUI>
+        <TextUI size={13} color={p.muted}>{`${t('ص', 'p.')} ${toArabicNumber(item.page)}`}</TextUI>
       </TouchableOpacity>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={`حذف علامة ${item.surahName} الآية ${toArabicNumber(item.ayah)}`}
+        accessibilityLabel={en
+          ? `Remove bookmark ${surahLabel(item.surahId, item.surahName)} verse ${toArabicNumber(item.ayah)}`
+          : `حذف علامة ${item.surahName} الآية ${toArabicNumber(item.ayah)}`}
         onPress={() => { triggerHaptic('light'); removeBookmark(item.surahId, item.ayah); }}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
       >
@@ -239,8 +263,8 @@ export const QuranIndexScreen: React.FC = () => {
         style={[rowFrame(p, index, count), { paddingVertical: 12, paddingHorizontal: 14, gap: 4 }]}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TextUI size={14} weight="bold" color={p.primaryInk}>{`${item.surahNameAr} · الآية ${toArabicNumber(item.ayahNumber)}`}</TextUI>
-          <TextUI size={13} color={p.muted}>{`ص ${toArabicNumber(item.pageNum)}`}</TextUI>
+          <TextUI size={14} weight="bold" color={p.primaryInk}>{en ? `${surahLabel(item.surahId, item.surahNameAr)} · Verse ${toArabicNumber(item.ayahNumber)}` : `${item.surahNameAr} · الآية ${toArabicNumber(item.ayahNumber)}`}</TextUI>
+          <TextUI size={13} color={p.muted}>{`${t('ص', 'p.')} ${toArabicNumber(item.pageNum)}`}</TextUI>
         </View>
         <TextUI variant="quranVerse" size={17} color={p.ink} style={{ lineHeight: 30 }}>
           {parts.map((part, pIdx) => (
@@ -268,7 +292,9 @@ export const QuranIndexScreen: React.FC = () => {
     <TouchableOpacity
       activeOpacity={0.88}
       accessibilityRole="button"
-      accessibilityLabel={`متابعة القراءة: ${readingBookmark.surahName}، الآية ${toArabicNumber(readingBookmark.ayah)}، صفحة ${toArabicNumber(readingBookmark.page)}`}
+      accessibilityLabel={en
+        ? `Continue reading: ${surahLabel(readingBookmark.surahId, readingBookmark.surahName)}, verse ${toArabicNumber(readingBookmark.ayah)}, page ${toArabicNumber(readingBookmark.page)}`
+        : `متابعة القراءة: ${readingBookmark.surahName}، الآية ${toArabicNumber(readingBookmark.ayah)}، صفحة ${toArabicNumber(readingBookmark.page)}`}
       onPress={() => {
         const surah = surahById(readingBookmark.surahId);
         setSelectedSurah(surah);
@@ -286,11 +312,11 @@ export const QuranIndexScreen: React.FC = () => {
         <Feather name="bookmark" size={20} color={p.accent} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <TextUI size={13} color={p.onHeroMuted}>متابعة القراءة</TextUI>
-        <TextUI size={18} weight="bold" color={p.onHero}>{`${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}`}</TextUI>
-        <TextUI size={13} color={p.onHeroMuted}>{`صفحة ${toArabicNumber(readingBookmark.page)} · الجزء ${toArabicNumber(readingBookmark.juz)}`}</TextUI>
+        <TextUI size={13} color={p.onHeroMuted}>{t('متابعة القراءة', 'Continue reading')}</TextUI>
+        <TextUI size={18} weight="bold" color={p.onHero}>{en ? `${surahLabel(readingBookmark.surahId, readingBookmark.surahName)} · Verse ${toArabicNumber(readingBookmark.ayah)}` : `${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}`}</TextUI>
+        <TextUI size={13} color={p.onHeroMuted}>{t(`صفحة ${toArabicNumber(readingBookmark.page)} · الجزء ${toArabicNumber(readingBookmark.juz)}`, `Page ${toArabicNumber(readingBookmark.page)} · Juz ${toArabicNumber(readingBookmark.juz)}`)}</TextUI>
       </View>
-      <Feather name="chevron-left" size={20} color={p.accent} />
+      <Feather name={fwdChevron} size={20} color={p.accent} />
     </TouchableOpacity>
   ) : null;
 
@@ -332,7 +358,7 @@ export const QuranIndexScreen: React.FC = () => {
               }}
               style={{ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: active ? p.surface : 'transparent' }}
             >
-              <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{tab.label}</TextUI>
+              <TextUI size={14} weight={active ? 'bold' : 'medium'} color={active ? p.primaryInk : p.muted}>{t(tab.label, tab.labelEn)}</TextUI>
             </TouchableOpacity>
           );
         })}
@@ -356,27 +382,27 @@ export const QuranIndexScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`القارئ: ${selectedReciterData.nameAr}`}
+            accessibilityLabel={t(`القارئ: ${selectedReciterData.nameAr}`, `Reciter: ${selectedReciterData.nameEn}`)}
             onPress={() => setReciterModalVisible(true)}
             style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
           >
             <Feather name="mic" size={15} color={p.primary} />
-            <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1} style={{ flexShrink: 1 }}>{selectedReciterData.nameAr}</TextUI>
+            <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1} style={{ flexShrink: 1 }}>{en ? selectedReciterData.nameEn : selectedReciterData.nameAr}</TextUI>
           </TouchableOpacity>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <Feather name="search" size={18} color={p.muted} />
           <TextInput
-            accessibilityLabel="بحث في القرآن"
-            placeholder="سورة، جزء، صفحة، أو كلمة بلا تشكيل"
+            accessibilityLabel={t('بحث في القرآن', 'Search the Quran')}
+            placeholder={t('سورة، جزء، صفحة، أو كلمة بلا تشكيل', 'Surah, juz, page, or an Arabic word')}
             placeholderTextColor={p.muted}
             value={search}
             onChangeText={setSearch}
-            style={{ flex: 1, color: p.ink, textAlign: 'right', fontSize: 15, paddingVertical: 10 }}
+            style={{ flex: 1, color: p.ink, textAlign: isRTL ? 'right' : 'left', fontSize: 15, paddingVertical: 10 }}
           />
           {search ? (
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="مسح البحث" onPress={() => setSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('مسح البحث', 'Clear search')} onPress={() => setSearch('')} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={16} color={p.muted} />
             </TouchableOpacity>
           ) : null}
@@ -398,28 +424,28 @@ export const QuranIndexScreen: React.FC = () => {
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: p.soft, borderWidth: 1, borderColor: p.accent }}
             >
               <Feather name="book-open" size={17} color={p.primary} />
-              <TextUI size={15} weight="bold" color={p.primaryInk} style={{ flex: 1 }}>{`الانتقال إلى الصفحة ${toArabicNumber(searchResults.pageNumber!)}`}</TextUI>
-              <Feather name="chevron-left" size={18} color={p.primary} />
+              <TextUI size={15} weight="bold" color={p.primaryInk} style={{ flex: 1 }}>{t(`الانتقال إلى الصفحة ${toArabicNumber(searchResults.pageNumber!)}`, `Go to page ${toArabicNumber(searchResults.pageNumber!)}`)}</TextUI>
+              <Feather name={fwdChevron} size={18} color={p.primary} />
             </TouchableOpacity>
           )}
 
           {searchResults && searchResults.matchedSurahs.length > 0 && (
             <View>
-              {sectionTitle(`السور (${toArabicNumber(searchResults.matchedSurahs.length)})`)}
+              {sectionTitle(`${t('السور', 'Surahs')} (${toArabicNumber(searchResults.matchedSurahs.length)})`)}
               {searchResults.matchedSurahs.map((surah, i, all) => renderSurah(surah, i, all.length))}
             </View>
           )}
 
           {searchResults && searchResults.matchedHizb.length > 0 && (
             <View>
-              {sectionTitle(`الأحزاب (${toArabicNumber(searchResults.matchedHizb.length)})`)}
+              {sectionTitle(`${t('الأحزاب', 'Hizb')} (${toArabicNumber(searchResults.matchedHizb.length)})`)}
               {searchResults.matchedHizb.map((hizb, i, all) => renderHizb(hizb, i, all.length))}
             </View>
           )}
 
           {searchResults && searchResults.matchedVerses.length > 0 && (
             <View>
-              {sectionTitle(`الآيات (${toArabicNumber(searchResults.matchedVerses.length)})`)}
+              {sectionTitle(`${t('الآيات', 'Verses')} (${toArabicNumber(searchResults.matchedVerses.length)})`)}
               {searchResults.matchedVerses.map((verse, i, all) => renderVerseSearchResult(verse, i, all.length))}
             </View>
           )}
@@ -427,9 +453,12 @@ export const QuranIndexScreen: React.FC = () => {
           {noResults && (
             <View style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 40, gap: 8 }}>
               <Feather name="search" size={26} color={p.muted} />
-              <TextUI size={16} weight="bold" color={p.ink}>لا توجد نتائج</TextUI>
+              <TextUI size={16} weight="bold" color={p.ink}>{t('لا توجد نتائج', 'No results')}</TextUI>
               <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 22 }}>
-                جرّب اسم السورة، أو رقم الصفحة (١ – ٦٠٤)، أو رقم الجزء، أو كلمة من الآية بلا تشكيل.
+                {t(
+                  'جرّب اسم السورة، أو رقم الصفحة (١ – ٦٠٤)، أو رقم الجزء، أو كلمة من الآية بلا تشكيل.',
+                  'Try a surah name, a page number (1 – 604), a juz number, or an Arabic word from the verse without diacritics.'
+                )}
               </TextUI>
             </View>
           )}
@@ -452,9 +481,12 @@ export const QuranIndexScreen: React.FC = () => {
           ListEmptyComponent={
             <View style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 32, gap: 8 }}>
               <Feather name="bookmark" size={24} color={p.muted} />
-              <TextUI size={15} weight="bold" color={p.ink}>لا توجد علامات بعد</TextUI>
+              <TextUI size={15} weight="bold" color={p.ink}>{t('لا توجد علامات بعد', 'No bookmarks yet')}</TextUI>
               <TextUI size={13} color={p.muted} style={{ textAlign: 'center', lineHeight: 22 }}>
-                أضف علامة من زر العلامة أعلى المصحف، أو بلمس آية ثم «إضافة علامة».
+                {t(
+                  'أضف علامة من زر العلامة أعلى المصحف، أو بلمس آية ثم «إضافة علامة».',
+                  'Add one with the bookmark button above the mushaf, or tap a verse and choose “Add bookmark”.'
+                )}
               </TextUI>
             </View>
           }
@@ -473,10 +505,10 @@ export const QuranIndexScreen: React.FC = () => {
           <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 22, maxHeight: '88%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <View>
-                <TextUI size={19} weight="bold" color={p.ink}>القرّاء المعتمدون</TextUI>
-                <TextUI size={12} color={p.muted} style={{ marginTop: 3 }}>اختر القارئ المفضل للتلاوة الصوتية</TextUI>
+                <TextUI size={19} weight="bold" color={p.ink}>{t('القرّاء المعتمدون', 'Approved reciters')}</TextUI>
+                <TextUI size={12} color={p.muted} style={{ marginTop: 3 }}>{t('اختر القارئ المفضل للتلاوة الصوتية', 'Choose your preferred reciter for audio recitation')}</TextUI>
               </View>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setReciterModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setReciterModalVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name="x" size={21} color={p.ink} />
               </TouchableOpacity>
             </View>
@@ -521,16 +553,16 @@ export const QuranIndexScreen: React.FC = () => {
                     </View>
                     <View style={{ flex: 1 }}>
                       <TextUI size={15.5} weight="bold" color={p.ink}>
-                        {item.nameAr}
+                        {en ? item.nameEn : item.nameAr}
                       </TextUI>
                       <TextUI size={12} color={p.muted} style={{ marginTop: 2 }}>
-                        {item.nameEn} • رواية حفص عن عاصم
+                        {en ? `${item.nameAr} • Hafs from Asim` : `${item.nameEn} • رواية حفص عن عاصم`}
                       </TextUI>
                     </View>
                     {active ? (
                       <Feather name="check-circle" size={21} color={p.success} />
                     ) : (
-                      <Feather name="chevron-left" size={18} color={p.muted} />
+                      <Feather name={fwdChevron} size={18} color={p.muted} />
                     )}
                   </TouchableOpacity>
                 );
