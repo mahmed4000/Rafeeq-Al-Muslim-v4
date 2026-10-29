@@ -13,14 +13,14 @@ import { cityNow } from '../services/cityTime';
 const IMSAK_MINUTES_BEFORE_FAJR = 10;
 
 export const ImsakiahScreen: React.FC = () => {
-  const { goBack, t, currentCity, calculationMethod, asrMethod } = useApp();
+  const { goBack, t, currentCity, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
 
   // Generate 30 days of Ramadan / Hijri calendar
   const today = cityNow(currentCity.timeZone);
   const days = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
-    const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, d, calculationMethod, asrMethod, currentCity.timeZone);
+    const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, d, calculationMethod, asrMethod, currentCity.timeZone, prayerOffsets);
     const imsakTotal = (times.fajr.hours * 60 + times.fajr.minutes - IMSAK_MINUTES_BEFORE_FAJR + 1440) % 1440;
     return {
       dayNum: i + 1,

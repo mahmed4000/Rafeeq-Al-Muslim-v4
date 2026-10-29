@@ -45,10 +45,20 @@ export interface PrayerTimeValues {
   isha: PrayerTime;
 }
 
+/** Manual per-time adjustments in minutes (positive = later). */
+export type PrayerOffsets = Partial<Record<keyof PrayerTimeValues, number>>;
+
+export const PRAYER_OFFSET_LIMIT = 30;
+
+/** Number of times with a non-zero adjustment. */
+export function countOffsets(offsets?: PrayerOffsets): number {
+  return offsets ? Object.values(offsets).filter((m) => typeof m === 'number' && m !== 0).length : 0;
+}
+
 /**
  * Prayer times for the calendar day of `date` (read from its local fields, i.e.
  * a city wall-clock date). With `timeZone`, times are expressed in that zone;
- * without it, in the device's.
+ * without it, in the device's. `offsets` shifts each time by whole minutes.
  */
 export function calculateAccuratePrayerTimes(
   lat: number,
@@ -56,6 +66,28 @@ export function calculateAccuratePrayerTimes(
   date = new Date(),
   method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
   asrMethod: 'standard' | 'hanafi' = 'standard',
+  timeZone?: string,
+  offsets?: PrayerOffsets
+): PrayerTimeValues {
+  const times = baseTimes(lat, lng, date, method, asrMethod, timeZone);
+  if (!countOffsets(offsets)) return times;
+  const shifted = { ...times };
+  (Object.keys(times) as (keyof PrayerTimeValues)[]).forEach((key) => {
+    const mins = offsets?.[key];
+    if (!mins || !Number.isFinite(mins)) return;
+    const at = new Date(times[key].at.getTime() + Math.round(mins) * 60000);
+    const wall = toCityClock(at, timeZone);
+    shifted[key] = { hours: wall.getHours(), minutes: wall.getMinutes(), timeStr: formatPrayerTime(wall.getHours(), wall.getMinutes()), at };
+  });
+  return shifted;
+}
+
+function baseTimes(
+  lat: number,
+  lng: number,
+  date: Date,
+  method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna',
+  asrMethod: 'standard' | 'hanafi',
   timeZone?: string
 ): PrayerTimeValues {
   const safeLat = (typeof lat === 'number' && Number.isFinite(lat)) ? lat : 21.422487;
@@ -192,10 +224,11 @@ export function computeNightTimes(
   date = new Date(),
   method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
   asrMethod: 'standard' | 'hanafi' = 'standard',
-  timeZone?: string
+  timeZone?: string,
+  offsets?: PrayerOffsets
 ): { midnight: string; lastThird: string } {
-  const today = calculateAccuratePrayerTimes(lat, lng, date, method, asrMethod, timeZone);
-  const tomorrow = calculateAccuratePrayerTimes(lat, lng, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12), method, asrMethod, timeZone);
+  const today = calculateAccuratePrayerTimes(lat, lng, date, method, asrMethod, timeZone, offsets);
+  const tomorrow = calculateAccuratePrayerTimes(lat, lng, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12), method, asrMethod, timeZone, offsets);
   const maghrib = today.maghrib.hours * 60 + today.maghrib.minutes;
   const fajrNext = tomorrow.fajr.hours * 60 + tomorrow.fajr.minutes + 1440;
   const night = fajrNext - maghrib;

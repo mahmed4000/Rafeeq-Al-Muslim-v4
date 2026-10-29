@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { calculateAccuratePrayerTimes } from './prayerCalculation';
+import { calculateAccuratePrayerTimes, PrayerOffsets } from './prayerCalculation';
 import { cityNow } from './cityTime';
 
 export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
@@ -130,7 +130,8 @@ export const NotificationService = {
     config: PrayerAlertsConfig,
     method: 'umm_al_qura' | 'egypt' | 'mwl' | 'isna' = 'umm_al_qura',
     asrMethod: 'standard' | 'hanafi' = 'standard',
-    timeZone?: string
+    timeZone?: string,
+    offsets?: PrayerOffsets
   ): Promise<void> {
     if (Platform.OS === 'web') return;
 
@@ -159,7 +160,7 @@ export const NotificationService = {
       const cityToday = cityNow(timeZone);
       for (let dayOffset = 0; dayOffset < days; dayOffset++) {
         const day = new Date(cityToday.getFullYear(), cityToday.getMonth(), cityToday.getDate() + dayOffset, 12);
-        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod, timeZone);
+        const times = calculateAccuratePrayerTimes(lat, lng, day, method, asrMethod, timeZone, offsets);
 
         for (const key of PRAYER_KEYS) {
           const s = config.prayers[key];

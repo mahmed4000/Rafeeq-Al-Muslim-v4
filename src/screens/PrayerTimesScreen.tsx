@@ -5,7 +5,15 @@ import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { searchCities } from '../constants/cities';
-import { calculateAccuratePrayerTimes, computeNightTimes, toArabicNumber, PrayerTimeValues } from '../services/prayerCalculation';
+import {
+  calculateAccuratePrayerTimes,
+  computeNightTimes,
+  countOffsets,
+  toArabicNumber,
+  PrayerTimeValues,
+  PRAYER_OFFSET_LIMIT
+} from '../services/prayerCalculation';
+import { Stepper } from '../ui/Stepper';
 import { getFullDateInfo } from '../services/hijriDate';
 import { cityNow } from '../services/cityTime';
 import { useNextPrayer } from '../hooks/useNextPrayer';
@@ -43,6 +51,12 @@ function inAr(secs: number): string {
   return m ? `بعد ${toArabicNumber(h)} س ${toArabicNumber(m)} د` : `بعد ${toArabicNumber(h)} س`;
 }
 
+/** "تأخير ٢ د" / "تقديم ٣ د" / "٠" (words, since +/− signs reorder in RTL text) */
+function offsetAr(mins: number): string {
+  if (!mins) return '٠';
+  return `${mins > 0 ? 'تأخير' : 'تقديم'} ${toArabicNumber(Math.abs(mins))} د`;
+}
+
 export const PrayerTimesScreen: React.FC = () => {
   const {
     navigate,
@@ -56,6 +70,8 @@ export const PrayerTimesScreen: React.FC = () => {
     setCalculationMethod,
     asrMethod,
     setAsrMethod,
+    prayerOffsets,
+    setPrayerOffsets,
     refreshLocation,
     triggerHaptic
   } = useApp();
@@ -64,6 +80,7 @@ export const PrayerTimesScreen: React.FC = () => {
   const [citySearch, setCitySearch] = useState('');
   const [calcModalVisible, setCalcModalVisible] = useState(false);
   const [asrModalVisible, setAsrModalVisible] = useState(false);
+  const [offsetsVisible, setOffsetsVisible] = useState(false);
   // Days from the city's today; back to today whenever the tab is opened again.
   const [dayOffset, setDayOffset] = useState(0);
   useFocusEffect(useCallback(() => setDayOffset(0), []));
@@ -77,15 +94,16 @@ export const PrayerTimesScreen: React.FC = () => {
   const dayKey = day.toDateString();
 
   const times = useMemo(
-    () => (isToday ? prayerTimes : calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, day, calculationMethod, asrMethod, timeZone)),
+    () => (isToday ? prayerTimes : calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, day, calculationMethod, asrMethod, timeZone, prayerOffsets)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isToday, prayerTimes, currentCity.lat, currentCity.lng, dayKey, calculationMethod, asrMethod, timeZone]
+    [isToday, prayerTimes, currentCity.lat, currentCity.lng, dayKey, calculationMethod, asrMethod, timeZone, prayerOffsets]
   );
   const night = useMemo(
-    () => computeNightTimes(currentCity.lat, currentCity.lng, day, calculationMethod, asrMethod, timeZone),
+    () => computeNightTimes(currentCity.lat, currentCity.lng, day, calculationMethod, asrMethod, timeZone, prayerOffsets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentCity.lat, currentCity.lng, dayKey, calculationMethod, asrMethod, timeZone]
+    [currentCity.lat, currentCity.lng, dayKey, calculationMethod, asrMethod, timeZone, prayerOffsets]
   );
+  const adjustedCount = countOffsets(prayerOffsets);
 
   const dateInfo = getFullDateInfo(day);
   const dayLabel = dayOffset === 0 ? 'اليوم' : dayOffset === 1 ? 'غدًا' : dayOffset === -1 ? 'أمس' : '';
@@ -120,6 +138,7 @@ export const PrayerTimesScreen: React.FC = () => {
     { key: 'city', label: 'المدينة', value: `${currentCity.nameAr} · ${currentCity.countryAr}`, onPress: () => setCityModalVisible(true) },
     { key: 'calc', label: 'طريقة الحساب', value: CALC_METHODS.find((m) => m.id === calculationMethod)?.shortAr || '', onPress: () => setCalcModalVisible(true) },
     { key: 'asr', label: 'حساب العصر', value: ASR_METHODS.find((m) => m.id === asrMethod)?.shortAr || '', onPress: () => setAsrModalVisible(true) },
+    { key: 'offsets', label: 'تعديل يدوي للأوقات', value: adjustedCount ? `${toArabicNumber(adjustedCount)} معدّلة` : 'بدون', onPress: () => setOffsetsVisible(true) },
     { key: 'alerts', label: 'الأذان والإقامة', value: `${toArabicNumber(bellCount)} من ٥`, onPress: () => navigate('adhan_settings') },
     { key: 'month', label: 'مواقيت الشهر', value: '', onPress: () => navigate('prayer_month') }
   ];
@@ -207,6 +226,12 @@ export const PrayerTimesScreen: React.FC = () => {
             );
           })}
         </View>
+        {adjustedCount ? (
+          <TouchableOpacity accessibilityRole="button" onPress={() => setOffsetsVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 32, marginTop: -4 }}>
+            <Feather name="sliders" size={13} color={p.muted} />
+            <TextUI size={12.5} color={p.muted}>بعض الأوقات معدّلة يدويًا</TextUI>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Night times (Maghrib → next Fajr) */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -379,6 +404,53 @@ export const PrayerTimesScreen: React.FC = () => {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Manual adjustments sheet */}
+      <Modal visible={offsetsVisible} animationType="slide" transparent onRequestClose={() => setOffsetsVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, paddingBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 }}>
+              <View style={{ flex: 1 }}>
+                <TextUI size={18} weight="bold" color={p.ink}>تعديل يدوي للأوقات</TextUI>
+                <TextUI size={12.5} color={p.muted}>{`تقديم أو تأخير حتى ${toArabicNumber(PRAYER_OFFSET_LIMIT)} دقيقة. يشمل التنبيهات والجدول الشهري.`}</TextUI>
+              </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="إغلاق" onPress={() => setOffsetsVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={22} color={p.ink} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ marginTop: 8, borderTopWidth: 1, borderColor: p.divider }}>
+              {ROWS.map((row) => {
+                const mins = prayerOffsets[row.key] || 0;
+                const change = (delta: number) => {
+                  triggerHaptic('light');
+                  setPrayerOffsets({ ...prayerOffsets, [row.key]: mins + delta });
+                };
+                return (
+                  <Stepper
+                    key={row.key}
+                    label={row.nameAr}
+                    sub={`اليوم ${prayerTimes[row.key].timeStr}`}
+                    valueLabel={offsetAr(mins)}
+                    onDecrement={() => change(-1)}
+                    onIncrement={() => change(1)}
+                    canDecrement={mins > -PRAYER_OFFSET_LIMIT}
+                    canIncrement={mins < PRAYER_OFFSET_LIMIT}
+                  />
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              disabled={!adjustedCount}
+              onPress={() => { triggerHaptic('light'); setPrayerOffsets({}); }}
+              style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, marginTop: 12, borderRadius: 999, borderWidth: 1, borderColor: p.border, opacity: adjustedCount ? 1 : 0.45 }}
+            >
+              <TextUI size={14} weight="medium" color={p.primaryInk}>إعادة الكل إلى صفر</TextUI>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

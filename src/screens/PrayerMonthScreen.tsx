@@ -46,7 +46,7 @@ function gregorianMonthDates(offset: number, now: Date): Date[] {
 }
 
 export const PrayerMonthScreen: React.FC = () => {
-  const { goBack, currentCity, calculationMethod, asrMethod, t } = useApp();
+  const { goBack, currentCity, calculationMethod, asrMethod, prayerOffsets, t } = useApp();
   const p = usePalette();
   const [mode, setMode] = useState<Mode>('hijri');
   const [offset, setOffset] = useState(0);
@@ -56,7 +56,7 @@ export const PrayerMonthScreen: React.FC = () => {
     const today = cityNow(tz);
     const dates = mode === 'hijri' ? hijriMonthDates(offset, today) : gregorianMonthDates(offset, today);
     const built = dates.map((date, i) => {
-      const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, date, calculationMethod, asrMethod, tz);
+      const times = calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, date, calculationMethod, asrMethod, tz, prayerOffsets);
       const hijri = getHijriParts(date);
       const dstChanged = i > 0 && offsetOn(dates[i - 1], tz) !== offsetOn(date, tz);
       return {
@@ -80,7 +80,7 @@ export const PrayerMonthScreen: React.FC = () => {
       ? `${GREGORIAN_MONTHS[first.getMonth()]}${first.getMonth() !== last.getMonth() ? ` – ${GREGORIAN_MONTHS[last.getMonth()]}` : ''} ${toArabicNumber(last.getFullYear())}`
       : `${HIJRI_MONTHS[getHijriParts(first).month - 1]} – ${HIJRI_MONTHS[getHijriParts(last).month - 1]}`;
     return { rows: built, label: title, subLabel: `${span} · ${currentCity.nameAr}` };
-  }, [mode, offset, currentCity, calculationMethod, asrMethod]);
+  }, [mode, offset, currentCity, calculationMethod, asrMethod, prayerOffsets]);
 
   const navButton = (icon: 'chevron-right' | 'chevron-left', onPress: () => void, a11y: string) => (
     <TouchableOpacity onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>

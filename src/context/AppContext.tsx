@@ -7,7 +7,9 @@ import { StorageService } from '../services/storage';
 import { cityNow, deviceTimeZone } from '../services/cityTime';
 import {
   calculateAccuratePrayerTimes,
-  PrayerTimeValues
+  PrayerOffsets,
+  PrayerTimeValues,
+  PRAYER_OFFSET_LIMIT
 } from '../services/prayerCalculation';
 import {
   NotificationService,
@@ -65,6 +67,9 @@ interface AppContextType {
   setCalculationMethod: (method: CalculationMethod) => void;
   asrMethod: AsrMethod;
   setAsrMethod: (m: AsrMethod) => void;
+  /** Manual minute adjustments applied to every prayer time and alert. */
+  prayerOffsets: PrayerOffsets;
+  setPrayerOffsets: (offsets: PrayerOffsets) => void;
   bookmarks: BookmarkItem[];
   addBookmark: (b: BookmarkItem) => void;
   removeBookmark: (surahId: number, ayah: number) => void;
@@ -85,6 +90,18 @@ const todayKey = (timeZone?: string) => cityNow(timeZone).toDateString();
 const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
 const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
+const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
+
+/** Keep only known keys with whole minutes inside the allowed range. */
+function cleanOffsets(raw: any): PrayerOffsets {
+  const out: PrayerOffsets = {};
+  if (!raw || typeof raw !== 'object') return out;
+  (['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'] as const).forEach((key) => {
+    const v = Math.round(Number(raw[key]));
+    if (Number.isFinite(v) && v !== 0) out[key] = Math.max(-PRAYER_OFFSET_LIMIT, Math.min(PRAYER_OFFSET_LIMIT, v));
+  });
+  return out;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -96,6 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [calculationMethod, setCalcMethodState] = useState<CalculationMethod>('umm_al_qura');
   const [asrMethod, setAsrMethodState] = useState<AsrMethod>('standard');
+  const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>({});
   const [alertsConfig, setAlertsConfigState] = useState<PrayerAlertsConfig>(() => defaultAlertsConfig());
   const prayerBells = useMemo(() => bellsFromAlerts(alertsConfig), [alertsConfig]);
   // Existing installs (a saved city) skip onboarding; new installs see it once.
@@ -163,6 +181,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const savedAsr = await StorageService.getItem('almosala_asr_method');
         if (savedAsr === 'standard' || savedAsr === 'hanafi') setAsrMethodState(savedAsr);
+
+        setPrayerOffsetsState(cleanOffsets(await StorageService.getObject<any>(OFFSETS_KEY, null)));
 
         // Per-prayer alert settings; older installs only had on/off bells.
         const savedAlerts = await StorageService.getObject<PrayerAlertsConfig | null>(ALERTS_KEY, null);
@@ -236,11 +256,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         alertsConfig,
         calculationMethod,
         asrMethod,
-        currentCity.timeZone
+        currentCity.timeZone,
+        prayerOffsets
       );
     }, 800);
     return () => clearTimeout(timer);
-  }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, dayKey, notifRev]);
+  }, [prefsLoaded, currentCity, alertsConfig, calculationMethod, asrMethod, prayerOffsets, dayKey, notifRev]);
 
   // Persist the Quran font size after pinch/zoom settles.
   useEffect(() => {
@@ -269,6 +290,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setAsrMethod = (m: AsrMethod) => {
     setAsrMethodState(m);
     StorageService.setItem('almosala_asr_method', m);
+  };
+
+  const setPrayerOffsets = (offsets: PrayerOffsets) => {
+    const clean = cleanOffsets(offsets);
+    setPrayerOffsetsState(clean);
+    StorageService.setObject(OFFSETS_KEY, clean);
   };
 
   const setCurrentCity = (city: City) => {
@@ -373,9 +400,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Prayer times change only with the day, place or method — not every render.
   // They are for the city's current date and shown in the city's clock.
   const prayerTimes = useMemo(
-    () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, cityNow(cityTimeZone), calculationMethod, asrMethod, cityTimeZone),
+    () => calculateAccuratePrayerTimes(currentCity.lat, currentCity.lng, cityNow(cityTimeZone), calculationMethod, asrMethod, cityTimeZone, prayerOffsets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, dayKey]
+    [currentCity.lat, currentCity.lng, cityTimeZone, calculationMethod, asrMethod, prayerOffsets, dayKey]
   );
 
   return (
@@ -405,6 +432,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCalculationMethod,
         asrMethod,
         setAsrMethod,
+        prayerOffsets,
+        setPrayerOffsets,
         bookmarks,
         addBookmark,
         removeBookmark,
