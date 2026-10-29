@@ -30,7 +30,8 @@ const AFTER_PRAYER_WINDOW = 30;
 // Header: count down in the last 5 minutes before a prayer, count up for 15 minutes after it.
 const BEFORE_WINDOW = 5 * 60;
 const SINCE_WINDOW = 15 * 60;
-const HEADER_PRAYERS: PrayerKey[] = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+const HEADER_PRAYERS: (keyof PrayerTimeValues)[] = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+const headerTimeName = (key: keyof PrayerTimeValues) => (key === 'sunrise' ? tr('الشروق', 'Sunrise') : prayerName(key));
 
 const STRIP: { key: keyof PrayerTimeValues; label: string; labelEn: string }[] = [
   { key: 'fajr', label: 'الفجر', labelEn: 'Fajr' },
@@ -277,19 +278,25 @@ export const HomeScreen: React.FC = () => {
   const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   const hms = (secs: number) => [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60]
     .map((v) => toArabicNumber(String(v).padStart(2, '0'))).join(':');
-  const sincePrayer = HEADER_PRAYERS
-    .map((key) => ({ key, elapsed: nowSec - (prayerTimes[key].hours * 60 + prayerTimes[key].minutes) * 60 }))
-    .find(({ elapsed }) => elapsed >= 0 && elapsed < SINCE_WINDOW);
-  const headerMode: 'before' | 'since' | 'clock' = next.diffSeconds <= BEFORE_WINDOW ? 'before' : sincePrayer ? 'since' : 'clock';
+  const secondsFromNow = HEADER_PRAYERS.map((key) => ({ key, diff: (prayerTimes[key].hours * 60 + prayerTimes[key].minutes) * 60 - nowSec }));
+  const sincePrayer = secondsFromNow.map(({ key, diff }) => ({ key, elapsed: -diff })).find(({ elapsed }) => elapsed >= 0 && elapsed < SINCE_WINDOW);
+  // Today's next time within 5 minutes (sunrise included), or tomorrow's Fajr after Isha.
+  const soon = secondsFromNow.find(({ diff }) => diff > 0 && diff <= BEFORE_WINDOW)
+    || (next.isTomorrow && next.diffSeconds <= BEFORE_WINDOW ? { key: 'fajr' as const, diff: next.diffSeconds } : undefined);
+  const headerMode: 'before' | 'since' | 'clock' = soon ? 'before' : sincePrayer ? 'since' : 'clock';
   const clockText = `${toArabicNumber(String(now.getHours() % 12 || 12))}:${hms(now.getMinutes() * 60 + now.getSeconds()).slice(-5)}`;
   const clockPeriod = now.getHours() < 12 ? t('ص', 'AM') : t('م', 'PM');
-  const sinceName = sincePrayer ? prayerName(sincePrayer.key) : '';
+  const headerKey = headerMode === 'since' ? sincePrayer!.key : headerMode === 'before' ? soon!.key : null;
+  const headerName = headerKey ? headerTimeName(headerKey) : '';
   const headerLabel = headerMode === 'since'
-    ? t(`${sinceName} منذ`, `${sinceName} began`)
+    ? t(`${headerName} منذ`, `${headerName} began`)
     : headerMode === 'before'
-      ? t(`${next.nameAr} بعد`, `${nextName} in`)
+      ? t(`${headerName} بعد`, `${headerName} in`)
       : (next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد ${countdown.slice(0, -3)}`, `${nextName} (tomorrow) in ${countdown.slice(0, -3)}`) : t(`${next.nameAr} بعد ${countdown.slice(0, -3)}`, `${nextName} in ${countdown.slice(0, -3)}`));
-  const headerValue = headerMode === 'since' ? hms(sincePrayer!.elapsed) : headerMode === 'before' ? countdown : clockText;
+  const headerValue = headerMode === 'since' ? hms(sincePrayer!.elapsed) : headerMode === 'before' ? hms(soon!.diff) : clockText;
+  // Bottom line: the time being counted to/from (sunrise is not an adhan), else the next adhan.
+  const headerTime = headerKey ? prayerTimes[headerKey].timeStr : next.time;
+  const headerTimeLabel = headerKey === 'sunrise' ? t('الشروق', 'Sunrise') : t('الأذان', 'Adhan');
   const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
   const forwardIcon = isRTL ? 'chevron-left' : 'chevron-right';
   const bookmarkSurah = readingBookmark
@@ -544,9 +551,9 @@ export const HomeScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={headerMode === 'since'
-              ? t(`${sinceName} منذ ${headerValue}، الصلاة القادمة ${next.nameAr} الساعة ${next.time}`, `${sinceName} began ${headerValue} ago, next prayer ${nextName} at ${next.time}`)
-              : t(`الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)}
+            accessibilityLabel={headerMode === 'clock'
+              ? t(`الساعة ${clockText} ${clockPeriod}، الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Time ${clockText} ${clockPeriod}, next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)
+              : `${headerLabel} ${headerValue}، ${headerTimeLabel} ${headerTime}`}
             onPress={() => navigate('prayer_times')}
             style={{ alignSelf: 'center', alignItems: 'center', gap: 2 }}
           >
@@ -556,11 +563,9 @@ export const HomeScreen: React.FC = () => {
               {headerMode === 'clock' ? <TextUI size={18} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{clockPeriod}</TextUI> : null}
             </View>
             <TextUI size={14} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
-              {(() => {
-                // While counting up, the adhan line is the prayer that just began; otherwise the next one.
-                const adhan = sincePrayer && headerMode === 'since' ? prayerTimes[sincePrayer.key].timeStr : next.time;
-                return otherZone ? t(`الأذان ${adhan} بتوقيت ${currentCity.nameAr}`, `Adhan ${adhan} (${cityName} time)`) : t(`الأذان ${adhan}`, `Adhan ${adhan}`);
-              })()}
+              {otherZone
+                ? t(`${headerTimeLabel} ${headerTime} بتوقيت ${currentCity.nameAr}`, `${headerTimeLabel} ${headerTime} (${cityName} time)`)
+                : `${headerTimeLabel} ${headerTime}`}
             </TextUI>
           </TouchableOpacity>
           <TouchableOpacity
