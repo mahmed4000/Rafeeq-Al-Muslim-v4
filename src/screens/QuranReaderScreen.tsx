@@ -34,7 +34,8 @@ import {
 import { makeShadow } from '../constants/tokens';
 import { useScreenParams } from '../navigation/routes';
 import { KhatmaService } from '../services/khatmaService';
-import { usePalette } from '../theme/palette';
+import { usePalette, PALETTE } from '../theme/palette';
+import { MushafPageLayout, prepareMushafPage, supportsMushafPages } from '../services/mushafPages';
 import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
 import { ReaderPlayer } from '../components/quran/reader/ReaderPlayer';
 import { useLessonPlayer } from '../context/LessonPlayerContext';
@@ -60,6 +61,8 @@ const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
  */
 // Mushaf text font: King Fahd Complex Hafs (loaded in src/app/_layout.tsx).
 const MUSHAF_FONT = 'KFGQPC_Hafs';
+const SURAH_BANNER_LIGHT = require('../../assets/surah-banner-light.png');
+const SURAH_BANNER_DARK = require('../../assets/surah-banner-dark.png');
 
 const MushafPage: React.FC<{ pageNumber: number; version: string; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
 const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber === next.pageNumber && prev.version === next.version);
@@ -152,6 +155,9 @@ export const QuranReaderScreen: React.FC = () => {
   const [tajweedTexts, setTajweedTexts] = useState<Record<string, string>>({});
   const [tajweedPages, setTajweedPages] = useState<Record<number, true>>({});
   const tajweedRequestedRef = useRef<Set<string>>(new Set());
+  const [mushafPages, setMushafPages] = useState<Record<number, { layout: MushafPageLayout; family: string }>>({});
+  const mushafRequestedRef = useRef<Set<number>>(new Set());
+  const [mushafWidth, setMushafWidth] = useState(0);
 
   const [measuredAyahDurations, setMeasuredAyahDurations] = useState<Record<string, number>>({});
   const audioPlayerRef = useRef<any>(null);
@@ -384,6 +390,21 @@ export const QuranReaderScreen: React.FC = () => {
       loadTajweedScope(scope);
     }
   }, [activePage, currentSurah.id, readingMode, renderedPages]);
+
+  // Madinah page fonts and line data for the rendered pages and the next 5, like tajweed above,
+  // so a page switches to its printed layout before it reaches the screen.
+  useEffect(() => {
+    if (readingMode !== 'page' || !supportsMushafPages()) return;
+    const lastRendered = renderedPages[renderedPages.length - 1] || activePage;
+    const upcoming = Array.from({ length: 5 }, (_, index) => lastRendered + 1 + index).filter((page) => page <= QURAN_PAGE_INDEX.length);
+    for (const page of [...renderedPages, ...upcoming]) {
+      if (mushafRequestedRef.current.has(page)) continue;
+      mushafRequestedRef.current.add(page);
+      prepareMushafPage(page)
+        .then((data) => setMushafPages((previous) => ({ ...previous, [page]: data })))
+        .catch(() => { mushafRequestedRef.current.delete(page); });
+    }
+  }, [activePage, readingMode, renderedPages]);
 
   const updatePlaybackSettings = (patch: Partial<PlaybackSettings>) => {
     setPlaybackSettings((previous) => {
@@ -1139,7 +1160,24 @@ export const QuranReaderScreen: React.FC = () => {
   // One mushaf page (its surah sections, verses and page-end ornament). Wrapped in MushafPageBlock
   // so scrolling (which updates the active page) and audio progress do not re-render the text:
   // on iOS that re-layout briefly showed the Uthmani text stretched before it settled.
+  const isDarkTheme = p.bg === PALETTE.dark.bg;
+
+  const renderPageEnd = (pageNumber: number) => (
+    <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+      <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
+      <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
+      <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
+      <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+    </View>
+  );
+
   const renderMushafPage = (pageNumber: number) => {
+    // Printed-page layout once its glyph font and line data are ready; while searching, offline
+    // before the first download, on older systems, and in dark mode (the colour fonts draw
+    // the letters black whatever the text colour) the flowing Hafs text below is used.
+    const madinah = mushafPages[pageNumber];
+    if (madinah && !searchQuery && !isDarkTheme) return renderMadinahPage(pageNumber, madinah.layout, madinah.family);
     const sections = getPageSections(pageNumber);
     return (
       <View
@@ -1165,13 +1203,7 @@ export const QuranReaderScreen: React.FC = () => {
             </View>
           );
         })}
-        <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
-          <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
-          <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
-          <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
-          <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
-        </View>
+        {renderPageEnd(pageNumber)}
       </View>
     );
   };
@@ -1179,25 +1211,108 @@ export const QuranReaderScreen: React.FC = () => {
   const pageVersion = [
     quranFontSize, p.ink, p.surface, lang, playingSurahId, playingAyahNum, searchQuery,
     bookmarks.map((b) => `${b.surahId}:${b.ayah}`).join(','),
-    screenParams?.startSurahId, screenParams?.startAyah
+    screenParams?.startSurahId, screenParams?.startAyah, mushafWidth, isDarkTheme
   ].join('|');
 
-  const renderSurahNameFrame = (surahName: string, topOffset: number) => {
-    const ornament = (mirrored: boolean) => (
-      <View pointerEvents="none" style={{ position: 'absolute', [mirrored ? 'right' : 'left']: -1 }}>
-        <Image
-          source={require('../../assets/surah-frame-ornament.png')}
-          resizeMode="stretch"
-          style={{ width: 48, height: 59, tintColor: p.muted, transform: [{ scaleX: mirrored ? -1 : 1 }] }}
-        />
-      </View>
-    );
+  // Surah banner: our own drawn frame (assets/surah-banner-*.png) with the name in the Hafs font.
+  const renderSurahNameFrame = (surahName: string, topOffset: number) => (
+    <View style={{ marginHorizontal: 2, marginTop: topOffset, marginBottom: 6, aspectRatio: 1080 / 150, alignItems: 'center', justifyContent: 'center' }}>
+      <Image
+        source={isDarkTheme ? SURAH_BANNER_DARK : SURAH_BANNER_LIGHT}
+        resizeMode="stretch"
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+      />
+      <Text numberOfLines={1} style={{ fontFamily: MUSHAF_FONT, fontSize: 19, color: p.ink, textAlign: 'center', writingDirection: 'rtl' }}>
+        سُورَةُ {surahName}
+      </Text>
+    </View>
+  );
+
+  // One page laid out like the printed Madinah mushaf: 15 lines, each a row of word glyphs from
+  // the page's own font. Lines without words hold the surah banner or the basmala.
+  const renderMadinahPage = (pageNumber: number, layout: MushafPageLayout, family: string) => {
+    const sections = getPageSections(pageNumber);
+    const verseByKey = new Map<string, QuranVerse>();
+    sections.forEach(({ verses }) => verses.forEach((verse) => verseByKey.set(`${verse.surahId}:${verse.ayahNumber}`, verse)));
+    const wordsByLine = new Map(layout.lines.map((line) => [line.line, line.words]));
+    const extras = new Map<number, { kind: 'banner' | 'basmala'; surah: any }>();
+    const placeOpening = (surah: any, firstLine: number) => {
+      const hasBasmala = surah.id !== 1 && surah.id !== 9;
+      if (hasBasmala) extras.set(firstLine - 1, { kind: 'basmala', surah });
+      extras.set(firstLine - (hasBasmala ? 2 : 1), { kind: 'banner', surah });
+    };
+    sections.forEach(({ section, surah }) => {
+      if (section.startAyah !== 1) return;
+      const first = layout.lines.find((line) => line.words.some((word) => word.verseKey === `${surah.id}:1`));
+      if (first) placeOpening(surah, first.line);
+    });
+    // A surah whose opening lines end this page while its verses start on the next one.
+    const lastLine = layout.lines[layout.lines.length - 1]?.line || 15;
+    if (pageNumber > 2 && lastLine < 15) {
+      const lastKey = layout.lines[layout.lines.length - 1].words.slice(-1)[0]?.verseKey || '';
+      const nextSurah = QURAN_DATA.find((s: any) => s.id === Number(lastKey.split(':')[0]) + 1);
+      if (nextSurah) placeOpening(nextSurah, 16);
+    }
+    const lineNumbers = pageNumber <= 2
+      ? [...new Set([...extras.keys(), ...wordsByLine.keys()])].filter((n) => n >= 1).sort((a, b) => a - b)
+      : Array.from({ length: 15 }, (_, index) => index + 1);
+    // The widest printed lines measure about 17.4 font-sizes; keep a small margin so none wraps.
+    const fontSize = Math.max(14, Math.floor((mushafWidth || 360) / 18));
+    const lineHeight = Math.round(fontSize * 1.85);
 
     return (
-      <View style={{ position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 9, marginTop: topOffset, marginBottom: 9, minHeight: 58, paddingHorizontal: 43, borderWidth: 1.5, borderColor: p.muted, backgroundColor: p.surface }}>
-        {ornament(false)}
-        <TextUI quran align="center" size={29} weight="bold" color={p.ink} numberOfLines={1} style={{ flex: 1, textAlign: 'center', lineHeight: 48 }}>سُورَةُ {surahName}</TextUI>
-        {ornament(true)}
+      <View
+        onLayout={(event) => {
+          pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
+          if (pendingScrollPageRef.current === pageNumber) {
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
+            pendingScrollPageRef.current = 0;
+          }
+        }}
+        style={{ paddingVertical: 5 }}
+      >
+        {lineNumbers.map((lineNumber) => {
+          const extra = extras.get(lineNumber);
+          if (extra?.kind === 'banner') return <View key={`l-${lineNumber}`}>{renderSurahNameFrame(extra.surah.nameAr, 2)}</View>;
+          if (extra?.kind === 'basmala') {
+            return (
+              <Text key={`l-${lineNumber}`} style={{ fontFamily: MUSHAF_FONT, fontSize: Math.round(fontSize * 0.95), lineHeight, color: p.ink, textAlign: 'center', writingDirection: 'rtl' }}>
+                بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+              </Text>
+            );
+          }
+          const words = wordsByLine.get(lineNumber) || [];
+          return (
+            <View
+              key={`l-${lineNumber}`}
+              style={{ direction: 'rtl', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', height: lineHeight, justifyContent: pageNumber <= 2 ? 'center' : 'space-between' }}
+            >
+              {words.map((word, index) => {
+                const verse = verseByKey.get(word.verseKey);
+                const isPlaying = !!verse && playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
+                const isMarked = !!verse && (isBookmarked(verse) ||
+                  (Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber));
+                return (
+                  <Text
+                    key={`w-${lineNumber}-${index}`}
+                    onPress={verse ? () => handleOpenAyahAction(verse) : undefined}
+                    style={{
+                      fontFamily: family,
+                      fontSize,
+                      lineHeight,
+                      color: p.ink,
+                      paddingHorizontal: pageNumber <= 2 ? 2 : 0,
+                      backgroundColor: isPlaying ? 'rgba(198, 146, 85, 0.35)' : isMarked ? 'rgba(212, 163, 115, 0.25)' : undefined,
+                    }}
+                  >
+                    {word.code}
+                  </Text>
+                );
+              })}
+            </View>
+          );
+        })}
+        {renderPageEnd(pageNumber)}
       </View>
     );
   };
@@ -1438,6 +1553,10 @@ export const QuranReaderScreen: React.FC = () => {
         <View
           onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
           onResponderRelease={() => setReaderControlsVisible((visible) => !visible)}
+          onLayout={(event) => {
+            const width = Math.round(event.nativeEvent.layout.width - 16);
+            if (width > 0 && width !== mushafWidth) setMushafWidth(width);
+          }}
           style={{
             backgroundColor: p.surface,
             paddingHorizontal: 8,
@@ -1447,7 +1566,7 @@ export const QuranReaderScreen: React.FC = () => {
           }}
         >
           {readingMode === 'page' ? renderedPages.map((pageNumber) => (
-            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}`} render={renderMushafPage} />
+            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}|${mushafPages[pageNumber] ? 1 : 0}`} render={renderMushafPage} />
           )) : readingMode === 'tafsir' ? (
             <View style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
               {displayedVerses.map((verse) => {

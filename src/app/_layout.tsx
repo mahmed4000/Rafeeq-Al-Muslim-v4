@@ -100,8 +100,7 @@ export default function RootLayout() {
     Cairo_600SemiBold,
     Cairo_700Bold,
     // King Fahd Complex Hafs font (v3.0, fonts.qurancomplex.gov.sa); free to use and distribute unmodified.
-    KFGQPC_Hafs: require('../../assets/fonts/KFGQPC-Hafs-V30.ttf'),
-  });
+    KFGQPC_Hafs: require('../../assets/fonts/KFGQPC-Hafs-V30.ttf'),  });
 
   if (!fontsLoaded && Platform.OS !== 'web') {
     return (
