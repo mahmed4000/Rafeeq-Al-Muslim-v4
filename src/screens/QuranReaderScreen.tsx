@@ -38,13 +38,13 @@ import { KhatmaService } from '../services/khatmaService';
 import { usePalette, PALETTE } from '../theme/palette';
 import { MushafPageLayout, prepareMushafPage, supportsMushafPages } from '../services/mushafPages';
 import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
-import { ReaderPlayer } from '../components/quran/reader/ReaderPlayer';
+import { ReaderPlayer, ListenButton } from '../components/quran/reader/ReaderPlayer';
 import { useLessonPlayer } from '../context/LessonPlayerContext';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
 import { AyahTafsirSheet } from '../components/quran/reader/AyahTafsirSheet';
-import { ReadingMenuSheet, ReciterSheet, ReadingModeSheet, FontSizeSheet, TafsirPickerSheet } from '../components/quran/reader/ReaderOptionSheets';
+import { ReadingMenuSheet, ReciterSheet, FontSizeSheet, TafsirPickerSheet } from '../components/quran/reader/ReaderOptionSheets';
 
 let allQuranVersesCache: QuranVerse[] | null = null;
 const getAllQuranVerses = () => {
@@ -110,7 +110,6 @@ export const QuranReaderScreen: React.FC = () => {
   const [readingMode, setReadingMode] = useState<ReadingMode>(
     screenParams?.readingMode === 'tafsir' ? 'tafsir' : (screenParams?.readingMode === 'surah' ? 'surah' : 'page')
   );
-  const [modeModalVisible, setModeModalVisible] = useState(false);
   const [readingMenuVisible, setReadingMenuVisible] = useState(false);
   const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
   const [tafsirPickerVisible, setTafsirPickerVisible] = useState(false);
@@ -155,7 +154,6 @@ export const QuranReaderScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeedIndex, setScrollSpeedIndex] = useState(1);
-  const [readerControlsVisible, setReaderControlsVisible] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
   const [jumpModalVisible, setJumpModalVisible] = useState(false);
   const [jumpType, setJumpType] = useState<JumpType>('page');
@@ -1006,7 +1004,6 @@ export const QuranReaderScreen: React.FC = () => {
 
   const toggleAudioPlayback = () => {
     triggerHaptic('light');
-    setReaderControlsVisible(true);
     if (isAudioPlaying) {
       audioPlayerRef.current?.pause();
       webAudioRef.current?.pause();
@@ -1250,7 +1247,7 @@ export const QuranReaderScreen: React.FC = () => {
                 renderSurahNameFrame(surah.nameAr, sectionIndex === 0 ? 10 : 4)
               ) : sections.length > 1 ? <TextUI size={12} weight="bold" color={p.primary} style={{ textAlign: 'center', marginBottom: 6 }}>{t('سورة', 'Surah')} {en ? surah.nameEn : surah.nameAr}</TextUI> : null}
               {section.startAyah === 1 && surah.id !== 9 && surah.id !== 1 ? <TextUI font="hafs" size={Math.round(quranFontSize * 0.85)} color={p.primaryInk} style={{ textAlign: 'center', marginBottom: 8 }}>{BASMALA}</TextUI> : null}
-              <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
+              <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{sectionVerses.map(renderVerse)}</TextUI>
             </View>
           );
         })}
@@ -1421,22 +1418,34 @@ export const QuranReaderScreen: React.FC = () => {
             <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel={t('رجوع', 'Back')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={p.primary} />
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
-              <TextUI size={12.5} color={p.muted} numberOfLines={1}>
-                {en
-                  ? `Page ${toArabicNumber(activePage)} · Juz ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · Tafsir' : readingMode === 'surah' ? ' · Surah view' : ''}`
-                  : `صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}${readingMode === 'tafsir' ? ' · التفسير' : readingMode === 'surah' ? ' · عرض السورة' : ''}`}
-              </TextUI>
-            </View>
+            {/* Title: where the reader is; tap to go to a surah, juz or page */}
             <TouchableOpacity
+              activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={isSearching ? t('إغلاق البحث', 'Close search') : t('بحث', 'Search')}
-              onPress={() => { triggerHaptic('light'); setIsSearching((v) => { if (v) setSearchWord(''); return !v; }); }}
-              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityLabel={t(`سورة ${currentSurah.nameAr}، صفحة ${activePage}. اضغط للانتقال`, `Surah ${currentSurah.nameEn}, page ${activePage}. Tap to go to`)}
+              onPress={() => { triggerHaptic('light'); openJump('surah'); }}
+              style={{ flex: 1, minHeight: 44, justifyContent: 'center' }}
             >
-              <Feather name={isSearching ? 'x' : 'search'} size={20} color={isSearching ? p.primary : p.muted} />
+              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <TextUI size={12.5} color={p.muted} numberOfLines={1}>
+                  {en
+                    ? `Page ${toArabicNumber(activePage)} · Juz ${toArabicNumber(pageItem.juzNumbers[0] || 1)}`
+                    : `صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}`}
+                </TextUI>
+                <Feather name="chevron-down" size={14} color={p.muted} />
+              </View>
             </TouchableOpacity>
+            {isSearching ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('إغلاق البحث', 'Close search')}
+                onPress={() => { triggerHaptic('light'); setSearchWord(''); setIsSearching(false); }}
+                style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Feather name="x" size={20} color={p.primary} />
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={pageBookmarked ? t('إزالة علامة هذه الصفحة', 'Remove this page’s bookmark') : t('إضافة علامة', 'Add bookmark')}
@@ -1447,27 +1456,15 @@ export const QuranReaderScreen: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel={isAudioPlaying ? t('إيقاف التلاوة', 'Stop recitation') : t('تشغيل التلاوة', 'Play recitation')}
-              onPress={toggleAudioPlayback}
-              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
-            >
-              {isAudioLoading ? (
-                <ActivityIndicator size="small" color={p.primary} />
-              ) : (
-                <Feather name={isAudioPlaying ? 'pause-circle' : 'play-circle'} size={22} color={p.primary} />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('إعدادات القراءة', 'Reading settings')}
+              accessibilityLabel={t('خيارات المصحف', 'Mushaf options')}
               onPress={() => { triggerHaptic('light'); setReadingMenuVisible(true); }}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Feather name="type" size={20} color={p.muted} />
+              <Feather name="more-horizontal" size={22} color={p.ink} />
             </TouchableOpacity>
           </View>
 
-      {/* Sub-header Bar */}
+      {/* Tafsir view: which tafsir, and page steps */}
       {readingMode === 'tafsir' ? (
         <View style={{ paddingHorizontal: 10, paddingVertical: 7, backgroundColor: p.bgAlt, borderBottomWidth: 1, borderColor: p.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
@@ -1493,15 +1490,6 @@ export const QuranReaderScreen: React.FC = () => {
           </TouchableOpacity>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity
-              onPress={() => openJump('page')}
-              style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-            >
-              <TextUI variant="captionBold" color={p.ink}>
-                {en ? <>Surah {currentSurah.nameEn} • p. {toArabicNumber(activePage)}</> : <>سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}</>}
-              </TextUI>
-            </TouchableOpacity>
-
             <View style={{ flexDirection: 'row', gap: 2 }}>
               <TouchableOpacity
                 accessibilityLabel={t('الصفحة السابقة', 'Previous page')}
@@ -1522,25 +1510,7 @@ export const QuranReaderScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      ) : (
-        <View style={{ paddingHorizontal: 8, paddingVertical: 5, backgroundColor: p.bgAlt, borderBottomWidth: 1, borderColor: p.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity onPress={() => openJump('surah')} style={{ flex: 1.15, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={p.ink} numberOfLines={1}>{t('سورة', 'Surah')} {en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => openJump('page')} style={{ minWidth: 58, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, paddingVertical: 6 }}>
-              <TextUI variant="h4" color={p.ink}>{toArabicNumber(activePage)}</TextUI>
-            </TouchableOpacity>
-            {readingMode === 'page' ? <View style={{ flexDirection: 'row', gap: 2 }}>
-              <TouchableOpacity accessibilityLabel={t('الصفحة السابقة', 'Previous page')} onPress={() => movePage(-1)} disabled={activePage <= 1} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage <= 1 ? 0.35 : 1 }}><Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={20} color={p.ink} /></TouchableOpacity>
-              <TouchableOpacity accessibilityLabel={t('الصفحة التالية', 'Next page')} onPress={() => movePage(1)} disabled={activePage >= QURAN_PAGE_INDEX.length} style={{ width: 30, height: 34, alignItems: 'center', justifyContent: 'center', opacity: activePage >= QURAN_PAGE_INDEX.length ? 0.35 : 1 }}><Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={20} color={p.ink} /></TouchableOpacity>
-            </View> : null}
-            <TouchableOpacity onPress={() => openJump('juz')} style={{ flex: 1.05, alignItems: 'center', paddingHorizontal: 5, paddingVertical: 7, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-              <TextUI variant="bodyMedium" weight="bold" color={p.ink}>{t('الجزء', 'Juz')} {toArabicNumber(pageItem.juzNumbers[0] || 1)}</TextUI>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      ) : null}
       </>
       )}
 
@@ -1573,7 +1543,7 @@ export const QuranReaderScreen: React.FC = () => {
         // Page mode: the pages are the direct children, so when a page above the screen changes
         // height (a swap after the scroll stops) iOS and Android keep the visible text in place.
         maintainVisibleContentPosition={readingMode === 'page' && Platform.OS !== 'web' ? { minIndexForVisible: 0 } : undefined}
-        contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: (isImmersive ? (Platform.OS === 'ios' ? 44 : 20) : 0) + (readingMode === 'page' ? 4 : 0), paddingBottom: (isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? 180 : 16, flexGrow: 1 }}
+        contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: (isImmersive ? (Platform.OS === 'ios' ? 44 : 20) : 0) + (readingMode === 'page' ? 4 : 0), paddingBottom: (isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? 120 : 84, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onTouchStart={handleReaderTouchStart}
@@ -1596,13 +1566,7 @@ export const QuranReaderScreen: React.FC = () => {
         }}
         onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); setUserScrolling(false); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
-        onResponderRelease={() => {
-          if (isImmersive) {
-            setIsImmersive(false);
-          } else {
-            setReaderControlsVisible((visible) => !visible);
-          }
-        }}
+        onResponderRelease={() => { if (isImmersive) setIsImmersive(false); }}
         onScroll={(event) => {
           const offset = event.nativeEvent.contentOffset.y;
           scrollOffsetRef.current = offset;
@@ -1636,8 +1600,6 @@ export const QuranReaderScreen: React.FC = () => {
           <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}|${mushafPages[pageNumber] ? 1 : 0}`} frozen={userScrolling} render={renderMushafPage} />
         )) : (
         <View
-          onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
-          onResponderRelease={() => setReaderControlsVisible((visible) => !visible)}
           style={{
             backgroundColor: p.surface,
             paddingHorizontal: 8,
@@ -1823,7 +1785,7 @@ export const QuranReaderScreen: React.FC = () => {
               })}
             </View>
           ) : (
-            <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
+            <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
           )}
         </View>
         )}
@@ -1898,7 +1860,10 @@ export const QuranReaderScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {(isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? (
+      {/* Nothing playing: a single "Listen" button; once recitation starts, the compact player */}
+      {!(isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? (
+        isImmersive ? null : <ListenButton onPress={toggleAudioPlayback} />
+      ) : (
         <ReaderPlayer
           reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
           ayahNumber={currentAyahNum}
@@ -1921,9 +1886,9 @@ export const QuranReaderScreen: React.FC = () => {
           onOpenRepeat={() => setPlaybackSettingsVisible(true)}
           onOpenTafsir={() => openAyahTafsir(parsedSurah.verses.find((v) => v.ayahNumber === currentAyahNum) || activeAyah)}
           onOpenReciter={() => setReciterModalVisible(true)}
-          onStop={() => { stopAudio(); setReaderControlsVisible(false); }}
+          onStop={() => { stopAudio(); setAutoScroll(false); }}
         />
-      ) : null}
+      )}
 
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
 
@@ -1935,13 +1900,10 @@ export const QuranReaderScreen: React.FC = () => {
       <AyahNoteSheet ayahNoteModalVisible={ayahNoteModalVisible} setAyahNoteModalVisible={setAyahNoteModalVisible} activeAyah={activeAyah} ayahNoteText={ayahNoteText} setAyahNoteText={setAyahNoteText} saveAyahNote={saveAyahNote} />
 
       {/* Reading settings menu (header "Tt" button) */}
-      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setModeModalVisible={setModeModalVisible} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} setIsImmersive={setIsImmersive} autoScroll={autoScroll} setAutoScroll={setAutoScroll} />
+      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setReadingMode={setReadingMode} onSearch={() => setIsSearching(true)} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} setIsImmersive={setIsImmersive} autoScroll={autoScroll} setAutoScroll={setAutoScroll} />
 
       {/* Reciter Selection Modal */}
       <ReciterSheet reciterModalVisible={reciterModalVisible} setReciterModalVisible={setReciterModalVisible} stopAudio={stopAudio} setSelectedReciter={setSelectedReciter} selectedReciter={selectedReciter} />
-
-      {/* 1. Mode Switcher Sheet */}
-      <ReadingModeSheet modeModalVisible={modeModalVisible} setModeModalVisible={setModeModalVisible} setReadingMode={setReadingMode} readingMode={readingMode} />
 
       {/* 2. Font Size Adjustment Modal */}
       <FontSizeSheet fontSizeModalVisible={fontSizeModalVisible} setFontSizeModalVisible={setFontSizeModalVisible} tafsirFontSize={tafsirFontSize} tafsirCardBgColor={tafsirCardBgColor} tafsirBorderColor={tafsirBorderColor} handleChangeTafsirFontSize={handleChangeTafsirFontSize} />

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from '../../common/TextUI';
@@ -33,7 +33,32 @@ export interface ReaderPlayerProps {
   onStop: () => void;
 }
 
-/** Floating recitation player from the approved design (reader step 3). */
+/** Floating "Listen" button shown in the reader while nothing is playing. */
+export const ListenButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const p = usePalette();
+  const { triggerHaptic, t } = useApp();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={t('استمع إلى التلاوة', 'Listen to the recitation')}
+      onPress={() => { triggerHaptic('light'); onPress(); }}
+      style={{
+        position: 'absolute', end: 16, bottom: Platform.OS === 'ios' ? 30 : 16,
+        minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, borderRadius: 25,
+        backgroundColor: p.primary, ...makeShadow('0 6px 18px rgba(45,30,22,0.25)', '#2D1E16', 0.25, 8)
+      }}
+    >
+      <Feather name="play" size={18} color={p.onPrimary} />
+      <TextUI size={15} weight="bold" color={p.onPrimary}>{t('استمع', 'Listen')}</TextUI>
+    </TouchableOpacity>
+  );
+};
+
+/**
+ * Floating recitation player. Compact by default (play/pause, reciter and ayah, close); the
+ * chevron opens the full controls: seek, previous/next ayah, speed, repeat and tafsir.
+ */
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
   elapsedLabel, remainingLabel, autoScroll, scrollSpeedIndex, onScrollSpeed, onStopAutoScroll,
@@ -42,7 +67,25 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   const p = usePalette();
   const { triggerHaptic, t, isRTL } = useApp();
   const progressWidth = useRef(0);
+  const [expanded, setExpanded] = useState(false);
   const speedLabel = `${toArabicNumber(String(speed || 1).replace('.', isRTL ? '٫' : '.'))}×`;
+  const progressPercent = `${Math.min(100, Math.max(0, progressRatio * 100))}%` as const;
+  const ayahLine = t(`الآية ${toArabicNumber(ayahNumber)} من ${toArabicNumber(totalAyahs)}`, `Verse ${toArabicNumber(ayahNumber)} of ${toArabicNumber(totalAyahs)}`);
+  const toggleExpanded = () => { triggerHaptic('light'); setExpanded((v) => !v); };
+  const playButton = (size: number) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={isPlaying ? t('إيقاف مؤقت', 'Pause') : t('تشغيل', 'Play')}
+      onPress={onTogglePlay}
+      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary }}
+    >
+      {isLoading ? (
+        <ActivityIndicator size="small" color={p.onPrimary} />
+      ) : (
+        <Feather name={isPlaying ? 'pause' : 'play'} size={size * 0.43} color={p.onPrimary} style={{ marginLeft: isPlaying ? 0 : 2 }} />
+      )}
+    </TouchableOpacity>
+  );
 
   const iconButton = (icon: React.ComponentProps<typeof Feather>['name'], label: string, onPress: () => void, color = p.ink) => (
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -97,12 +140,32 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
           ...makeShadow('0 8px 24px rgba(45,30,22,0.18)', '#2D1E16', 0.18, 8)
         }}
       >
+        {!expanded ? (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {playButton(44)}
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('عرض كل أدوات التلاوة', 'Show all recitation controls')} onPress={toggleExpanded} style={{ flex: 1, minHeight: 44, justifyContent: 'center' }}>
+                <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{reciterName}</TextUI>
+                <TextUI size={12.5} color={p.muted} numberOfLines={1}>{ayahLine}</TextUI>
+              </TouchableOpacity>
+              {iconButton('chevron-up', t('عرض كل أدوات التلاوة', 'Show all recitation controls'), toggleExpanded, p.muted)}
+              {iconButton('x', t('إيقاف التلاوة وإخفاء المشغّل', 'Stop recitation and hide player'), onStop, p.muted)}
+            </View>
+            <View style={{ height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border, marginBottom: 2 }}>
+              <View style={{ height: 3, backgroundColor: p.accent, width: progressPercent }} />
+            </View>
+          </>
+        ) : (
+        <>
         {/* Reciter, ayah and speed */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={t(`القارئ: ${reciterName}`, `Reciter: ${reciterName}`)} onPress={onOpenReciter} style={{ flex: 1, minHeight: 44, justifyContent: 'center' }}>
-            <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{reciterName}</TextUI>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{reciterName}</TextUI>
+              <Feather name="chevron-down" size={14} color={p.muted} />
+            </View>
             <TextUI size={12.5} color={p.muted} numberOfLines={1}>
-              {t(`الآية ${toArabicNumber(ayahNumber)} من ${toArabicNumber(totalAyahs)} · تكرار الآية ×${toArabicNumber(ayahRepeats || 1)}`, `Verse ${toArabicNumber(ayahNumber)} of ${toArabicNumber(totalAyahs)} · Verse repeat ×${toArabicNumber(ayahRepeats || 1)}`)}
+              {t(`${ayahLine} · تكرار الآية ×${toArabicNumber(ayahRepeats || 1)}`, `${ayahLine} · Verse repeat ×${toArabicNumber(ayahRepeats || 1)}`)}
             </TextUI>
           </TouchableOpacity>
           <TouchableOpacity
@@ -113,7 +176,7 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
           >
             <TextUI size={13} weight="bold" color={speed > 1 ? p.primaryInk : p.ink}>{speedLabel}</TextUI>
           </TouchableOpacity>
-          {iconButton('x', t('إيقاف التلاوة وإخفاء المشغّل', 'Stop recitation and hide player'), onStop, p.muted)}
+          {iconButton('chevron-down', t('تصغير المشغّل', 'Collapse the player'), toggleExpanded, p.muted)}
         </View>
 
         {/* Surah progress (tap to seek) with elapsed and remaining time */}
@@ -126,7 +189,7 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
           style={{ height: 16, justifyContent: 'center' }}
         >
           <View style={{ height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border }}>
-            <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: `${Math.min(100, Math.max(0, progressRatio * 100))}%` }} />
+            <View style={{ height: 4, borderRadius: 2, backgroundColor: p.accent, width: progressPercent }} />
           </View>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 }}>
@@ -139,21 +202,15 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
           {iconButton('repeat', t('إعدادات التكرار والتلاوة', 'Repeat and recitation settings'), onOpenRepeat, p.muted)}
           {/* "Previous" sits at the start edge and points toward it (right in RTL, left in LTR), as in the design. */}
           {iconButton(isRTL ? 'skip-forward' : 'skip-back', t('الآية السابقة', 'Previous verse'), () => onSkip(-1))}
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={isPlaying ? t('إيقاف مؤقت', 'Pause') : t('تشغيل', 'Play')}
-            onPress={onTogglePlay}
-            style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary }}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={p.onPrimary} />
-            ) : (
-              <Feather name={isPlaying ? 'pause' : 'play'} size={24} color={p.onPrimary} style={{ marginLeft: isPlaying ? 0 : 2 }} />
-            )}
-          </TouchableOpacity>
+          {playButton(56)}
           {iconButton(isRTL ? 'skip-back' : 'skip-forward', t('الآية التالية', 'Next verse'), () => onSkip(1))}
           {iconButton('book-open', t('تفسير الآية الحالية', 'Tafsir of the current verse'), onOpenTafsir, p.muted)}
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إيقاف التلاوة وإخفاء المشغّل', 'Stop recitation and hide player')} onPress={onStop} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center', paddingHorizontal: 12 }}>
+          <TextUI size={13} weight="medium" color={p.muted}>{t('إيقاف التلاوة', 'Stop recitation')}</TextUI>
+        </TouchableOpacity>
+        </>
+        )}
       </View>
     </View>
   );

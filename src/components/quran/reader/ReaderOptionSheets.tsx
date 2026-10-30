@@ -15,7 +15,8 @@ export interface ReadingMenuSheetProps {
   readingMenuVisible: boolean;
   setReadingMenuVisible: (v: boolean) => void;
   readingMode: ReadingMode;
-  setModeModalVisible: (v: boolean) => void;
+  setReadingMode: (m: ReadingMode) => void;
+  onSearch: () => void;
   setFontSizeModalVisible: (v: boolean) => void;
   currentReciterObj: (typeof QURAN_RECITERS)[number];
   setReciterModalVisible: (v: boolean) => void;
@@ -24,21 +25,50 @@ export interface ReadingMenuSheetProps {
   setAutoScroll: (v: boolean) => void;
 }
 
-export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setModeModalVisible, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive, autoScroll, setAutoScroll }) => {
+const VIEW_MODES: { id: ReadingMode; label: string; labelEn: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
+  { id: 'page', label: 'مصحف', labelEn: 'Mushaf', icon: 'book-open' },
+  { id: 'surah', label: 'آيات', labelEn: 'Verses', icon: 'align-right' },
+  { id: 'tafsir', label: 'تفسير', labelEn: 'Tafsir', icon: 'book' }
+];
+
+/** The reader's "⋯" sheet: the view mode as a switch on top, then the other options. */
+export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setReadingMode, onSearch, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive, autoScroll, setAutoScroll }) => {
   const p = usePalette();
   const { quranFontSize, triggerHaptic, t, isRTL, lang } = useApp();
   return (
-    <Modal visible={readingMenuVisible} animationType="fade" transparent onRequestClose={() => setReadingMenuVisible(false)}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-        <View style={{ backgroundColor: p.bg, borderRadius: 20, paddingVertical: 12 }}>
+    <Modal visible={readingMenuVisible} animationType="slide" transparent onRequestClose={() => setReadingMenuVisible(false)}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity accessibilityLabel={t('إغلاق', 'Close')} activeOpacity={1} onPress={() => setReadingMenuVisible(false)} style={{ flex: 1 }} />
+        <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 14 }}>
+          <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 6 }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-            <TextUI size={18} weight="bold" color={p.ink}>{t('إعدادات القراءة', 'Reading settings')}</TextUI>
+            <TextUI size={18} weight="bold" color={p.ink}>{t('خيارات المصحف', 'Mushaf options')}</TextUI>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setReadingMenuVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
           </View>
+
+          {/* View mode */}
+          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 4, marginHorizontal: 20, marginBottom: 12, padding: 4, borderRadius: 14, backgroundColor: p.bgAlt }}>
+            {VIEW_MODES.map((mode) => {
+              const selected = readingMode === mode.id;
+              return (
+                <TouchableOpacity
+                  key={mode.id}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => { triggerHaptic('light'); setReadingMode(mode.id); setReadingMenuVisible(false); }}
+                  style={{ flex: 1, minHeight: 48, borderRadius: 11, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: selected ? p.surface : 'transparent', borderWidth: selected ? 1 : 0, borderColor: p.border }}
+                >
+                  <Feather name={mode.icon} size={16} color={selected ? p.primary : p.muted} />
+                  <TextUI size={13} weight={selected ? 'bold' : 'medium'} color={selected ? p.ink : p.muted}>{t(mode.label, mode.labelEn)}</TextUI>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           {[
-            { key: 'mode', icon: 'layout' as const, label: t('طريقة العرض', 'View mode'), value: readingMode === 'tafsir' ? t('التفسير', 'Tafsir') : readingMode === 'surah' ? t('عرض السورة', 'Surah view') : t('صفحات المصحف', 'Mushaf pages'), open: () => setModeModalVisible(true) },
+            { key: 'search', icon: 'search' as const, label: readingMode === 'surah' ? t('بحث في السورة', 'Search this surah') : t('بحث في الصفحة', 'Search this page'), value: '', open: onSearch },
             { key: 'font', icon: 'type' as const, label: t('حجم الخط', 'Font size'), value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
             { key: 'reciter', icon: 'mic' as const, label: t('القارئ', 'Reciter'), value: lang === 'en' ? currentReciterObj.nameEn : currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
             { key: 'immersive', icon: 'maximize-2' as const, label: t('قراءة دون مشتتات', 'Distraction-free reading'), value: '', open: () => setIsImmersive(true) },
@@ -127,137 +157,6 @@ export const ReciterSheet: React.FC<ReciterSheetProps> = ({ reciterModalVisible,
             </TouchableOpacity>
           ))}
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-export interface ReadingModeSheetProps {
-  modeModalVisible: boolean;
-  setModeModalVisible: (v: boolean) => void;
-  setReadingMode: (m: ReadingMode) => void;
-  readingMode: ReadingMode;
-}
-
-export const ReadingModeSheet: React.FC<ReadingModeSheetProps> = ({ modeModalVisible, setModeModalVisible, setReadingMode, readingMode }) => {
-  const p = usePalette();
-  const { triggerHaptic, t } = useApp();
-  return (
-    <Modal visible={modeModalVisible} animationType="slide" transparent onRequestClose={() => setModeModalVisible(false)}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
-          <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 14 }} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <TextUI size={18} weight="bold" color={p.ink}>{t('طريقة عرض المصحف', 'Mushaf view mode')}</TextUI>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setModeModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="x" size={20} color={p.ink} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ gap: 10 }}>
-            {/* Option 1: Mushaf Page Mode */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setReadingMode('page');
-                setModeModalVisible(false);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 14,
-                borderRadius: 16,
-                backgroundColor: readingMode === 'page' ? p.soft : p.surface,
-                borderWidth: 1.5,
-                borderColor: readingMode === 'page' ? p.primary : p.border
-              }}
-            >
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <TextUI size={20}>📖</TextUI>
-              </View>
-              <View style={{ flex: 1 }}>
-                <TextUI size={14} weight="bold" color={readingMode === 'page' ? p.primaryInk : p.ink}>
-                  {t('المصحف الشريف (صفحات مصورة)', 'The Noble Mushaf (page images)')}
-                </TextUI>
-                <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  {t('عرض صفحات المصحف المعتمدة والمطابقة للمصحف الورقي، مثالية للحفظ والمراجعة', 'Shows the approved mushaf pages, matching the printed mushaf; ideal for memorization and review')}
-                </TextUI>
-              </View>
-              {readingMode === 'page' && (
-                <Feather name="check-circle" size={20} color={p.primary} />
-              )}
-            </TouchableOpacity>
-
-            {/* Option 2: Tafsir & Tadabbur Stream Mode */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setReadingMode('tafsir');
-                setModeModalVisible(false);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 14,
-                borderRadius: 16,
-                backgroundColor: readingMode === 'tafsir' ? p.soft : p.surface,
-                borderWidth: 1.5,
-                borderColor: readingMode === 'tafsir' ? p.primary : p.border
-              }}
-            >
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <TextUI size={20}>📚</TextUI>
-              </View>
-              <View style={{ flex: 1 }}>
-                <TextUI size={14} weight="bold" color={readingMode === 'tafsir' ? p.primaryInk : p.ink}>
-                  {t('التفسير والتدبر (عرض عمودي)', 'Tafsir and reflection (vertical view)')}
-                </TextUI>
-                <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  {t('عرض كل آية مع بطاقة تفسيرها مباشرة ومشاركتها مع ٧ تفاسير معتمدة', 'Shows each verse with its tafsir card directly, and sharing, with 7 approved tafsirs')}
-                </TextUI>
-              </View>
-              {readingMode === 'tafsir' && (
-                <Feather name="check-circle" size={20} color={p.primary} />
-              )}
-            </TouchableOpacity>
-
-            {/* Option 3: Continuous Surah Mode */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                triggerHaptic('light');
-                setReadingMode('surah');
-                setModeModalVisible(false);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 14,
-                borderRadius: 16,
-                backgroundColor: readingMode === 'surah' ? p.soft : p.surface,
-                borderWidth: 1.5,
-                borderColor: readingMode === 'surah' ? p.primary : p.border
-              }}
-            >
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: p.bgAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <TextUI size={20}>📜</TextUI>
-              </View>
-              <View style={{ flex: 1 }}>
-                <TextUI size={14} weight="bold" color={readingMode === 'surah' ? p.primaryInk : p.ink}>
-                  {t('عرض السورة المتتابع', 'Continuous surah view')}
-                </TextUI>
-                <TextUI size={11} color={p.muted} style={{ marginTop: 2 }}>
-                  {t('قراءة متصلة لآيات السورة كاملة في تدفق واحد مع بيان المقاصد', 'Continuous reading of the whole surah in one flow, with an explanation of its aims')}
-                </TextUI>
-              </View>
-              {readingMode === 'surah' && (
-                <Feather name="check-circle" size={20} color={p.primary} />
-              )}
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
