@@ -62,7 +62,9 @@ const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
  */
 // Mushaf text font: King Fahd Complex Hafs (loaded in src/app/_layout.tsx).
 const MUSHAF_FONT = 'KFGQPC_Hafs';
-const BASMALA = forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
+// Above this Quran font size (the app default is 24) pages use the flowing text instead.
+const MADINAH_MAX_FONT_SIZE = 24;
+const BASMALA =forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
 const SURAH_BANNER_LIGHT =require('../../assets/surah-banner-light.png');
 const SURAH_BANNER_DARK = require('../../assets/surah-banner-dark.png');
 
@@ -1178,8 +1180,10 @@ export const QuranReaderScreen: React.FC = () => {
     // Printed-page layout once its glyph font and line data are ready; while searching, offline
     // before the first download, on older systems, and in dark mode (the colour fonts draw
     // the letters black whatever the text colour) the flowing Hafs text below is used.
+    // Printed lines only fit the screen width at the default size, so a larger font size (from
+    // the settings or a pinch) switches to the flowing text, which wraps; pinching back returns.
     const madinah = mushafPages[pageNumber];
-    if (madinah && !searchQuery && !isDarkTheme) return renderMadinahPage(pageNumber, madinah.layout, madinah.family);
+    if (madinah && !searchQuery && !isDarkTheme && quranFontSize <= MADINAH_MAX_FONT_SIZE) return renderMadinahPage(pageNumber, madinah.layout, madinah.family);
     const sections = getPageSections(pageNumber);
     return (
       <View
@@ -1265,8 +1269,9 @@ export const QuranReaderScreen: React.FC = () => {
     const lineNumbers = pageNumber <= 2
       ? [...new Set([...extras.keys(), ...wordsByLine.keys()])].filter((n) => n >= 1).sort((a, b) => a - b)
       : Array.from({ length: 15 }, (_, index) => index + 1);
-    // The widest printed lines measure about 17.4 font-sizes; keep a small margin so none wraps.
-    const fontSize = Math.max(14, Math.floor((mushafWidth || 360) / 18));
+    // The widest printed lines measure about 17.4 font-sizes in Chrome and a little more on iOS,
+    // where the last word of a full line was cut off at /18; /19.5 leaves room on both.
+    const fontSize = Math.max(14, Math.floor((mushafWidth || 360) / 19.5));
     const lineHeight = Math.round(fontSize * 1.85);
 
     return (
