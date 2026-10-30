@@ -6,6 +6,7 @@ import {
   Text,
   Image,
   ScrollView,
+  useWindowDimensions,
   TouchableOpacity,
   Share,
   TextInput,
@@ -15,6 +16,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
 import { StatusBar } from 'expo-status-bar';
+import { Gesture, GestureDetector, ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { toArabicNumber, toArabicIndicDigits, toStandardNumber } from '../services/prayerCalculation';
@@ -68,6 +70,8 @@ const MUSHAF_FONT = 'KFGQPC_Hafs';
 const FOLLOW_PAUSE_MS = 4000;
 // Above this Quran font size (the app default is 24) pages use the flowing text instead.
 const MADINAH_MAX_FONT_SIZE = 24;
+// Largest pinch zoom of the Madinah pages.
+const PAGE_ZOOM_MAX = 2.5;
 const BASMALA =forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
 const SURAH_BANNER_LIGHT =require('../../assets/surah-banner-light.png');
 const SURAH_BANNER_DARK = require('../../assets/surah-banner-dark.png');
@@ -182,16 +186,19 @@ export const QuranReaderScreen: React.FC = () => {
   const maxScrollRef = useRef(0);
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
-  const pinchStartDistanceRef = useRef(0);
   const scrollingRef = useRef(false);
-  // iOS pinch zoom scale; the scroll view reports offsets in zoomed points, layout is unzoomed.
-  const zoomRef = useRef(1);
   const lastTapRef = useRef(0);
+  // Pinch zoom: Madinah pages are laid out pageZoom times wider and panned sideways.
+  const { width: windowWidth } = useWindowDimensions();
+  const [pageZoom, setPageZoom] = useState(1);
+  const [pinching, setPinching] = useState(false);
+  const [pinchOrigin, setPinchOrigin] = useState({ x: 0, y: 0 });
+  const [pinchScale] = useState(() => new Animated.Value(1));
+  const pinchFontRef = useRef(quranFontSize);
+  const hScrollRef = useRef<ScrollView>(null);
   // True from the start of a drag until the scroll comes to rest; holds page swaps (see MushafPageBlock).
   const [userScrolling, setUserScrolling] = useState(false);
   const scrollRestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pinchStartFontSizeRef = useRef(quranFontSize);
-  const lastPinchFontSizeRef = useRef(quranFontSize);
   const pageOffsetsRef = useRef<Record<number, number>>({});
   // Madinah pages: y of each verse line within its page ("page:line"), for following recitation.
   const lineOffsetsRef = useRef<Record<string, number>>({});
@@ -293,43 +300,48 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
 
-  const touchDistance = (touches: any[]) => {
-    if (!touches || touches.length < 2) return 0;
-    const dx = touches[0].pageX - touches[1].pageX;
-    const dy = touches[0].pageY - touches[1].pageY;
-    return Math.sqrt(dx * dx + dy * dy);
+  // Two-finger pinch (react-native-gesture-handler; a plain touch handler never saw the second
+  // finger on iPhone, where the scroll view takes it as a pan). While pinching the reader is
+  // scaled as a preview; on release, Madinah pages are laid out again at the new size (sharp text,
+  // panned sideways) and the other views change the font size.
+  const zoomByLayout = readingMode === 'page' && p.bg !== PALETTE.dark.bg; // Madinah pages are light only
+  const applyZoom = (next: number, focalY: number) => {
+    const ratio = next / pageZoom;
+    const y = Math.max(0, (scrollOffsetRef.current + focalY) * ratio - focalY);
+    setPageZoom(next);
+    // After the new layout: keep the pinched spot in place, and centre the sideways pan.
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y, animated: false });
+      hScrollRef.current?.scrollTo({ x: (windowWidth * next - windowWidth) / 2, animated: false });
+    }, 80);
   };
-  // Pinch on Android (and web): exactly two fingers while the page is not scrolling change the
-  // font size. iOS uses the scroll view's own zoom instead (maximumZoomScale), which enlarges the
-  // printed page as it is; a two-finger touch there starts a pan, so this never fired on iPhone.
-  const handleReaderTouchStart = (event: any) => {
-    if (Platform.OS === 'ios') return;
-    const touches = event.nativeEvent.touches;
-    const distance = !scrollingRef.current && touches?.length === 2 ? touchDistance(touches) : 0;
-    if (distance > 0) {
-      pinchStartDistanceRef.current = distance;
-      pinchStartFontSizeRef.current = quranFontSize;
-      lastPinchFontSizeRef.current = quranFontSize;
-    }
-  };
-  const handleReaderTouchMove = (event: any) => {
-    if (Platform.OS === 'ios') return;
-    const touches = event.nativeEvent.touches;
-    if (scrollingRef.current || touches?.length !== 2) {
-      pinchStartDistanceRef.current = 0;
-      return;
-    }
-    const distance = touchDistance(touches);
-    if (!distance || !pinchStartDistanceRef.current) return;
-    const nextSize = Math.max(17, Math.min(48, Math.round(pinchStartFontSizeRef.current * distance / pinchStartDistanceRef.current)));
-    if (nextSize !== lastPinchFontSizeRef.current) {
-      lastPinchFontSizeRef.current = nextSize;
-      setQuranFontSize(nextSize);
-    }
-  };
-  const handleReaderTouchEnd = (event: any) => {
-    if ((event.nativeEvent.touches?.length || 0) < 2) pinchStartDistanceRef.current = 0;
-  };
+  // The gesture callbacks read refs when the pinch fires, not during render; the rule can't tell.
+  /* eslint-disable react-hooks/refs */
+  const pinchGesture = Gesture.Pinch()
+    .runOnJS(true)
+    .simultaneousWithExternalGesture(scrollViewRef as unknown as React.RefObject<React.ComponentType<object>>)
+    .onStart((event) => {
+      pinchFontRef.current = quranFontSize;
+      setPinchOrigin({ x: event.focalX, y: event.focalY });
+      setPinching(true);
+    })
+    .onUpdate((event) => {
+      const [min, max] = zoomByLayout ? [1 / pageZoom, PAGE_ZOOM_MAX / pageZoom] : [17 / pinchFontRef.current, 48 / pinchFontRef.current];
+      pinchScale.setValue(Math.max(min, Math.min(max, event.scale)));
+    })
+    .onEnd((event) => {
+      if (zoomByLayout) {
+        const next = Math.max(1, Math.min(PAGE_ZOOM_MAX, Math.round(pageZoom * event.scale * 10) / 10));
+        if (Math.abs(next - pageZoom) >= 0.1) applyZoom(next, event.focalY);
+      } else {
+        setQuranFontSize(Math.max(17, Math.min(48, Math.round(pinchFontRef.current * event.scale))));
+      }
+    })
+    .onFinalize(() => {
+      pinchScale.setValue(1);
+      setPinching(false);
+    });
+  /* eslint-enable react-hooks/refs */
 
   // A tap on the page shows or hides the bars; a quick second tap while zoomed in returns to 100%
   // (and undoes the first tap's toggle).
@@ -337,10 +349,7 @@ export const QuranReaderScreen: React.FC = () => {
     const now = Date.now();
     const doubleTap = now - lastTapRef.current < 300;
     lastTapRef.current = now;
-    if (doubleTap && zoomRef.current > 1.01) {
-      const viewport = viewportHeightRef.current || 600;
-      (scrollViewRef.current as any)?.scrollResponderZoomTo?.({ x: 0, y: scrollOffsetRef.current / zoomRef.current, width: mushafWidth + 22, height: viewport, animated: true });
-    }
+    if (doubleTap && pageZoom > 1) applyZoom(1, (viewportHeightRef.current || 600) / 2);
     setIsImmersive((v) => !v);
   };
 
@@ -897,7 +906,7 @@ export const QuranReaderScreen: React.FC = () => {
     triggerHaptic('light');
     setActivePage(nextPage);
     const pageOffset = pageOffsetsRef.current[nextPage];
-    if (pageOffset != null) scrollViewRef.current?.scrollTo({ y: pageOffset * zoomRef.current, animated: true });
+    if (pageOffset != null) scrollViewRef.current?.scrollTo({ y: pageOffset, animated: true });
     else {
       pendingScrollPageRef.current = nextPage;
       const first = Math.max(1, nextPage - 2);
@@ -922,7 +931,7 @@ export const QuranReaderScreen: React.FC = () => {
       paginationEndRef.current = pages[pages.length - 1] || safePage;
     } else {
       const offset = pageOffsetsRef.current[safePage];
-      if (offset != null) scrollViewRef.current?.scrollTo({ y: offset * zoomRef.current, animated: true });
+      if (offset != null) scrollViewRef.current?.scrollTo({ y: offset, animated: true });
       else pendingScrollPageRef.current = safePage;
     }
   };
@@ -944,7 +953,7 @@ export const QuranReaderScreen: React.FC = () => {
     const madinah = mushafPages[verse.pageNum];
     const line = madinah?.layout.lines.find((l) => l.words.some((w) => w.verseKey === `${verse.surahId}:${verse.ayahNumber}`));
     const lineY = line ? lineOffsetsRef.current[`${verse.pageNum}:${line.line}`] : undefined;
-    const target = (pageTop + (lineY ?? 0)) * zoomRef.current;
+    const target = pageTop + (lineY ?? 0);
     const viewport = viewportHeightRef.current || 600;
     const top = scrollOffsetRef.current;
     // Already comfortably visible (the player covers the bottom of the screen): leave it.
@@ -1264,7 +1273,7 @@ export const QuranReaderScreen: React.FC = () => {
         onLayout={(event) => {
           pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
           if (pendingScrollPageRef.current === pageNumber) {
-            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y * zoomRef.current, animated: false });
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
             pendingScrollPageRef.current = 0;
           }
         }}
@@ -1355,7 +1364,7 @@ export const QuranReaderScreen: React.FC = () => {
         onLayout={(event) => {
           pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
           if (pendingScrollPageRef.current === pageNumber) {
-            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y * zoomRef.current, animated: false });
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
             pendingScrollPageRef.current = 0;
           }
         }}
@@ -1540,51 +1549,50 @@ export const QuranReaderScreen: React.FC = () => {
       )}
       </Animated.View>
 
-        <ScrollView
+      {/* Pinch preview scales this view; the sideways scroll pans a zoomed-in page */}
+      <GestureDetector gesture={pinchGesture}>
+      <Animated.View style={{ flex: 1, transformOrigin: `${pinchOrigin.x}px ${pinchOrigin.y}px`, transform: [{ scale: pinchScale }] }}>
+      <ScrollView
+        ref={hScrollRef}
+        horizontal
+        scrollEnabled={pageZoom > 1 && !pinching}
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ width: windowWidth * pageZoom }}
+      >
+        <GestureScrollView
         ref={scrollViewRef}
-        style={{ flex: 1, backgroundColor: readingMode === 'page' ? p.surface : undefined }}
+        style={{ flex: 1, width: windowWidth * pageZoom, backgroundColor: readingMode === 'page' ? p.surface : undefined }}
         // Page mode: the pages are the direct children, so when a page above the screen changes
         // height (a swap after the scroll stops) iOS and Android keep the visible text in place.
         maintainVisibleContentPosition={readingMode === 'page' && Platform.OS !== 'web' ? { minIndexForVisible: 0 } : undefined}
-        // Two-finger zoom on iPhone: the page is enlarged as printed and can be panned; a double
-        // tap returns to 100% (see handleReaderTap).
-        minimumZoomScale={1}
-        maximumZoomScale={Platform.OS === 'ios' ? 3 : 1}
-        bouncesZoom
+        scrollEnabled={!pinching}
         contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: headerHeight + (readingMode === 'page' ? 4 : 0), paddingBottom: 110, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onTouchStart={handleReaderTouchStart}
-        onTouchMove={handleReaderTouchMove}
-        onTouchEnd={handleReaderTouchEnd}
-        onTouchCancel={handleReaderTouchEnd}
         onScrollBeginDrag={() => {
-          scrollingRef.current = true; pinchStartDistanceRef.current = 0; lastUserScrollRef.current = Date.now();
-          if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
+          scrollingRef.current = true; lastUserScrollRef.current = Date.now();
           setUserScrolling(true);
           if (!isSearching) setIsImmersive(true);
         }}
-        onScrollEndDrag={() => {
-          scrollingRef.current = false; lastUserScrollRef.current = Date.now();
-          // A drag without a fling ends here; with one, momentum begins first and clears this.
-          scrollRestTimerRef.current = setTimeout(() => setUserScrolling(false), 250);
-        }}
-        onMomentumScrollBegin={() => {
-          scrollingRef.current = true;
-          if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
-        }}
-        onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); setUserScrolling(false); }}
+        onScrollEndDrag={() => { lastUserScrollRef.current = Date.now(); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
         onResponderRelease={handleReaderTap}
         onScroll={(event) => {
           const offset = event.nativeEvent.contentOffset.y;
           scrollOffsetRef.current = offset;
-          // Offsets and content size are in zoomed points while zoomed in (iOS).
-          const zoom = event.nativeEvent.zoomScale || 1;
-          zoomRef.current = zoom;
-          if (event.nativeEvent.contentSize?.height) contentHeightRef.current = event.nativeEvent.contentSize.height;
+          // The scroll has come to rest once no scroll events arrive for 300 ms. This does not rely on
+          // the momentum events, which on iPhone could go missing and leave the reader "scrolling"
+          // for good: the recitation then stopped following and pages stopped updating.
+          if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
+          scrollRestTimerRef.current = setTimeout(() => {
+            if (scrollingRef.current) lastUserScrollRef.current = Date.now();
+            scrollingRef.current = false;
+            setUserScrolling(false);
+          }, 300);
           if (readingMode === 'page') {
-            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) * zoom <= offset + 48);
+            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) <= offset + 48);
             if (pageAtOffset && pageAtOffset !== activePage) {
               setActivePage(pageAtOffset);
               const pageSection = getPageSections(pageAtOffset)[0];
@@ -1871,7 +1879,10 @@ export const QuranReaderScreen: React.FC = () => {
             <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={16} color={p.onPrimary} />
           </TouchableOpacity>
         </View>
+        </GestureScrollView>
       </ScrollView>
+      </Animated.View>
+      </GestureDetector>
 
       {/* Bottom toolbar: shows and hides with the top bar */}
       <Animated.View

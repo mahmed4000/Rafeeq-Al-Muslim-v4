@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StatusBar, Platform, I18nManager, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { setAudioModeAsync } from 'expo-audio';
 import {
@@ -121,12 +122,14 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeErrorBoundary>
-      <AppProvider>
-        <LessonPlayerProvider>
-          <ThemedStack />
-        </LessonPlayerProvider>
-      </AppProvider>
-    </SafeErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeErrorBoundary>
+        <AppProvider>
+          <LessonPlayerProvider>
+            <ThemedStack />
+          </LessonPlayerProvider>
+        </AppProvider>
+      </SafeErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
