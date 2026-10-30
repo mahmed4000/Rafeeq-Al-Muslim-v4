@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
+  Animated,
   Text,
   Image,
   ScrollView,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
+import { StatusBar } from 'expo-status-bar';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { toArabicNumber, toArabicIndicDigits, toStandardNumber } from '../services/prayerCalculation';
@@ -38,7 +40,7 @@ import { KhatmaService } from '../services/khatmaService';
 import { usePalette, PALETTE } from '../theme/palette';
 import { MushafPageLayout, prepareMushafPage, supportsMushafPages } from '../services/mushafPages';
 import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
-import { ReaderPlayer, ListenButton } from '../components/quran/reader/ReaderPlayer';
+import { ReaderPlayer, ReaderToolbar, READER_TOOLBAR_HEIGHT } from '../components/quran/reader/ReaderPlayer';
 import { useLessonPlayer } from '../context/LessonPlayerContext';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
@@ -78,7 +80,6 @@ const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber =
 export const QuranReaderScreen: React.FC = () => {
   const {
     goBack,
-    themeMode,
     t,
     isRTL,
     lang,
@@ -154,7 +155,11 @@ export const QuranReaderScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeedIndex, setScrollSpeedIndex] = useState(1);
+  // Full screen (bars hidden). The bars show on opening, hide after a few seconds or once the
+  // reader scrolls, and a tap on the page toggles them.
   const [isImmersive, setIsImmersive] = useState(false);
+  const [chromeAnim] = useState(() => new Animated.Value(1));
+  const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 100 : Platform.OS === 'web' ? 68 : 62);
   const [jumpModalVisible, setJumpModalVisible] = useState(false);
   const [jumpType, setJumpType] = useState<JumpType>('page');
   const [jumpValue, setJumpValue] = useState('');
@@ -179,6 +184,9 @@ export const QuranReaderScreen: React.FC = () => {
   const viewportHeightRef = useRef(0);
   const pinchStartDistanceRef = useRef(0);
   const scrollingRef = useRef(false);
+  // iOS pinch zoom scale; the scroll view reports offsets in zoomed points, layout is unzoomed.
+  const zoomRef = useRef(1);
+  const lastTapRef = useRef(0);
   // True from the start of a drag until the scroll comes to rest; holds page swaps (see MushafPageBlock).
   const [userScrolling, setUserScrolling] = useState(false);
   const scrollRestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,10 +299,11 @@ export const QuranReaderScreen: React.FC = () => {
     const dy = touches[0].pageY - touches[1].pageY;
     return Math.sqrt(dx * dx + dy * dy);
   };
-  // Pinch-to-zoom only with exactly two fingers while the page is not scrolling. On iOS a fast
-  // swipe can leave a stale touch in `touches`, which read as a pinch and resized the text
-  // for a moment (the letters looked stretched, then settled).
+  // Pinch on Android (and web): exactly two fingers while the page is not scrolling change the
+  // font size. iOS uses the scroll view's own zoom instead (maximumZoomScale), which enlarges the
+  // printed page as it is; a two-finger touch there starts a pan, so this never fired on iPhone.
   const handleReaderTouchStart = (event: any) => {
+    if (Platform.OS === 'ios') return;
     const touches = event.nativeEvent.touches;
     const distance = !scrollingRef.current && touches?.length === 2 ? touchDistance(touches) : 0;
     if (distance > 0) {
@@ -304,6 +313,7 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
   const handleReaderTouchMove = (event: any) => {
+    if (Platform.OS === 'ios') return;
     const touches = event.nativeEvent.touches;
     if (scrollingRef.current || touches?.length !== 2) {
       pinchStartDistanceRef.current = 0;
@@ -319,6 +329,19 @@ export const QuranReaderScreen: React.FC = () => {
   };
   const handleReaderTouchEnd = (event: any) => {
     if ((event.nativeEvent.touches?.length || 0) < 2) pinchStartDistanceRef.current = 0;
+  };
+
+  // A tap on the page shows or hides the bars; a quick second tap while zoomed in returns to 100%
+  // (and undoes the first tap's toggle).
+  const handleReaderTap = () => {
+    const now = Date.now();
+    const doubleTap = now - lastTapRef.current < 300;
+    lastTapRef.current = now;
+    if (doubleTap && zoomRef.current > 1.01) {
+      const viewport = viewportHeightRef.current || 600;
+      (scrollViewRef.current as any)?.scrollResponderZoomTo?.({ x: 0, y: scrollOffsetRef.current / zoomRef.current, width: mushafWidth + 22, height: viewport, animated: true });
+    }
+    setIsImmersive((v) => !v);
   };
 
   useEffect(() => {
@@ -404,6 +427,14 @@ export const QuranReaderScreen: React.FC = () => {
   }, [activePage, currentSurah.id, readingMode, renderedPages]);
 
   useEffect(() => () => { if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current); }, []);
+
+  useEffect(() => {
+    Animated.timing(chromeAnim, { toValue: isImmersive ? 0 : 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
+    // Bars hide by themselves after 4 seconds, unless the reader is typing a search.
+    if (isImmersive || isSearching) return;
+    const timer = setTimeout(() => setIsImmersive(true), 4000);
+    return () => clearTimeout(timer);
+  }, [isImmersive, isSearching, chromeAnim]);
 
   // Madinah page fonts and line data for the rendered pages and the next 5, like tajweed above,
   // so a page switches to its printed layout before it reaches the screen.
@@ -866,7 +897,7 @@ export const QuranReaderScreen: React.FC = () => {
     triggerHaptic('light');
     setActivePage(nextPage);
     const pageOffset = pageOffsetsRef.current[nextPage];
-    if (pageOffset != null) scrollViewRef.current?.scrollTo({ y: pageOffset, animated: true });
+    if (pageOffset != null) scrollViewRef.current?.scrollTo({ y: pageOffset * zoomRef.current, animated: true });
     else {
       pendingScrollPageRef.current = nextPage;
       const first = Math.max(1, nextPage - 2);
@@ -891,7 +922,7 @@ export const QuranReaderScreen: React.FC = () => {
       paginationEndRef.current = pages[pages.length - 1] || safePage;
     } else {
       const offset = pageOffsetsRef.current[safePage];
-      if (offset != null) scrollViewRef.current?.scrollTo({ y: offset, animated: true });
+      if (offset != null) scrollViewRef.current?.scrollTo({ y: offset * zoomRef.current, animated: true });
       else pendingScrollPageRef.current = safePage;
     }
   };
@@ -913,7 +944,7 @@ export const QuranReaderScreen: React.FC = () => {
     const madinah = mushafPages[verse.pageNum];
     const line = madinah?.layout.lines.find((l) => l.words.some((w) => w.verseKey === `${verse.surahId}:${verse.ayahNumber}`));
     const lineY = line ? lineOffsetsRef.current[`${verse.pageNum}:${line.line}`] : undefined;
-    const target = pageTop + (lineY ?? 0);
+    const target = (pageTop + (lineY ?? 0)) * zoomRef.current;
     const viewport = viewportHeightRef.current || 600;
     const top = scrollOffsetRef.current;
     // Already comfortably visible (the player covers the bottom of the screen): leave it.
@@ -1181,7 +1212,8 @@ export const QuranReaderScreen: React.FC = () => {
     return (
       <React.Fragment key={`v-${verse.surahId}-${verse.ayahNumber}`}>
         <Text
-          onPress={(event) => { event?.stopPropagation?.(); handleOpenAyahAction(verse); }}
+          onPress={(event) => { event?.stopPropagation?.(); handleReaderTap(); }}
+          onLongPress={(event) => { event?.stopPropagation?.(); triggerHaptic('medium'); handleOpenAyahAction(verse); }}
           style={{
             fontFamily: MUSHAF_FONT,
             fontSize: quranFontSize,
@@ -1232,7 +1264,7 @@ export const QuranReaderScreen: React.FC = () => {
         onLayout={(event) => {
           pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
           if (pendingScrollPageRef.current === pageNumber) {
-            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y * zoomRef.current, animated: false });
             pendingScrollPageRef.current = 0;
           }
         }}
@@ -1323,7 +1355,7 @@ export const QuranReaderScreen: React.FC = () => {
         onLayout={(event) => {
           pageOffsetsRef.current[pageNumber] = event.nativeEvent.layout.y;
           if (pendingScrollPageRef.current === pageNumber) {
-            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
+            scrollViewRef.current?.scrollTo({ y: event.nativeEvent.layout.y * zoomRef.current, animated: false });
             pendingScrollPageRef.current = 0;
           }
         }}
@@ -1354,7 +1386,8 @@ export const QuranReaderScreen: React.FC = () => {
                 return (
                   <Text
                     key={`w-${lineNumber}-${index}`}
-                    onPress={verse ? () => handleOpenAyahAction(verse) : undefined}
+                    onPress={handleReaderTap}
+                    onLongPress={verse ? () => { triggerHaptic('medium'); handleOpenAyahAction(verse); } : undefined}
                     style={{
                       fontFamily: family,
                       fontSize,
@@ -1378,42 +1411,21 @@ export const QuranReaderScreen: React.FC = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
-      {isImmersive && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            triggerHaptic('light');
-            setIsImmersive(false);
-          }}
-          style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 52 : 20,
-            alignSelf: 'center',
-            zIndex: 99,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: themeMode === 'light' ? 'rgba(255, 255, 255, 0.94)' : 'rgba(38, 30, 24, 0.94)',
-            paddingHorizontal: 14,
-            paddingVertical: 7,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: p.border,
-            ...makeShadow('0 2px 10px rgba(0,0,0,0.1)', '#000', 0.1, 4)
-          }}
-        >
-          <Feather name="minimize-2" size={13} color={p.primary} />
-          <TextUI size={12} weight="bold" color={p.ink}>
-            {en ? <>Surah {currentSurah.nameEn} • p. {toArabicNumber(activePage)}</> : <>سورة {currentSurah.nameAr} • ص {toArabicNumber(activePage)}</>}
-          </TextUI>
-          <TextUI size={10.5} color={p.muted}>
-            {t('(انقر للخروج)', '(tap to exit)')}
-          </TextUI>
-        </TouchableOpacity>
-      )}
+      <StatusBar hidden={isImmersive} animated />
 
-      {!isImmersive && (
-        <>
+      {/* Top bars float over the page and fade out in full screen, so the text never moves */}
+      <Animated.View
+        pointerEvents={isImmersive ? 'none' : 'box-none'}
+        onLayout={(event) => {
+          const height = Math.round(event.nativeEvent.layout.height);
+          if (height > 0 && height !== headerHeight) setHeaderHeight(height);
+        }}
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, elevation: 6,
+          opacity: chromeAnim,
+          transform: [{ translateY: chromeAnim.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) }]
+        }}
+      >
           <View style={{ paddingHorizontal: 4, paddingTop: Platform.OS === 'ios' ? 52 : (Platform.OS === 'web' ? 16 : 10), paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: p.surface, borderBottomWidth: 1, borderColor: p.border }}>
             <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel={t('رجوع', 'Back')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={p.primary} />
@@ -1453,14 +1465,6 @@ export const QuranReaderScreen: React.FC = () => {
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
               <Feather name="bookmark" size={20} color={pageBookmarked ? p.accentInk : p.muted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('خيارات المصحف', 'Mushaf options')}
-              onPress={() => { triggerHaptic('light'); setReadingMenuVisible(true); }}
-              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Feather name="more-horizontal" size={22} color={p.ink} />
             </TouchableOpacity>
           </View>
 
@@ -1511,8 +1515,6 @@ export const QuranReaderScreen: React.FC = () => {
           </View>
         </View>
       ) : null}
-      </>
-      )}
 
       <JumpSheet jumpModalVisible={jumpModalVisible} setJumpModalVisible={setJumpModalVisible} setJumpType={setJumpType} setJumpValue={setJumpValue} jumpType={jumpType} jumpValue={jumpValue} executeJump={executeJump} setSelectedSurah={setSelectedSurah} goToPage={goToPage} setReadingMode={setReadingMode} />
 
@@ -1536,6 +1538,7 @@ export const QuranReaderScreen: React.FC = () => {
           </View>
         </View>
       )}
+      </Animated.View>
 
         <ScrollView
         ref={scrollViewRef}
@@ -1543,7 +1546,12 @@ export const QuranReaderScreen: React.FC = () => {
         // Page mode: the pages are the direct children, so when a page above the screen changes
         // height (a swap after the scroll stops) iOS and Android keep the visible text in place.
         maintainVisibleContentPosition={readingMode === 'page' && Platform.OS !== 'web' ? { minIndexForVisible: 0 } : undefined}
-        contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: (isImmersive ? (Platform.OS === 'ios' ? 44 : 20) : 0) + (readingMode === 'page' ? 4 : 0), paddingBottom: (isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? 120 : 84, flexGrow: 1 }}
+        // Two-finger zoom on iPhone: the page is enlarged as printed and can be panned; a double
+        // tap returns to 100% (see handleReaderTap).
+        minimumZoomScale={1}
+        maximumZoomScale={Platform.OS === 'ios' ? 3 : 1}
+        bouncesZoom
+        contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: headerHeight + (readingMode === 'page' ? 4 : 0), paddingBottom: 110, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onTouchStart={handleReaderTouchStart}
@@ -1554,6 +1562,7 @@ export const QuranReaderScreen: React.FC = () => {
           scrollingRef.current = true; pinchStartDistanceRef.current = 0; lastUserScrollRef.current = Date.now();
           if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
           setUserScrolling(true);
+          if (!isSearching) setIsImmersive(true);
         }}
         onScrollEndDrag={() => {
           scrollingRef.current = false; lastUserScrollRef.current = Date.now();
@@ -1566,12 +1575,16 @@ export const QuranReaderScreen: React.FC = () => {
         }}
         onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); setUserScrolling(false); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
-        onResponderRelease={() => { if (isImmersive) setIsImmersive(false); }}
+        onResponderRelease={handleReaderTap}
         onScroll={(event) => {
           const offset = event.nativeEvent.contentOffset.y;
           scrollOffsetRef.current = offset;
+          // Offsets and content size are in zoomed points while zoomed in (iOS).
+          const zoom = event.nativeEvent.zoomScale || 1;
+          zoomRef.current = zoom;
+          if (event.nativeEvent.contentSize?.height) contentHeightRef.current = event.nativeEvent.contentSize.height;
           if (readingMode === 'page') {
-            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) <= offset + 48);
+            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) * zoom <= offset + 48);
             if (pageAtOffset && pageAtOffset !== activePage) {
               setActivePage(pageAtOffset);
               const pageSection = getPageSections(pageAtOffset)[0];
@@ -1860,11 +1873,30 @@ export const QuranReaderScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Nothing playing: a single "Listen" button; once recitation starts, the compact player */}
-      {!(isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? (
-        isImmersive ? null : <ListenButton onPress={toggleAudioPlayback} />
-      ) : (
+      {/* Bottom toolbar: shows and hides with the top bar */}
+      <Animated.View
+        pointerEvents={isImmersive ? 'none' : 'auto'}
+        style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20, elevation: 6,
+          opacity: chromeAnim,
+          transform: [{ translateY: chromeAnim.interpolate({ inputRange: [0, 1], outputRange: [READER_TOOLBAR_HEIGHT, 0] }) }]
+        }}
+      >
+        <ReaderToolbar
+          isPlaying={isAudioPlaying}
+          isLoading={isAudioLoading}
+          autoScroll={autoScroll}
+          onListen={toggleAudioPlayback}
+          onAutoScroll={() => { const next = !autoScroll; setAutoScroll(next); if (next) setIsImmersive(true); }}
+          onView={() => setReadingMenuVisible(true)}
+          onSearch={() => setIsSearching(true)}
+        />
+      </Animated.View>
+
+      {/* While reciting (or auto-scrolling) the compact player stays, in full screen too */}
+      {(isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? (
         <ReaderPlayer
+          bottom={isImmersive ? (Platform.OS === 'ios' ? 28 : 12) : READER_TOOLBAR_HEIGHT + 8}
           reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
           ayahNumber={currentAyahNum}
           totalAyahs={totalSurahVerses}
@@ -1888,7 +1920,7 @@ export const QuranReaderScreen: React.FC = () => {
           onOpenReciter={() => setReciterModalVisible(true)}
           onStop={() => { stopAudio(); setAutoScroll(false); }}
         />
-      )}
+      ) : null}
 
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
 
@@ -1900,7 +1932,7 @@ export const QuranReaderScreen: React.FC = () => {
       <AyahNoteSheet ayahNoteModalVisible={ayahNoteModalVisible} setAyahNoteModalVisible={setAyahNoteModalVisible} activeAyah={activeAyah} ayahNoteText={ayahNoteText} setAyahNoteText={setAyahNoteText} saveAyahNote={saveAyahNote} />
 
       {/* Reading settings menu (header "Tt" button) */}
-      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setReadingMode={setReadingMode} onSearch={() => setIsSearching(true)} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} setIsImmersive={setIsImmersive} autoScroll={autoScroll} setAutoScroll={setAutoScroll} />
+      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setReadingMode={setReadingMode} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} />
 
       {/* Reciter Selection Modal */}
       <ReciterSheet reciterModalVisible={reciterModalVisible} setReciterModalVisible={setReciterModalVisible} stopAudio={stopAudio} setSelectedReciter={setSelectedReciter} selectedReciter={selectedReciter} />

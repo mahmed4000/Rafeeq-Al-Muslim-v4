@@ -16,13 +16,9 @@ export interface ReadingMenuSheetProps {
   setReadingMenuVisible: (v: boolean) => void;
   readingMode: ReadingMode;
   setReadingMode: (m: ReadingMode) => void;
-  onSearch: () => void;
   setFontSizeModalVisible: (v: boolean) => void;
   currentReciterObj: (typeof QURAN_RECITERS)[number];
   setReciterModalVisible: (v: boolean) => void;
-  setIsImmersive: (v: boolean) => void;
-  autoScroll: boolean;
-  setAutoScroll: (v: boolean) => void;
 }
 
 const VIEW_MODES: { id: ReadingMode; label: string; labelEn: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
@@ -31,8 +27,8 @@ const VIEW_MODES: { id: ReadingMode; label: string; labelEn: string; icon: React
   { id: 'tafsir', label: 'تفسير', labelEn: 'Tafsir', icon: 'book' }
 ];
 
-/** The reader's "⋯" sheet: the view mode as a switch on top, then the other options. */
-export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setReadingMode, onSearch, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, setIsImmersive, autoScroll, setAutoScroll }) => {
+/** The reader's "View" sheet (bottom toolbar): the view mode as a switch, then font size and reciter. */
+export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setReadingMode, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible }) => {
   const p = usePalette();
   const { quranFontSize, triggerHaptic, t, isRTL, lang } = useApp();
   return (
@@ -42,7 +38,7 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
         <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 14 }}>
           <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 6 }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
-            <TextUI size={18} weight="bold" color={p.ink}>{t('خيارات المصحف', 'Mushaf options')}</TextUI>
+            <TextUI size={18} weight="bold" color={p.ink}>{t('العرض', 'View')}</TextUI>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={() => setReadingMenuVisible(false)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Feather name="x" size={20} color={p.ink} />
             </TouchableOpacity>
@@ -68,11 +64,8 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
           </View>
 
           {[
-            { key: 'search', icon: 'search' as const, label: readingMode === 'surah' ? t('بحث في السورة', 'Search this surah') : t('بحث في الصفحة', 'Search this page'), value: '', open: onSearch },
             { key: 'font', icon: 'type' as const, label: t('حجم الخط', 'Font size'), value: toArabicNumber(quranFontSize), open: () => setFontSizeModalVisible(true) },
-            { key: 'reciter', icon: 'mic' as const, label: t('القارئ', 'Reciter'), value: lang === 'en' ? currentReciterObj.nameEn : currentReciterObj.nameAr, open: () => setReciterModalVisible(true) },
-            { key: 'immersive', icon: 'maximize-2' as const, label: t('قراءة دون مشتتات', 'Distraction-free reading'), value: '', open: () => setIsImmersive(true) },
-            { key: 'autoscroll', icon: 'chevrons-down' as const, label: t('تمرير تلقائي', 'Auto-scroll'), value: autoScroll ? t('يعمل', 'On') : t('متوقف', 'Off'), open: () => setAutoScroll(!autoScroll) }
+            { key: 'reciter', icon: 'mic' as const, label: t('القارئ', 'Reciter'), value: lang === 'en' ? currentReciterObj.nameEn : currentReciterObj.nameAr, open: () => setReciterModalVisible(true) }
           ].map((row) => (
             <TouchableOpacity
               key={row.key}

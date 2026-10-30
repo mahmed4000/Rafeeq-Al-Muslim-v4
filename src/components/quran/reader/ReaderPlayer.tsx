@@ -31,27 +31,46 @@ export interface ReaderPlayerProps {
   onOpenTafsir: () => void;
   onOpenReciter: () => void;
   onStop: () => void;
+  /** Distance from the screen bottom; raised above the toolbar while the bars show. */
+  bottom: number;
 }
 
-/** Floating "Listen" button shown in the reader while nothing is playing. */
-export const ListenButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+/** Height of the reader's bottom toolbar, including the iPhone home-indicator space. */
+export const READER_TOOLBAR_HEIGHT = Platform.OS === 'ios' ? 84 : 64;
+
+export interface ReaderToolbarProps {
+  isPlaying: boolean;
+  isLoading: boolean;
+  autoScroll: boolean;
+  onListen: () => void;
+  onAutoScroll: () => void;
+  onView: () => void;
+  onSearch: () => void;
+}
+
+/** Bottom toolbar shown with the top bar: listen, auto-scroll, view options and search. */
+export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({ isPlaying, isLoading, autoScroll, onListen, onAutoScroll, onView, onSearch }) => {
   const p = usePalette();
   const { triggerHaptic, t } = useApp();
-  return (
+  const item = (icon: React.ComponentProps<typeof Feather>['name'], label: string, onPress: () => void, active = false, busy = false) => (
     <TouchableOpacity
-      activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={t('استمع إلى التلاوة', 'Listen to the recitation')}
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={() => { triggerHaptic('light'); onPress(); }}
-      style={{
-        position: 'absolute', end: 16, bottom: Platform.OS === 'ios' ? 30 : 16,
-        minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, borderRadius: 25,
-        backgroundColor: p.primary, ...makeShadow('0 6px 18px rgba(45,30,22,0.25)', '#2D1E16', 0.25, 8)
-      }}
+      style={{ flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3 }}
     >
-      <Feather name="play" size={18} color={p.onPrimary} />
-      <TextUI size={15} weight="bold" color={p.onPrimary}>{t('استمع', 'Listen')}</TextUI>
+      {busy ? <ActivityIndicator size="small" color={p.primary} /> : <Feather name={icon} size={21} color={active ? p.primary : p.ink} />}
+      <TextUI size={12} weight={active ? 'bold' : 'medium'} color={active ? p.primary : p.ink}>{label}</TextUI>
     </TouchableOpacity>
+  );
+  return (
+    <View style={{ height: READER_TOOLBAR_HEIGHT, paddingBottom: Platform.OS === 'ios' ? 22 : 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: p.surface, borderTopWidth: 1, borderColor: p.border }}>
+      {item(isPlaying ? 'pause' : 'play', isPlaying ? t('إيقاف مؤقت', 'Pause') : t('استمع', 'Listen'), onListen, isPlaying, isLoading)}
+      {item('chevrons-down', t('تمرير', 'Scroll'), onAutoScroll, autoScroll)}
+      {item('type', t('العرض', 'View'), onView)}
+      {item('search', t('بحث', 'Search'), onSearch)}
+    </View>
   );
 };
 
@@ -62,7 +81,7 @@ export const ListenButton: React.FC<{ onPress: () => void }> = ({ onPress }) => 
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
   elapsedLabel, remainingLabel, autoScroll, scrollSpeedIndex, onScrollSpeed, onStopAutoScroll,
-  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop
+  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom
 }) => {
   const p = usePalette();
   const { triggerHaptic, t, isRTL } = useApp();
@@ -94,7 +113,7 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   );
 
   return (
-    <View style={{ position: 'absolute', left: 12, right: 12, bottom: Platform.OS === 'ios' ? 28 : 12, gap: 8 }}>
+    <View style={{ position: 'absolute', left: 12, right: 12, bottom, gap: 8 }}>
       {/* Auto-scroll speed (only while auto-scroll is on) */}
       {autoScroll && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 6, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
