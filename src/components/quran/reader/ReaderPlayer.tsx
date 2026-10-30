@@ -67,7 +67,8 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({ isPlaying, isLoadi
   return (
     <View style={{ height: READER_TOOLBAR_HEIGHT, paddingBottom: Platform.OS === 'ios' ? 22 : 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: p.surface, borderTopWidth: 1, borderColor: p.border }}>
       {item(isPlaying ? 'pause' : 'play', isPlaying ? t('إيقاف مؤقت', 'Pause') : t('استمع', 'Listen'), onListen, isPlaying, isLoading)}
-      {item('chevrons-down', t('تمرير', 'Scroll'), onAutoScroll, autoScroll)}
+      {/* Listening scrolls with the reciter by itself; the timed scroll is for reading only */}
+      {isPlaying || isLoading ? null : item('chevrons-down', t('تمرير', 'Scroll'), onAutoScroll, autoScroll)}
       {item('type', t('العرض', 'View'), onView)}
       {item('search', t('بحث', 'Search'), onSearch)}
     </View>

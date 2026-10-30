@@ -916,29 +916,26 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
 
-  // Recitation follow-along (page mode): keep the ayah being recited in view. Runs when the ayah
-  // changes and every second while reciting; after the reader scrolls by hand it waits 4 seconds,
-  // then brings the recited ayah back.
+  // Recitation follow-along (page mode): keep the ayah being recited in view; after the reader
+  // scrolls by hand it waits 4 seconds, then brings the recited ayah back. The target is where the
+  // recited ayah's first line should sit: a third of the way down the screen.
+  // Recomputed when the ayah changes and every second (pages and lines lay out as they load).
+  const followTargetRef = useRef<number | null>(null);
   const followRecitation = () => {
+    followTargetRef.current = null;
     if (readingMode !== 'page' || playingAyahNum == null || playingSurahId == null) return;
-    if (scrollingRef.current || Date.now() - lastUserScrollRef.current < FOLLOW_PAUSE_MS) return;
     const verse = parseSurahVerses(QURAN_DATA.find((s: any) => s.id === playingSurahId)).verses.find((v) => v.ayahNumber === playingAyahNum);
     if (!verse?.pageNum) return;
     const pageTop = pageOffsetsRef.current[verse.pageNum];
     if (!renderedPages.includes(verse.pageNum) || pageTop == null) {
-      goToPage(verse.pageNum);
+      if (!scrollingRef.current && Date.now() - lastUserScrollRef.current >= FOLLOW_PAUSE_MS) goToPage(verse.pageNum);
       return;
     }
     // On a Madinah page aim at the ayah's first line; with the flowing text, at the page top.
     const madinah = mushafPages[verse.pageNum];
     const line = madinah?.layout.lines.find((l) => l.words.some((w) => w.verseKey === `${verse.surahId}:${verse.ayahNumber}`));
     const lineY = line ? lineOffsetsRef.current[`${verse.pageNum}:${line.line}`] : undefined;
-    const target = pageTop + (lineY ?? 0);
-    const viewport = viewportHeightRef.current || 600;
-    const top = scrollOffsetRef.current;
-    // Already comfortably visible (the player covers the bottom of the screen): leave it.
-    if (target >= top + viewport * 0.08 && target <= top + viewport * 0.6) return;
-    scrollViewRef.current?.scrollTo({ y: Math.max(0, target - viewport * 0.25), animated: true });
+    followTargetRef.current = Math.max(0, pageTop + (lineY ?? 0) - (viewportHeightRef.current || 600) * 0.3);
   };
   const followRecitationRef = useRef(followRecitation);
   useEffect(() => { followRecitationRef.current = followRecitation; });
@@ -948,6 +945,26 @@ export const QuranReaderScreen: React.FC = () => {
     const timer = setInterval(() => followRecitationRef.current(), 1000);
     return () => clearInterval(timer);
   }, [playingAyahNum, playingSurahId]);
+  // While the recitation plays, the page glides toward the recited ayah, so the text moves at the
+  // reciter's pace instead of jumping. A scroll by hand pauses it for FOLLOW_PAUSE_MS.
+  useEffect(() => {
+    if (!isAudioPlaying) return;
+    const timer = setInterval(() => {
+      const target = followTargetRef.current;
+      if (target == null || scrollingRef.current || Date.now() - lastUserScrollRef.current < FOLLOW_PAUSE_MS) return;
+      const current = scrollOffsetRef.current;
+      const diff = target - current;
+      if (Math.abs(diff) < 1) return;
+      if (Math.abs(diff) > (viewportHeightRef.current || 600) * 1.5) {
+        scrollViewRef.current?.scrollTo({ y: target, animated: true });
+        return;
+      }
+      const next = current + Math.sign(diff) * Math.max(0.6, Math.abs(diff) * 0.06);
+      scrollOffsetRef.current = next;
+      scrollViewRef.current?.scrollTo({ y: next, animated: false });
+    }, 33);
+    return () => clearInterval(timer);
+  }, [isAudioPlaying]);
 
   const openJump = (type: JumpType) => {
     setJumpType(type);
@@ -1896,7 +1913,7 @@ export const QuranReaderScreen: React.FC = () => {
           isPlaying={isAudioPlaying}
           isLoading={isAudioLoading}
           autoScroll={autoScroll}
-          onListen={toggleAudioPlayback}
+          onListen={() => { setAutoScroll(false); toggleAudioPlayback(); }}
           onAutoScroll={() => { const next = !autoScroll; setAutoScroll(next); if (next) setIsImmersive(true); }}
           onView={() => setReadingMenuVisible(true)}
           onSearch={() => setIsSearching(true)}
