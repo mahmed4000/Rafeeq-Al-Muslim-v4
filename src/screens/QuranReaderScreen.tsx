@@ -70,8 +70,10 @@ const BASMALA =forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ
 const SURAH_BANNER_LIGHT =require('../../assets/surah-banner-light.png');
 const SURAH_BANNER_DARK = require('../../assets/surah-banner-dark.png');
 
-const MushafPage: React.FC<{ pageNumber: number; version: string; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
-const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber === next.pageNumber && prev.version === next.version);
+// While the reader is scrolling (`frozen`) pages keep what they show: swapping in the tajweed
+// text or the Madinah layout changes a page's height, which made the screen jump mid-scroll.
+const MushafPage: React.FC<{ pageNumber: number; version: string; frozen: boolean; render: (pageNumber: number) => React.ReactNode }> = ({ pageNumber, render }) => <>{render(pageNumber)}</>;
+const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber === next.pageNumber && (prev.version === next.version || next.frozen));
 
 export const QuranReaderScreen: React.FC = () => {
   const {
@@ -179,6 +181,9 @@ export const QuranReaderScreen: React.FC = () => {
   const viewportHeightRef = useRef(0);
   const pinchStartDistanceRef = useRef(0);
   const scrollingRef = useRef(false);
+  // True from the start of a drag until the scroll comes to rest; holds page swaps (see MushafPageBlock).
+  const [userScrolling, setUserScrolling] = useState(false);
+  const scrollRestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinchStartFontSizeRef = useRef(quranFontSize);
   const lastPinchFontSizeRef = useRef(quranFontSize);
   const pageOffsetsRef = useRef<Record<number, number>>({});
@@ -399,6 +404,8 @@ export const QuranReaderScreen: React.FC = () => {
       loadTajweedScope(scope);
     }
   }, [activePage, currentSurah.id, readingMode, renderedPages]);
+
+  useEffect(() => () => { if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current); }, []);
 
   // Madinah page fonts and line data for the rendered pages and the next 5, like tajweed above,
   // so a page switches to its printed layout before it reaches the screen.
@@ -1562,18 +1569,32 @@ export const QuranReaderScreen: React.FC = () => {
 
         <ScrollView
         ref={scrollViewRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 3, paddingTop: isImmersive ? (Platform.OS === 'ios' ? 44 : 20) : 0, paddingBottom: (isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? 180 : 16, flexGrow: 1 }}
+        style={{ flex: 1, backgroundColor: readingMode === 'page' ? p.surface : undefined }}
+        // Page mode: the pages are the direct children, so when a page above the screen changes
+        // height (a swap after the scroll stops) iOS and Android keep the visible text in place.
+        maintainVisibleContentPosition={readingMode === 'page' && Platform.OS !== 'web' ? { minIndexForVisible: 0 } : undefined}
+        contentContainerStyle={{ paddingHorizontal: readingMode === 'page' ? 11 : 3, paddingTop: (isImmersive ? (Platform.OS === 'ios' ? 44 : 20) : 0) + (readingMode === 'page' ? 4 : 0), paddingBottom: (isAudioPlaying || isAudioLoading || playingAyahNum != null || readerControlsVisible || autoScroll) ? 180 : 16, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onTouchStart={handleReaderTouchStart}
         onTouchMove={handleReaderTouchMove}
         onTouchEnd={handleReaderTouchEnd}
         onTouchCancel={handleReaderTouchEnd}
-        onScrollBeginDrag={() => { scrollingRef.current = true; pinchStartDistanceRef.current = 0; lastUserScrollRef.current = Date.now(); }}
-        onScrollEndDrag={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); }}
-        onMomentumScrollBegin={() => { scrollingRef.current = true; }}
-        onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); }}
+        onScrollBeginDrag={() => {
+          scrollingRef.current = true; pinchStartDistanceRef.current = 0; lastUserScrollRef.current = Date.now();
+          if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
+          setUserScrolling(true);
+        }}
+        onScrollEndDrag={() => {
+          scrollingRef.current = false; lastUserScrollRef.current = Date.now();
+          // A drag without a fling ends here; with one, momentum begins first and clears this.
+          scrollRestTimerRef.current = setTimeout(() => setUserScrolling(false), 250);
+        }}
+        onMomentumScrollBegin={() => {
+          scrollingRef.current = true;
+          if (scrollRestTimerRef.current) clearTimeout(scrollRestTimerRef.current);
+        }}
+        onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); setUserScrolling(false); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
         onResponderRelease={() => {
           if (isImmersive) {
@@ -1602,16 +1623,21 @@ export const QuranReaderScreen: React.FC = () => {
           }
         }}
         onContentSizeChange={(_width, height) => { contentHeightRef.current = height; maxScrollRef.current = Math.max(0, height - viewportHeightRef.current); pageAppendPendingRef.current = false; }}
-        onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; maxScrollRef.current = Math.max(0, contentHeightRef.current - viewportHeightRef.current); }}
+        onLayout={(event) => {
+          viewportHeightRef.current = event.nativeEvent.layout.height;
+          maxScrollRef.current = Math.max(0, contentHeightRef.current - viewportHeightRef.current);
+          // Text width: the screen less 3 + 8 points of padding on each side.
+          const width = Math.round(event.nativeEvent.layout.width - 22);
+          if (width > 0 && width !== mushafWidth) setMushafWidth(width);
+        }}
       >
         {/* Uthmani page text in natural line flow, matching a printed mushaf page. */}
+        {readingMode === 'page' ? renderedPages.map((pageNumber) => (
+          <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}|${mushafPages[pageNumber] ? 1 : 0}`} frozen={userScrolling} render={renderMushafPage} />
+        )) : (
         <View
           onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
           onResponderRelease={() => setReaderControlsVisible((visible) => !visible)}
-          onLayout={(event) => {
-            const width = Math.round(event.nativeEvent.layout.width - 16);
-            if (width > 0 && width !== mushafWidth) setMushafWidth(width);
-          }}
           style={{
             backgroundColor: p.surface,
             paddingHorizontal: 8,
@@ -1620,9 +1646,7 @@ export const QuranReaderScreen: React.FC = () => {
             flexGrow: 1
           }}
         >
-          {readingMode === 'page' ? renderedPages.map((pageNumber) => (
-            <MushafPageBlock key={`mushaf-page-${pageNumber}`} pageNumber={pageNumber} version={`${pageVersion}|${tajweedPages[pageNumber] ? 1 : 0}|${mushafPages[pageNumber] ? 1 : 0}`} render={renderMushafPage} />
-          )) : readingMode === 'tafsir' ? (
+          {readingMode === 'tafsir' ? (
             <View style={{ paddingHorizontal: 4, paddingVertical: 6 }}>
               {displayedVerses.map((verse) => {
                 const isPlaying = playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
@@ -1802,6 +1826,7 @@ export const QuranReaderScreen: React.FC = () => {
             <TextUI font="hafs" align="center" size={quranFontSize} color={p.ink} onPress={() => setReaderControlsVisible(true)} style={{ lineHeight: Math.round(quranFontSize * 2.1), textAlign: quranTextAlign }}>{displayedVerses.map(renderVerse)}</TextUI>
           )}
         </View>
+        )}
 
         {/* Tafsir / Purpose Summary */}
         {readingMode === 'surah' && currentSurah.tafsir ? (
