@@ -288,37 +288,71 @@ export const QuranIndexScreen: React.FC = () => {
     <TextUI size={13} weight="bold" color={p.accentInk} style={{ paddingHorizontal: 4, marginBottom: 8 }}>{text}</TextUI>
   );
 
-  const resumeCard = readingBookmark ? (
-    <TouchableOpacity
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={en
-        ? `Continue reading: ${surahLabel(readingBookmark.surahId, readingBookmark.surahName)}, verse ${toArabicNumber(readingBookmark.ayah)}, page ${toArabicNumber(readingBookmark.page)}`
-        : `متابعة القراءة: ${readingBookmark.surahName}، الآية ${toArabicNumber(readingBookmark.ayah)}، صفحة ${toArabicNumber(readingBookmark.page)}`}
-      onPress={() => {
-        const surah = surahById(readingBookmark.surahId);
-        setSelectedSurah(surah);
-        navigate('quran_reader', {
-          readingMode: 'page',
-          startPage: readingBookmark.page,
-          startSurahId: readingBookmark.surahId,
-          startAyah: readingBookmark.ayah,
-          reciterId: selectedReciter
-        });
-      }}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 20, backgroundColor: p.hero }}
-    >
-      <View style={{ width: 48, height: 56, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 1.5, borderColor: p.accent, alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name="bookmark" size={20} color={p.accent} />
+  // Where to pick up: the saved place, or Al-Fatiha on first use. "Read" opens the mushaf
+  // there; "Listen" opens it with the recitation already playing.
+  const resume = readingBookmark
+    ? { surahId: readingBookmark.surahId, surahName: readingBookmark.surahName, ayah: readingBookmark.ayah, page: readingBookmark.page, juz: readingBookmark.juz }
+    : { surahId: 1, surahName: surahById(1).nameAr, ayah: 1, page: 1, juz: 1 };
+  const openResume = (autoPlay: boolean) => {
+    triggerHaptic('light');
+    setSelectedSurah(surahById(resume.surahId));
+    navigate('quran_reader', {
+      readingMode: 'page',
+      startPage: resume.page,
+      startSurahId: resume.surahId,
+      startAyah: readingBookmark ? resume.ayah : undefined,
+      reciterId: selectedReciter,
+      autoPlay
+    });
+  };
+  const resumeCard = (
+    <View style={{ gap: 14, padding: 16, borderRadius: 20, backgroundColor: p.hero }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ width: 44, height: 52, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 1.5, borderColor: p.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Feather name={readingBookmark ? 'bookmark' : 'book-open'} size={19} color={p.accent} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <TextUI size={13} color={p.onHeroMuted}>{readingBookmark ? t('تابع من حيث توقفت', 'Pick up where you left off') : t('ابدأ القراءة', 'Start reading')}</TextUI>
+          <TextUI size={18} weight="bold" color={p.onHero}>{en ? `${surahLabel(resume.surahId, resume.surahName)} · Verse ${toArabicNumber(resume.ayah)}` : `${resume.surahName} · الآية ${toArabicNumber(resume.ayah)}`}</TextUI>
+          <TextUI size={13} color={p.onHeroMuted}>{t(`صفحة ${toArabicNumber(resume.page)} · الجزء ${toArabicNumber(resume.juz)}`, `Page ${toArabicNumber(resume.page)} · Juz ${toArabicNumber(resume.juz)}`)}</TextUI>
+        </View>
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <TextUI size={13} color={p.onHeroMuted}>{t('متابعة القراءة', 'Continue reading')}</TextUI>
-        <TextUI size={18} weight="bold" color={p.onHero}>{en ? `${surahLabel(readingBookmark.surahId, readingBookmark.surahName)} · Verse ${toArabicNumber(readingBookmark.ayah)}` : `${readingBookmark.surahName} · الآية ${toArabicNumber(readingBookmark.ayah)}`}</TextUI>
-        <TextUI size={13} color={p.onHeroMuted}>{t(`صفحة ${toArabicNumber(readingBookmark.page)} · الجزء ${toArabicNumber(readingBookmark.juz)}`, `Page ${toArabicNumber(readingBookmark.page)} · Juz ${toArabicNumber(readingBookmark.juz)}`)}</TextUI>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t(`اقرأ: ${resume.surahName}، صفحة ${toArabicNumber(resume.page)}`, `Read: ${surahLabel(resume.surahId, resume.surahName)}, page ${resume.page}`)}
+          onPress={() => openResume(false)}
+          style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, backgroundColor: p.accent }}
+        >
+          <Feather name="book-open" size={17} color={p.hero} />
+          <TextUI size={15} weight="bold" color={p.hero}>{t('اقرأ', 'Read')}</TextUI>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t(`استمع: ${resume.surahName} بصوت ${selectedReciterData.nameAr}`, `Listen: ${surahLabel(resume.surahId, resume.surahName)}, ${selectedReciterData.nameEn}`)}
+          onPress={() => openResume(true)}
+          style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: p.accent }}
+        >
+          <Feather name="headphones" size={17} color={p.onHero} />
+          <TextUI size={15} weight="bold" color={p.onHero}>{t('استمع', 'Listen')}</TextUI>
+        </TouchableOpacity>
       </View>
-      <Feather name={fwdChevron} size={20} color={p.accent} />
-    </TouchableOpacity>
-  ) : null;
+      {/* The reciter used by "Listen" and by the play buttons in the list */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={t(`القارئ: ${selectedReciterData.nameAr}. اضغط للتغيير`, `Reciter: ${selectedReciterData.nameEn}. Tap to change`)}
+        onPress={() => setReciterModalVisible(true)}
+        style={{ alignSelf: 'center', minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4 }}
+      >
+        <Feather name="mic" size={13} color={p.onHeroMuted} />
+        <TextUI size={13} color={p.onHeroMuted} numberOfLines={1}>{t(`بصوت ${selectedReciterData.nameAr}`, `Recited by ${selectedReciterData.nameEn}`)}</TextUI>
+        <Feather name="chevron-down" size={13} color={p.onHeroMuted} />
+      </TouchableOpacity>
+    </View>
+  );
 
   const listHeader = (
     <View style={{ gap: 12, marginBottom: 12 }}>
@@ -377,19 +411,7 @@ export const QuranIndexScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       {/* Title, reciter and search stay fixed so the search field keeps focus while results change */}
       <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 12, gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <TextUI size={26} weight="bold" color={p.ink}>{t('القرآن الكريم', 'The Holy Quran')}</TextUI>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={t(`القارئ: ${selectedReciterData.nameAr}`, `Reciter: ${selectedReciterData.nameEn}`)}
-            onPress={() => setReciterModalVisible(true)}
-            style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-          >
-            <Feather name="mic" size={15} color={p.primary} />
-            <TextUI size={14} weight="medium" color={p.ink} numberOfLines={1} style={{ flexShrink: 1 }}>{en ? selectedReciterData.nameEn : selectedReciterData.nameAr}</TextUI>
-          </TouchableOpacity>
-        </View>
+        <TextUI size={26} weight="bold" color={p.ink}>{t('القرآن الكريم', 'The Holy Quran')}</TextUI>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <Feather name="search" size={18} color={p.muted} />
