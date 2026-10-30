@@ -62,6 +62,8 @@ const TAFSIR_FONT_SIZE_KEY = 'quran.tafsir-font-size.v1';
  */
 // Mushaf text font: King Fahd Complex Hafs (loaded in src/app/_layout.tsx).
 const MUSHAF_FONT = 'KFGQPC_Hafs';
+// After a manual scroll during recitation, wait this long before returning to the recited ayah.
+const FOLLOW_PAUSE_MS = 4000;
 // Above this Quran font size (the app default is 24) pages use the flowing text instead.
 const MADINAH_MAX_FONT_SIZE = 24;
 const BASMALA =forHafsFont('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ');
@@ -180,6 +182,9 @@ export const QuranReaderScreen: React.FC = () => {
   const pinchStartFontSizeRef = useRef(quranFontSize);
   const lastPinchFontSizeRef = useRef(quranFontSize);
   const pageOffsetsRef = useRef<Record<number, number>>({});
+  // Madinah pages: y of each verse line within its page ("page:line"), for following recitation.
+  const lineOffsetsRef = useRef<Record<string, number>>({});
+  const lastUserScrollRef = useRef(0);
   const pendingScrollPageRef = useRef(initialPage);
   const paginationEndRef = useRef(renderedPages[renderedPages.length - 1] || initialPage);
   const pageAppendPendingRef = useRef(false);
@@ -886,6 +891,39 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
 
+  // Recitation follow-along (page mode): keep the ayah being recited in view. Runs when the ayah
+  // changes and every second while reciting; after the reader scrolls by hand it waits 4 seconds,
+  // then brings the recited ayah back.
+  const followRecitation = () => {
+    if (readingMode !== 'page' || playingAyahNum == null || playingSurahId == null) return;
+    if (scrollingRef.current || Date.now() - lastUserScrollRef.current < FOLLOW_PAUSE_MS) return;
+    const verse = parseSurahVerses(QURAN_DATA.find((s: any) => s.id === playingSurahId)).verses.find((v) => v.ayahNumber === playingAyahNum);
+    if (!verse?.pageNum) return;
+    const pageTop = pageOffsetsRef.current[verse.pageNum];
+    if (!renderedPages.includes(verse.pageNum) || pageTop == null) {
+      goToPage(verse.pageNum);
+      return;
+    }
+    // On a Madinah page aim at the ayah's first line; with the flowing text, at the page top.
+    const madinah = mushafPages[verse.pageNum];
+    const line = madinah?.layout.lines.find((l) => l.words.some((w) => w.verseKey === `${verse.surahId}:${verse.ayahNumber}`));
+    const lineY = line ? lineOffsetsRef.current[`${verse.pageNum}:${line.line}`] : undefined;
+    const target = pageTop + (lineY ?? 0);
+    const viewport = viewportHeightRef.current || 600;
+    const top = scrollOffsetRef.current;
+    // Already comfortably visible (the player covers the bottom of the screen): leave it.
+    if (target >= top + viewport * 0.08 && target <= top + viewport * 0.6) return;
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, target - viewport * 0.25), animated: true });
+  };
+  const followRecitationRef = useRef(followRecitation);
+  useEffect(() => { followRecitationRef.current = followRecitation; });
+  useEffect(() => {
+    if (playingAyahNum == null) return;
+    followRecitationRef.current();
+    const timer = setInterval(() => followRecitationRef.current(), 1000);
+    return () => clearInterval(timer);
+  }, [playingAyahNum, playingSurahId]);
+
   const openJump = (type: JumpType) => {
     setJumpType(type);
     setJumpValue('');
@@ -1299,6 +1337,7 @@ export const QuranReaderScreen: React.FC = () => {
           return (
             <View
               key={`l-${lineNumber}`}
+              onLayout={(event) => { lineOffsetsRef.current[`${pageNumber}:${lineNumber}`] = event.nativeEvent.layout.y; }}
               style={{ direction: 'rtl', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', height: lineHeight, justifyContent: pageNumber <= 2 ? 'center' : 'space-between' }}
             >
               {words.map((word, index) => {
@@ -1529,10 +1568,10 @@ export const QuranReaderScreen: React.FC = () => {
         onTouchMove={handleReaderTouchMove}
         onTouchEnd={handleReaderTouchEnd}
         onTouchCancel={handleReaderTouchEnd}
-        onScrollBeginDrag={() => { scrollingRef.current = true; pinchStartDistanceRef.current = 0; }}
-        onScrollEndDrag={() => { scrollingRef.current = false; }}
+        onScrollBeginDrag={() => { scrollingRef.current = true; pinchStartDistanceRef.current = 0; lastUserScrollRef.current = Date.now(); }}
+        onScrollEndDrag={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); }}
         onMomentumScrollBegin={() => { scrollingRef.current = true; }}
-        onMomentumScrollEnd={() => { scrollingRef.current = false; }}
+        onMomentumScrollEnd={() => { scrollingRef.current = false; lastUserScrollRef.current = Date.now(); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
         onResponderRelease={() => {
           if (isImmersive) {
