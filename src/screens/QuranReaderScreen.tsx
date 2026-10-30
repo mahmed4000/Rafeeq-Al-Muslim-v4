@@ -1259,8 +1259,10 @@ export const QuranReaderScreen: React.FC = () => {
   ].join('|');
 
   // Surah banner: our own drawn frame (assets/surah-banner-*.png) with the name in the Hafs font.
+  // Explicit size: with only aspectRatio, iOS sized the banner to its text and left it short on the right.
+  const bannerWidth = Math.max(240, (mushafWidth || 360) - 4);
   const renderSurahNameFrame = (surahName: string, topOffset: number) => (
-    <View style={{ marginHorizontal: 2, marginTop: topOffset, marginBottom: 6, aspectRatio: 1080 / 150, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ alignSelf: 'center', width: bannerWidth, height: Math.round(bannerWidth * 150 / 1080), marginTop: topOffset, marginBottom: 6, alignItems: 'center', justifyContent: 'center' }}>
       <Image
         source={isDarkTheme ? SURAH_BANNER_DARK : SURAH_BANNER_LIGHT}
         resizeMode="stretch"
