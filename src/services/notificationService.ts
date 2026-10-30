@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { calculateAccuratePrayerTimes, PrayerOffsets } from './prayerCalculation';
+import { calculateAccuratePrayerTimes, PrayerOffsets, toArabicNumber } from './prayerCalculation';
 import { cityNow } from './cityTime';
 import { tr } from '../i18n/language';
 
@@ -36,6 +36,19 @@ export interface PrayerAlertsConfig {
   prayers: Record<PrayerKey, PrayerAlertSetting>;
 }
 
+// Pre-adhan reminder ("Dhuhr shortly"), on by default for every prayer.
+export const PRE_ADHAN_DEFAULT_MINUTES = 5;
+
+/** Turns the 5-minute pre-adhan reminder on for every prayer (one-time update of saved settings). */
+export function withPreAdhanDefault(config: PrayerAlertsConfig): PrayerAlertsConfig {
+  const prayers = { ...config.prayers };
+  PRAYER_KEYS.forEach((key) => { prayers[key] = { ...prayers[key], before: true, beforeMinutes: PRE_ADHAN_DEFAULT_MINUTES }; });
+  return { ...config, prayers };
+}
+
+// Arabic count of minutes: "٥ دقائق" for 3-10, "دقيقة" otherwise.
+const minutesAr = (n: number) => `${toArabicNumber(n)} ${n >= 3 && n <= 10 ? 'دقائق' : 'دقيقة'}`;
+
 // Common iqama gaps used by many mosques; users adjust them to their own mosque.
 const DEFAULT_IQAMA: Record<PrayerKey, number> = { fajr: 25, dhuhr: 20, asr: 20, maghrib: 10, isha: 20 };
 
@@ -43,8 +56,8 @@ export function defaultAlertsConfig(bells?: PrayerBellsConfig): PrayerAlertsConf
   const prayers = {} as Record<PrayerKey, PrayerAlertSetting>;
   PRAYER_KEYS.forEach((key) => {
     prayers[key] = {
-      before: false,
-      beforeMinutes: 15,
+      before: true,
+      beforeMinutes: PRE_ADHAN_DEFAULT_MINUTES,
       adhan: bells ? bells[key] : true,
       iqama: false,
       iqamaMinutes: DEFAULT_IQAMA[key]
@@ -200,8 +213,8 @@ export const NotificationService = {
             alerts.push({
               kind: 'before',
               date: new Date(at.getTime() - s.beforeMinutes * 60000),
-              title: tr(`اقترب أذان ${name}`, `${name} adhan is approaching`),
-              body: tr(`بعد ${s.beforeMinutes} دقيقة · ${cityNameAr}`, `In ${s.beforeMinutes} minutes · ${cityNameAr}`),
+              title: tr(`${name} بعد قليل`, `${name} shortly`),
+              body: tr(`الأذان بعد ${minutesAr(s.beforeMinutes)} · ${cityNameAr}`, `Adhan in ${s.beforeMinutes} minutes · ${cityNameAr}`),
               channel: CHANNEL_REMINDER
             });
           }

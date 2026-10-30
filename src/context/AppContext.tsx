@@ -18,6 +18,7 @@ import {
   PrayerBellsConfig,
   PrayerAlertsConfig,
   defaultAlertsConfig,
+  withPreAdhanDefault,
   bellsFromAlerts,
   AzkarRemindersConfig,
   defaultAzkarReminders
@@ -103,6 +104,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 const todayKey = (timeZone?: string) => cityNow(timeZone).toDateString();
 const ALERTS_KEY = 'rafeeq_prayer_alerts_v1';
+const PRE_ADHAN_MIGRATION_KEY = 'rafeeq_pre_adhan_5min_v1';
 const ONBOARDED_KEY = 'rafeeq_onboarded_v1';
 const NOTIF_MIGRATION_KEY = 'rafeeq_notif_ids_v2';
 const OFFSETS_KEY = 'rafeeq_prayer_offsets_v1';
@@ -239,7 +241,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Per-prayer alert settings; older installs only had on/off bells.
         const savedAlerts = await StorageService.getObject<PrayerAlertsConfig | null>(ALERTS_KEY, null);
         if (savedAlerts?.prayers) {
-          setAlertsConfigState(savedAlerts);
+          // 2026-10-30: the 5-minute pre-adhan reminder became on by default; turn it on once.
+          if (!(await StorageService.getItem(PRE_ADHAN_MIGRATION_KEY))) {
+            const updated = withPreAdhanDefault(savedAlerts);
+            setAlertsConfigState(updated);
+            StorageService.setObject(ALERTS_KEY, updated);
+            StorageService.setItem(PRE_ADHAN_MIGRATION_KEY, '1');
+          } else {
+            setAlertsConfigState(savedAlerts);
+          }
         } else {
           const legacyBells = await StorageService.getObject<PrayerBellsConfig | null>('almosala_bells', null);
           setAlertsConfigState(defaultAlertsConfig(legacyBells || undefined));

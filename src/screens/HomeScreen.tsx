@@ -30,9 +30,8 @@ import { getUiLanguage, tr } from '../i18n/language';
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
 const AFTER_PRAYER_WINDOW = 30;
 
-// Header: count down in the last 5 minutes before a prayer, count up for 15 minutes after it.
-const BEFORE_WINDOW = 5 * 60;
-const SINCE_WINDOW = 15 * 60;
+// Header: counts down to the next time; for 20 minutes after a prayer's adhan (or sunrise) it counts up.
+const SINCE_WINDOW = 20 * 60;
 const HEADER_PRAYERS: (keyof PrayerTimeValues)[] = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const headerTimeName = (key: keyof PrayerTimeValues) => (key === 'sunrise' ? tr('الشروق', 'Sunrise') : prayerName(key));
 
@@ -275,30 +274,24 @@ export const HomeScreen: React.FC = () => {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowCard = pickNowCard(prayerTimes, now);
   const progress = khatma && !khatma.completedAt ? getKhatmaProgress(khatma) : null;
-  const countdown = next.countdownText.replace(/^-/, '');
-  const nextName = t(next.nameAr, next.nameEn);
-  // The rest of the day the header shows the current (city) time.
   const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   const hms = (secs: number) => [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60]
     .map((v) => toArabicNumber(String(v).padStart(2, '0'))).join(':');
   const secondsFromNow = HEADER_PRAYERS.map((key) => ({ key, diff: (prayerTimes[key].hours * 60 + prayerTimes[key].minutes) * 60 - nowSec }));
   const sincePrayer = secondsFromNow.map(({ key, diff }) => ({ key, elapsed: -diff })).find(({ elapsed }) => elapsed >= 0 && elapsed < SINCE_WINDOW);
-  // Today's next time within 5 minutes (sunrise included), or tomorrow's Fajr after Isha.
-  const soon = secondsFromNow.find(({ diff }) => diff > 0 && diff <= BEFORE_WINDOW)
-    || (next.isTomorrow && next.diffSeconds <= BEFORE_WINDOW ? { key: 'fajr' as const, diff: next.diffSeconds } : undefined);
-  const headerMode: 'before' | 'since' | 'clock' = soon ? 'before' : sincePrayer ? 'since' : 'clock';
-  const clockText = `${toArabicNumber(String(now.getHours() % 12 || 12))}:${hms(now.getMinutes() * 60 + now.getSeconds()).slice(-5)}`;
-  const clockPeriod = now.getHours() < 12 ? t('ص', 'AM') : t('م', 'PM');
-  const headerKey = headerMode === 'since' ? sincePrayer!.key : headerMode === 'before' ? soon!.key : null;
-  const headerName = headerKey ? headerTimeName(headerKey) : '';
+  // The next time today (sunrise included), or tomorrow's Fajr after Isha.
+  const upcoming = secondsFromNow.find(({ diff }) => diff > 0)
+    || { key: 'fajr' as const, diff: next.diffSeconds };
+  const headerMode: 'since' | 'countdown' = sincePrayer ? 'since' : 'countdown';
+  const headerKey = headerMode === 'since' ? sincePrayer!.key : upcoming.key;
+  const headerName = headerTimeName(headerKey);
+  const tomorrow = headerMode === 'countdown' && !secondsFromNow.some(({ diff }) => diff > 0);
   const headerLabel = headerMode === 'since'
-    ? t(`${headerName} منذ`, `${headerName} began`)
-    : headerMode === 'before'
-      ? t(`${headerName} بعد`, `${headerName} in`)
-      : (next.isTomorrow ? t(`${next.nameAr} (غدًا) بعد ${countdown.slice(0, -3)}`, `${nextName} (tomorrow) in ${countdown.slice(0, -3)}`) : t(`${next.nameAr} بعد ${countdown.slice(0, -3)}`, `${nextName} in ${countdown.slice(0, -3)}`));
-  const headerValue = headerMode === 'since' ? hms(sincePrayer!.elapsed) : headerMode === 'before' ? hms(soon!.diff) : clockText;
-  // Bottom line: the time being counted to/from (sunrise is not an adhan), else the next adhan.
-  const headerTime = headerKey ? prayerTimes[headerKey].timeStr : next.time;
+    ? (headerKey === 'sunrise' ? t(`${headerName} منذ`, `${headerName} was`) : t(`أذان ${headerName} منذ`, `${headerName} adhan was`))
+    : tomorrow ? t(`${headerName} (غدًا) بعد`, `${headerName} (tomorrow) in`) : t(`${headerName} بعد`, `${headerName} in`);
+  const headerValue = hms(headerMode === 'since' ? sincePrayer!.elapsed : upcoming.diff);
+  // Bottom line: the time being counted to or from (sunrise has no adhan).
+  const headerTime = prayerTimes[headerKey].timeStr;
   const headerTimeLabel = headerKey === 'sunrise' ? t('الشروق', 'Sunrise') : t('الأذان', 'Adhan');
   const cityName = lang === 'en' ? currentCity.nameEn : currentCity.nameAr;
   // Ayah of the day: the next approved verse each calendar day (city date), text from the mushaf.
@@ -560,17 +553,12 @@ export const HomeScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={headerMode === 'clock'
-              ? t(`الساعة ${clockText} ${clockPeriod}، الصلاة القادمة ${next.nameAr} بعد ${countdown}، الأذان ${next.time}`, `Time ${clockText} ${clockPeriod}, next prayer ${nextName} in ${countdown}, adhan at ${next.time}`)
-              : `${headerLabel} ${headerValue}، ${headerTimeLabel} ${headerTime}`}
+            accessibilityLabel={`${headerLabel} ${headerValue}، ${headerTimeLabel} ${headerTime}`}
             onPress={() => navigate('prayer_times')}
             style={{ alignSelf: 'center', alignItems: 'center', gap: 2 }}
           >
             <TextUI size={15} color={SCENE_INK} align="center" style={SCENE_SHADOW}>{headerLabel}</TextUI>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{headerValue}</TextUI>
-              {headerMode === 'clock' ? <TextUI size={18} weight="bold" color={SCENE_INK} style={SCENE_SHADOW}>{clockPeriod}</TextUI> : null}
-            </View>
+            <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{headerValue}</TextUI>
             <TextUI size={14} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
               {otherZone
                 ? t(`${headerTimeLabel} ${headerTime} بتوقيت ${currentCity.nameAr}`, `${headerTimeLabel} ${headerTime} (${cityName} time)`)
