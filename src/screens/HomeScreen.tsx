@@ -19,7 +19,7 @@ import { AZKAR_CATEGORIES } from '../data/azkarData';
 import { useNextPrayer } from '../hooks/useNextPrayer';
 import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaService';
 import { PrayerLogService, localDateKey } from '../services/prayerLog';
-import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey } from '../services/notificationService';
+import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey, PRE_ADHAN_DEFAULT_MINUTES } from '../services/notificationService';
 import { surahById, surahForPage } from '../services/quranPages';
 import { forHafsFont, parseSurahVerses } from '../services/quranParser';
 import { DAILY_AYAT } from '../data/dailyAyat';
@@ -300,6 +300,8 @@ export const HomeScreen: React.FC = () => {
   const tomorrow = headerMode === 'countdown' && !secondsFromNow.some(({ diff }) => diff > 0);
   const headerLabel = headerMode === 'since'
     ? (headerKey === 'sunrise' ? t(`${headerName} منذ`, `${headerName} was`) : t(`أذان ${headerName} منذ`, `${headerName} adhan was`))
+    // In the last 5 minutes (when the pre-adhan alert fires): "Maghrib shortly", still counting down.
+    : upcoming.diff <= PRE_ADHAN_DEFAULT_MINUTES * 60 ? t(`${headerName} بعد قليل`, `${headerName} shortly`)
     : tomorrow ? t(`${headerName} (غدًا) بعد`, `${headerName} (tomorrow) in`) : t(`${headerName} بعد`, `${headerName} in`);
   const headerValue = hms(headerMode === 'since' ? sincePrayer!.elapsed : upcoming.diff);
   // Bottom line: the time being counted to or from (sunrise has no adhan).
