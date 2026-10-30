@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Animated, TouchableOpacity, Platform, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useApp } from '../context/AppContext';
@@ -169,6 +170,8 @@ const SCENE_SHADOW = { textShadowColor: 'rgba(20,12,8,0.75)', textShadowOffset: 
 const SCENE_BUTTON = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.5)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.4)' };
 // Dark glass behind the countdown, so it reads over the bright day and afternoon skies too.
 const SCENE_PANEL = 'rgba(30,20,14,0.5)';
+// The compact top bar on scroll: the scene's deep brown.
+const COMPACT_BAR = '#3A2A1F';
 
 // Four per row; a round icon with an inner ring.
 const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tone: Tone; onPress: () => void }> = ({ p, icon, label, tone, onPress }) => (
@@ -188,6 +191,13 @@ const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; l
 export const HomeScreen: React.FC = () => {
   const { navigate, t, isRTL, lang, currentCity, prayerTimes, readingBookmark, refreshLocation, triggerHaptic, setSelectedSurah, hijriAdjust, calculationMethod, asrMethod, prayerOffsets } = useApp();
   const p = usePalette();
+  const insets = useSafeAreaInsets();
+  // Collapsing header: the sky drifts at half speed (and stretches on a pull-down), the
+  // countdown fades, and a compact bar with the countdown takes over at the top.
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const barHeight = insets.top + 50;
+  const barFrom = SCENE_HEIGHT - barHeight - 80;
+  const [barShown, setBarShown] = useState(false);
   const tone = p.bg === PALETTE.dark.bg ? TONES.dark : TONES.light;
   const timeZone = currentCity.timeZone;
   const next = useNextPrayer(prayerTimes, timeZone);
@@ -516,15 +526,38 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView
+    <View style={{ flex: 1, backgroundColor: p.bg }}>
+    <Animated.ScrollView
       style={{ flex: 1, backgroundColor: p.bg }}
       contentContainerStyle={{ paddingBottom: 104 }}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: Platform.OS !== 'web',
+        // The bar takes taps only once it shows; a state flip at the threshold, not every frame.
+        listener: (event: any) => {
+          const shown = event.nativeEvent.contentOffset.y > barFrom + 25;
+          if (shown !== barShown) setBarShown(shown);
+        }
+      })}
     >
       {/* Scene header: sky for the time of day over an Andalusian skyline, with the countdown */}
       <View style={{ height: SCENE_HEIGHT }}>
-        <SceneBackdrop phase={skyPhase(prayerTimes, now)} />
-        <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
+        <Animated.View
+          style={{
+            position: 'absolute', left: 0, right: 0, top: 0, height: SCENE_HEIGHT,
+            transform: [
+              { translateY: scrollY.interpolate({ inputRange: [-SCENE_HEIGHT, 0, SCENE_HEIGHT], outputRange: [-SCENE_HEIGHT / 2, 0, SCENE_HEIGHT * 0.5] }) },
+              { scale: scrollY.interpolate({ inputRange: [-SCENE_HEIGHT, 0], outputRange: [2, 1], extrapolateRight: 'clamp' }) }
+            ]
+          }}
+        >
+          <SceneBackdrop phase={skyPhase(prayerTimes, now)} />
+        </Animated.View>
+        <Animated.View style={{
+          opacity: scrollY.interpolate({ inputRange: [0, barFrom], outputRange: [1, 0], extrapolate: 'clamp' }),
+          transform: [{ translateY: scrollY.interpolate({ inputRange: [0, SCENE_HEIGHT], outputRange: [0, SCENE_HEIGHT * 0.25], extrapolate: 'clamp' }) }],
+          paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {/* App logo: the icon's arch, crescent and mosque on a transparent background */}
@@ -577,7 +610,7 @@ export const HomeScreen: React.FC = () => {
             <Feather name="map-pin" size={14} color={SCENE_INK} />
             <TextUI size={14} weight="medium" color={SCENE_INK} numberOfLines={1}>{cityName}</TextUI>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
 
       {/* Sheet over the scene */}
@@ -739,6 +772,38 @@ export const HomeScreen: React.FC = () => {
         </View>
       ) : null}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
+
+    {/* Compact bar shown once the scene has scrolled away: logo, countdown and the two buttons */}
+    <Animated.View
+      pointerEvents={barShown ? 'auto' : 'none'}
+      style={{
+        position: 'absolute', left: 0, right: 0, top: 0, height: barHeight, paddingTop: insets.top,
+        paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10,
+        backgroundColor: COMPACT_BAR, borderBottomLeftRadius: 18, borderBottomRightRadius: 18,
+        shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6,
+        opacity: scrollY.interpolate({ inputRange: [barFrom, barFrom + 50], outputRange: [0, 1], extrapolate: 'clamp' }),
+        transform: [{ translateY: scrollY.interpolate({ inputRange: [barFrom, barFrom + 50], outputRange: [-12, 0], extrapolate: 'clamp' }) }]
+      }}
+    >
+      <Image source={APP_LOGO} accessibilityElementsHidden importantForAccessibility="no" style={{ width: 30, height: 30 }} />
+      <TouchableOpacity
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`${headerLabel} ${headerValue}`}
+        onPress={() => navigate('prayer_times')}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 8 }}
+      >
+        <TextUI size={14} weight="medium" color={SCENE_INK} numberOfLines={1}>{headerLabel}</TextUI>
+        <TextUI size={20} weight="bold" color={SCENE_INK} style={{ letterSpacing: 0.5 }}>{headerValue}</TextUI>
+      </TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('كل الخدمات', 'All services')} onPress={() => navigate('all_services')} style={[SCENE_BUTTON, { width: 38, height: 38 }]}>
+        <Feather name="grid" size={16} color={SCENE_INK} />
+      </TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('الإعدادات', 'Settings')} onPress={() => navigate('settings')} style={[SCENE_BUTTON, { width: 38, height: 38 }]}>
+        <Feather name="sliders" size={16} color={SCENE_INK} />
+      </TouchableOpacity>
+    </Animated.View>
+    </View>
   );
 };
