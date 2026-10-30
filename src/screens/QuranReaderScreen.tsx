@@ -1609,7 +1609,10 @@ export const QuranReaderScreen: React.FC = () => {
             setUserScrolling(false);
           }, 300);
           if (readingMode === 'page') {
-            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) <= offset + 48);
+            // The page being read: the one at a third of the way down the screen (a few lines of the
+            // previous page at the very top made "Listen" start the previous surah).
+            const readLine = offset + (viewportHeightRef.current || 600) * 0.3;
+            const pageAtOffset = [...renderedPages].reverse().find((page) => (pageOffsetsRef.current[page] ?? Number.POSITIVE_INFINITY) <= readLine);
             if (pageAtOffset && pageAtOffset !== activePage) {
               setActivePage(pageAtOffset);
               const pageSection = getPageSections(pageAtOffset)[0];
