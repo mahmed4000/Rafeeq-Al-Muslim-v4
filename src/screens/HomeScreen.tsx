@@ -164,9 +164,11 @@ const STRIP_ICONS: Record<keyof PrayerTimeValues, keyof typeof Feather.glyphMap>
 const APP_LOGO = require('../../assets/logo-transparent.png');
 
 // Light text over the scene header, whatever the sky.
-const SCENE_INK = '#FFF6EA';
-const SCENE_SHADOW = { textShadowColor: 'rgba(30,20,14,0.45)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8 };
-const SCENE_BUTTON = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.32)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.35)' };
+const SCENE_INK = '#FFFFFF';
+const SCENE_SHADOW = { textShadowColor: 'rgba(20,12,8,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 };
+const SCENE_BUTTON = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.5)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.4)' };
+// Dark glass behind the countdown, so it reads over the bright day and afternoon skies too.
+const SCENE_PANEL = 'rgba(30,20,14,0.5)';
 
 // Four per row; a round icon with an inner ring.
 const ServiceTile: React.FC<{ p: Palette; icon: keyof typeof Feather.glyphMap; label: string; tone: Tone; onPress: () => void }> = ({ p, icon, label, tone, onPress }) => (
@@ -555,11 +557,11 @@ export const HomeScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={`${headerLabel} ${headerValue}، ${headerTimeLabel} ${headerTime}`}
             onPress={() => navigate('prayer_times')}
-            style={{ alignSelf: 'center', alignItems: 'center', gap: 2 }}
+            style={{ alignSelf: 'center', alignItems: 'center', gap: 2, paddingHorizontal: 22, paddingVertical: 8, borderRadius: 22, backgroundColor: SCENE_PANEL }}
           >
-            <TextUI size={15} color={SCENE_INK} align="center" style={SCENE_SHADOW}>{headerLabel}</TextUI>
+            <TextUI size={16} weight="medium" color={SCENE_INK} align="center" style={SCENE_SHADOW}>{headerLabel}</TextUI>
             <TextUI size={44} weight="bold" color={SCENE_INK} align="center" style={[SCENE_SHADOW, { lineHeight: 52, letterSpacing: 1 }]}>{headerValue}</TextUI>
-            <TextUI size={14} color={SCENE_INK} align="center" style={SCENE_SHADOW}>
+            <TextUI size={15} weight="medium" color={SCENE_INK} align="center" style={SCENE_SHADOW}>
               {otherZone
                 ? t(`${headerTimeLabel} ${headerTime} بتوقيت ${currentCity.nameAr}`, `${headerTimeLabel} ${headerTime} (${cityName} time)`)
                 : `${headerTimeLabel} ${headerTime}`}
@@ -570,7 +572,7 @@ export const HomeScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={t(`المدينة: ${currentCity.nameAr}. اضغط لتحديث الموقع`, `City: ${cityName}. Tap to update location`)}
             onPress={() => { triggerHaptic('light'); refreshLocation(); }}
-            style={{ alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(30,20,14,0.38)' }}
+            style={{ alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: SCENE_PANEL }}
           >
             <Feather name="map-pin" size={14} color={SCENE_INK} />
             <TextUI size={14} weight="medium" color={SCENE_INK} numberOfLines={1}>{cityName}</TextUI>

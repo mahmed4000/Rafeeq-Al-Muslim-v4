@@ -169,7 +169,7 @@ export const SceneBackdrop: React.FC<{ phase: SkyPhase }> = ({ phase }) => {
       </View>
 
       {/* Darker top edge so the header text stays readable on every sky */}
-      <LinearGradient colors={['rgba(30,20,14,0.45)', 'rgba(30,20,14,0)']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 220 }} />
+      <LinearGradient colors={['rgba(30,20,14,0.6)', 'rgba(30,20,14,0.3)', 'rgba(30,20,14,0)']} locations={[0, 0.5, 1]} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 240 }} />
     </View>
   );
 };
