@@ -31,6 +31,8 @@ export interface ReaderPlayerProps {
   bottom: number;
   /** Reciting today's khatma portion: its label and the pages done of the total. */
   portion?: { label: string; done: number; total: number };
+  /** Told when the full controls open or close, so the reader keeps them on screen meanwhile. */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 /** Height of the reader's bottom toolbar, including the iPhone home-indicator space. */
@@ -115,7 +117,7 @@ export const ReaderScrollBar: React.FC<{ speedIndex: number; onSpeed: (index: nu
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
   elapsedLabel, remainingLabel,
-  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion
+  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion, onExpandedChange
 }) => {
   const p = usePalette();
   const { triggerHaptic, t, isRTL } = useApp();
@@ -124,7 +126,11 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   const speedLabel = `${toArabicNumber(String(speed || 1).replace('.', isRTL ? '٫' : '.'))}×`;
   const progressPercent = `${Math.min(100, Math.max(0, progressRatio * 100))}%` as const;
   const ayahLine = t(`الآية ${toArabicNumber(ayahNumber)} من ${toArabicNumber(totalAyahs)}`, `Verse ${toArabicNumber(ayahNumber)} of ${toArabicNumber(totalAyahs)}`);
-  const toggleExpanded = () => { triggerHaptic('light'); setExpanded((v) => !v); };
+  const toggleExpanded = () => {
+    triggerHaptic('light');
+    onExpandedChange?.(!expanded);
+    setExpanded(!expanded);
+  };
   const playButton = (size: number) => (
     <TouchableOpacity
       accessibilityRole="button"

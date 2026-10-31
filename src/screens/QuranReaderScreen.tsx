@@ -164,6 +164,12 @@ export const QuranReaderScreen: React.FC = () => {
   // Full screen (bars hidden). The bars show on opening, hide after a few seconds or once the
   // reader scrolls, and a tap on the page toggles them.
   const [isImmersive, setIsImmersive] = useState(false);
+  // While reciting, the player shows and hides with the bars; its full controls hold them on screen.
+  const isReciting = isAudioPlaying || isAudioLoading || playingAyahNum != null;
+  const [playerExpanded, setPlayerExpanded] = useState(false);
+  // The player opens compact again next time, so forget its full controls once reciting ends.
+  if (!isReciting && playerExpanded) setPlayerExpanded(false);
+  const holdChrome = isReciting && playerExpanded;
   const [chromeAnim] = useState(() => new Animated.Value(1));
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 100 : Platform.OS === 'web' ? 68 : 62);
   const [jumpModalVisible, setJumpModalVisible] = useState(false);
@@ -423,11 +429,12 @@ export const QuranReaderScreen: React.FC = () => {
 
   useEffect(() => {
     Animated.timing(chromeAnim, { toValue: isImmersive ? 0 : 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
-    // Bars hide by themselves after 4 seconds, unless the reader is typing a search.
-    if (isImmersive || isSearching) return;
+    // Bars hide by themselves after 4 seconds, unless the reader is typing a search or has the
+    // player's full controls open.
+    if (isImmersive || isSearching || holdChrome) return;
     const timer = setTimeout(() => setIsImmersive(true), 4000);
     return () => clearTimeout(timer);
-  }, [isImmersive, isSearching, chromeAnim]);
+  }, [isImmersive, isSearching, holdChrome, chromeAnim]);
 
   // Madinah page fonts and line data for the rendered pages and the next 5, like tajweed above,
   // so a page switches to its printed layout before it reaches the screen.
@@ -1599,6 +1606,8 @@ export const QuranReaderScreen: React.FC = () => {
         onScrollBeginDrag={() => {
           scrollingRef.current = true; lastUserScrollRef.current = Date.now();
           setUserScrolling(true);
+          // While reciting, moving the page brings the player back.
+          if (isReciting) setIsImmersive(false);
         }}
         onScrollEndDrag={() => { lastUserScrollRef.current = Date.now(); }}
         onStartShouldSetResponderCapture={(event) => event.target === event.currentTarget}
@@ -1613,7 +1622,7 @@ export const QuranReaderScreen: React.FC = () => {
             lastScrollYRef.current = offset;
           } else if (isImmersive ? delta > 0 : delta < 0) {
             lastScrollYRef.current = offset;
-          } else if (!isImmersive && delta > 24) {
+          } else if (!isImmersive && delta > 24 && !isReciting) {
             setIsImmersive(true);
             lastScrollYRef.current = offset;
           } else if (isImmersive && delta < -40) {
@@ -1945,7 +1954,7 @@ export const QuranReaderScreen: React.FC = () => {
       </Animated.View>
 
       {/* Auto-scroll without recitation: only the speeds, shown and hidden with the bars */}
-      {autoScroll && !(isAudioPlaying || isAudioLoading || playingAyahNum != null) ? (
+      {autoScroll && !isReciting ? (
         <Animated.View
           pointerEvents={isImmersive ? 'none' : 'box-none'}
           style={{
@@ -1958,10 +1967,19 @@ export const QuranReaderScreen: React.FC = () => {
         </Animated.View>
       ) : null}
 
-      {/* While reciting the compact player stays, in full screen too */}
-      {(isAudioPlaying || isAudioLoading || playingAyahNum != null) ? (
+      {/* While reciting: the player, shown and hidden with the bars (a tap or moving the page shows it) */}
+      {isReciting ? (
+        <Animated.View
+          pointerEvents={isImmersive ? 'none' : 'box-none'}
+          style={{
+            position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 21, elevation: 7,
+            opacity: chromeAnim,
+            transform: [{ translateY: chromeAnim.interpolate({ inputRange: [0, 1], outputRange: [READER_TOOLBAR_HEIGHT, 0] }) }]
+          }}
+        >
         <ReaderPlayer
-          bottom={isImmersive ? (Platform.OS === 'ios' ? 28 : 12) : READER_TOOLBAR_HEIGHT + 8}
+          bottom={READER_TOOLBAR_HEIGHT + 8}
+          onExpandedChange={setPlayerExpanded}
           reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
           ayahNumber={currentAyahNum}
           totalAyahs={totalSurahVerses}
@@ -1989,6 +2007,7 @@ export const QuranReaderScreen: React.FC = () => {
             };
           })() : undefined}
         />
+        </Animated.View>
       ) : null}
 
       {/* End of today's portion */}
