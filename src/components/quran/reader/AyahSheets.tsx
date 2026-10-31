@@ -1,6 +1,6 @@
 // Quran reader dialogs, moved out of QuranReaderScreen without changing behaviour.
 import React from 'react';
-import { View, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, TouchableOpacity, Modal, TextInput, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TextUI } from '../../common/TextUI';
 import { toArabicNumber } from '../../../services/prayerCalculation';
@@ -33,15 +33,29 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
   const en = lang === 'en';
   const activeSurahData = QURAN_DATA.find((item) => item.id === activeAyah?.surahId) || currentSurah;
   const reciterName = en ? currentReciterObj.nameEn : currentReciterObj.nameAr;
+  const row = (icon: React.ComponentProps<typeof Feather>['name'], label: React.ReactNode, onPress: () => void, chevron = false) => (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, backgroundColor: p.surface, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
+    >
+      <Feather name={icon} size={18} color={p.primary} />
+      <TextUI size={14} weight="medium" color={p.ink} style={{ flex: 1 }}>{label}</TextUI>
+      {chevron ? <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} /> : null}
+    </TouchableOpacity>
+  );
   return (
-    <Modal visible={actionModalVisible} animationType="slide" transparent>
+    <Modal visible={actionModalVisible} animationType="slide" transparent onRequestClose={() => setActionModalVisible(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity accessibilityLabel={t('إغلاق', 'Close')} activeOpacity={1} onPress={() => setActionModalVisible(false)} style={{ flex: 1 }} />
         <View
           style={{
             backgroundColor: p.bg,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            padding: 20
+            padding: 20,
+            paddingBottom: Platform.OS === 'ios' ? 34 : 20
           }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -55,37 +69,29 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
             </TouchableOpacity>
           </View>
 
-          {/* Verse text snippet */}
+          {/* Verse text snippet (long verses scroll) */}
           <View
             style={{
               backgroundColor: p.surface,
               borderRadius: 14,
-              padding: 14,
               marginBottom: 16,
               borderWidth: 1,
-              borderColor: p.border
+              borderColor: p.border,
+              maxHeight: 150
             }}
           >
-            <TextUI quran size={16} color={p.ink} style={{ textAlign: 'center', lineHeight: 26 }}>
-              ﴿ {activeAyah?.text} ﴾
-            </TextUI>
+            <ScrollView contentContainerStyle={{ padding: 14 }}>
+              <TextUI quran size={16} color={p.ink} style={{ textAlign: 'center', lineHeight: 26 }}>
+                ﴿ {activeAyah?.text} ﴾
+              </TextUI>
+            </ScrollView>
           </View>
 
-          {/* Action Buttons */}
+          {/* Actions, in the order of the mushaf plan: listen, tafsir, bookmark, note, share */}
           <View style={{ gap: 10 }}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => openAyahTafsir()}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
-            >
-              <Feather name="book-open" size={18} color={p.primary} />
-              <TextUI size={14} weight="bold" color={p.ink}>{t('تفسير الآية • اختر من عدة تفاسير', 'Verse tafsir • choose from several tafsirs')}</TextUI>
-              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
-            </TouchableOpacity>
-
-            {/* Play Audio */}
-            <TouchableOpacity
-              activeOpacity={0.8}
+              accessibilityRole="button"
               onPress={() => {
                 setActionModalVisible(false);
                 if (activeAyah) playAyahAudio(activeAyah);
@@ -100,75 +106,37 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
               }}
             >
               <Feather name="play" size={18} color={p.onPrimary} />
-              <TextUI size={14} weight="bold" color={p.onPrimary}>
-                {en ? `Listen to the verse by ${reciterName}` : <>استمع للآية بصوت {currentReciterObj.nameAr}</>}
+              <TextUI size={14} weight="bold" color={p.onPrimary} style={{ flex: 1 }}>
+                {en ? `Listen from this verse • ${reciterName}` : <>استمع من هذه الآية • {currentReciterObj.nameAr}</>}
               </TextUI>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => { setActionModalVisible(false); setReciterModalVisible(true); }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
-            >
-              <Feather name="mic" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>{en ? `Change reciter • current: ${reciterName}` : <>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</>}</TextUI>
-              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
-            </TouchableOpacity>
+            {row('book-open', t('التفسير • اختر من عدة تفاسير', 'Tafsir • choose from several tafsirs'), () => openAyahTafsir(), true)}
 
-            {/* Set Bookmark */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => activeAyah && toggleBookmark(activeAyah)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                backgroundColor: p.surface,
-                padding: 14,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="bookmark" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>
-                {activeAyah && isBookmarked(activeAyah) ? t('إزالة العلامة عن هذه الآية', 'Remove bookmark from this verse') : t('إضافة علامة عند هذه الآية', 'Bookmark this verse')}
-              </TextUI>
-            </TouchableOpacity>
+            {row(
+              'bookmark',
+              activeAyah && isBookmarked(activeAyah) ? t('إزالة العلامة عن هذه الآية', 'Remove bookmark from this verse') : t('إضافة علامة عند هذه الآية', 'Bookmark this verse'),
+              () => { if (activeAyah) toggleBookmark(activeAyah); }
+            )}
 
-            {/* Share Card */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => activeAyah && handleShareAyah(activeAyah)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                backgroundColor: p.surface,
-                padding: 14,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: p.border
-              }}
-            >
-              <Feather name="share-2" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>
-                {t('مشاركة الآية الكريمة', 'Share the verse')}
-              </TextUI>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
+            {row(
+              'edit-3',
+              activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? t('عرض أو تعديل ملاحظتي على الآية', 'View or edit my note on the verse') : t('إضافة ملاحظة على الآية', 'Add a note on the verse'),
+              () => {
                 setAyahNoteText(activeAyah ? ayahNotes[ayahNoteKey(activeAyah)] || '' : '');
                 setActionModalVisible(false);
                 setAyahNoteModalVisible(true);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: p.border }}
-            >
-              <Feather name="edit-3" size={18} color={p.primary} />
-              <TextUI size={14} weight="medium" color={p.ink}>{activeAyah && ayahNotes[ayahNoteKey(activeAyah)] ? t('عرض أو تعديل ملاحظتي على الآية', 'View or edit my note on the verse') : t('إضافة ملاحظة على الآية', 'Add a note on the verse')}</TextUI>
-            </TouchableOpacity>
+              }
+            )}
+
+            {row('share-2', t('مشاركة الآية الكريمة', 'Share the verse'), () => { if (activeAyah) handleShareAyah(activeAyah); })}
+
+            {row(
+              'mic',
+              en ? `Change reciter • current: ${reciterName}` : <>تغيير القارئ • الحالي: {currentReciterObj.nameAr}</>,
+              () => { setActionModalVisible(false); setReciterModalVisible(true); },
+              true
+            )}
           </View>
         </View>
       </View>

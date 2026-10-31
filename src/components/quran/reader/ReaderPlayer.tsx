@@ -33,6 +33,8 @@ export interface ReaderPlayerProps {
   portion?: { label: string; done: number; total: number };
   /** Told when the full controls open or close, so the reader keeps them on screen meanwhile. */
   onExpandedChange?: (expanded: boolean) => void;
+  /** Switches to the listen-only screen without stopping the audio. */
+  onListenOnly?: () => void;
 }
 
 /** Height of the reader's bottom toolbar, including the iPhone home-indicator space. */
@@ -117,7 +119,7 @@ export const ReaderScrollBar: React.FC<{ speedIndex: number; onSpeed: (index: nu
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
   elapsedLabel, remainingLabel,
-  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion, onExpandedChange
+  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion, onExpandedChange, onListenOnly
 }) => {
   const p = usePalette();
   const { triggerHaptic, t, isRTL } = useApp();
@@ -176,7 +178,8 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
                 <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{portion ? `${reciterName} · ${ayahLine}` : reciterName}</TextUI>
                 <TextUI size={12.5} color={p.muted} numberOfLines={1}>{portion ? portion.label : ayahLine}</TextUI>
               </TouchableOpacity>
-              {iconButton('chevron-up', t('عرض كل أدوات التلاوة', 'Show all recitation controls'), toggleExpanded, p.muted)}
+              {onListenOnly ? iconButton('headphones', t('استماع فقط', 'Listen only'), onListenOnly, p.primary) : null}
+              {iconButton('chevron-up',t('عرض كل أدوات التلاوة', 'Show all recitation controls'), toggleExpanded, p.muted)}
               {iconButton('x', t('إيقاف التلاوة وإخفاء المشغّل', 'Stop recitation and hide player'), onStop, p.muted)}
             </View>
             {portion && portion.total <= 20 ? (

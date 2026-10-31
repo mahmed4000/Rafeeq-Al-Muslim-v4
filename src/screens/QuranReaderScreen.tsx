@@ -21,7 +21,7 @@ import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
 import { toArabicNumber, toArabicIndicDigits, toStandardNumber } from '../services/prayerCalculation';
 import { normalizeArabic } from '../services/quranSearch';
-import { QURAN_PAGE_INDEX, QURAN_JUZ_INDEX } from '../data/quranIndex';
+import { QURAN_PAGE_INDEX, QURAN_JUZ_INDEX, QURAN_HIZB_INDEX } from '../data/quranIndex';
 import {
   parseSurahVerses,
   QuranVerse,
@@ -50,6 +50,8 @@ import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettin
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
 import { AyahTafsirSheet } from '../components/quran/reader/AyahTafsirSheet';
 import { ReadingMenuSheet, ReciterSheet, FontSizeSheet, TafsirPickerSheet } from '../components/quran/reader/ReaderOptionSheets';
+import { ListenChoiceSheet, LISTEN_MODE_KEY, type ListenMode } from '../components/quran/reader/ListenChoiceSheet';
+import { ListenOnlyView } from '../components/quran/reader/ListenOnlyView';
 
 let allQuranVersesCache: QuranVerse[] | null = null;
 const getAllQuranVerses = () => {
@@ -181,6 +183,14 @@ export const QuranReaderScreen: React.FC = () => {
   // The player opens compact again next time, so forget its full controls once reciting ends.
   if (!isReciting && playerExpanded) setPlayerExpanded(false);
   const holdChrome = isReciting && playerExpanded;
+  // "Listen": ask each time (the choice sheet) or the remembered way; "audio" is the listen-only screen.
+  const [listenMode, setListenModeState] = useState<ListenMode>('ask');
+  const [listenModeLoaded, setListenModeLoaded] = useState(false);
+  const [listenChoiceVerse, setListenChoiceVerse] = useState<QuranVerse | null>(null);
+  const [listenOnly, setListenOnly] = useState(false);
+  // The last ayah started, so listen-only still shows it between ayahs and after the end.
+  const [recitedVerse, setRecitedVerse] = useState<QuranVerse | null>(null);
+  const [sleepMinutes, setSleepMinutes] = useState(0);
   const [chromeAnim] = useState(() => new Animated.Value(1));
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 100 : Platform.OS === 'web' ? 68 : 62);
   const [jumpModalVisible, setJumpModalVisible] = useState(false);
@@ -371,6 +381,16 @@ export const QuranReaderScreen: React.FC = () => {
   }, [screenParams?.reciterId]);
 
   useEffect(() => {
+    AsyncStorage.getItem(LISTEN_MODE_KEY).then((saved) => {
+      if (saved === 'mushaf' || saved === 'audio' || saved === 'ask') setListenModeState(saved);
+    }).catch(() => {}).finally(() => setListenModeLoaded(true));
+  }, []);
+  const setListenMode = (mode: ListenMode) => {
+    setListenModeState(mode);
+    AsyncStorage.setItem(LISTEN_MODE_KEY, mode).catch(() => {});
+  };
+
+  useEffect(() => {
     AsyncStorage.getItem(AYAH_NOTES_KEY).then((raw) => {
       if (raw) setAyahNotes(JSON.parse(raw));
     }).catch(() => {});
@@ -476,6 +496,8 @@ export const QuranReaderScreen: React.FC = () => {
   }, [playbackSettings, playbackSettingsLoaded]);
 
   const pageItem = QURAN_PAGE_INDEX.find((item) => item.page === activePage) || QURAN_PAGE_INDEX[0];
+  // The hizb in progress on this page (the last one that starts on or before it).
+  const pageHizb = QURAN_HIZB_INDEX.reduce((found, item) => (item.startPage <= activePage ? item.hizb : found), 1);
   const getPageSections = (pageNumber: number) => (QURAN_PAGE_INDEX.find((item) => item.page === pageNumber) || QURAN_PAGE_INDEX[0]).sections.map((section) => {
     const surah = QURAN_DATA.find((item) => item.id === section.surahId) || QURAN_DATA[0];
     return {
@@ -600,6 +622,7 @@ export const QuranReaderScreen: React.FC = () => {
       }
       setPlayingAyahNum(verse.ayahNumber);
       setPlayingSurahId(verse.surahId);
+      setRecitedVerse(verse);
       setIsAudioLoading(true);
       setAudioPosition(0);
       setAudioDuration(0);
@@ -718,9 +741,66 @@ export const QuranReaderScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenParams?.autoPlay, currentSurah.id]);
 
+  // Opened from the khatma with "listen to the end of the portion": the remembered listen-only
+  // choice opens its screen (the sheet is not asked; the reader already chose to listen).
+  const autoListenOnlyRef = useRef(false);
+  useEffect(() => {
+    if (!screenParams?.autoPlay || !listenModeLoaded || autoListenOnlyRef.current) return;
+    autoListenOnlyRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (listenMode === 'audio') setListenOnly(true);
+  }, [screenParams?.autoPlay, listenModeLoaded, listenMode]);
+
+  // A long press opens the ayah's tools (listen, tafsir, bookmark, note, share).
   const handleOpenAyahAction = (verse: QuranVerse) => {
-    triggerHaptic('light');
-    openAyahTafsir(verse);
+    setActiveAyah(verse);
+    setActionModalVisible(true);
+  };
+
+  // Back to the mushaf from listen-only, with the bars (and the player) showing.
+  const closeListenOnly = React.useCallback(() => {
+    setListenOnly(false);
+    setIsImmersive(false);
+  }, []);
+
+  const beginListen = (verse: QuranVerse, mode: 'mushaf' | 'audio') => {
+    setAutoScroll(false);
+    playAyahAudio(verse);
+    setListenOnly(mode === 'audio');
+  };
+
+  // A new recitation from "Listen": asks with the mushaf or listen only, unless a choice is remembered.
+  const requestListen = (verse: QuranVerse) => {
+    setAutoScroll(false);
+    if (listenMode === 'ask') setListenChoiceVerse(verse);
+    else beginListen(verse, listenMode);
+  };
+
+  // Listen-only play: after the recitation ended, it starts again from the last ayah shown.
+  const toggleListenOnlyPlay = (shown?: QuranVerse) => {
+    if (!isReciting && shown) playAyahAudio(shown);
+    else toggleAudioPlayback();
+  };
+
+  const pauseRecitation = () => {
+    if (sequenceTimerRef.current) {
+      clearTimeout(sequenceTimerRef.current);
+      sequenceTimerRef.current = null;
+    }
+    audioPlayerRef.current?.pause();
+    webAudioRef.current?.pause();
+    setIsAudioPlaying(false);
+  };
+
+  // Sleep timer (listen-only screen): pauses the recitation after the chosen minutes.
+  useEffect(() => {
+    if (!sleepMinutes) return;
+    const timer = setTimeout(() => { pauseRecitation(); setSleepMinutes(0); }, sleepMinutes * 60000);
+    return () => clearTimeout(timer);
+  }, [sleepMinutes]);
+  const cycleSleepTimer = () => {
+    const steps = [0, 15, 30, 60];
+    setSleepMinutes((current) => steps[(steps.indexOf(current) + 1) % steps.length]);
   };
 
   const loadAyahTafsir = async (editionId: number, verse: QuranVerse | null = activeAyah) => {
@@ -1081,7 +1161,8 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
 
-  const toggleAudioPlayback = () => {
+  // Pause or resume; with nothing to resume, `startNew` starts a recitation (the toolbar asks first).
+  const toggleAudioPlayback = (startNew: (verse: QuranVerse) => void = playAyahAudio) => {
     triggerHaptic('light');
     if (isAudioPlaying) {
       audioPlayerRef.current?.pause();
@@ -1118,7 +1199,7 @@ export const QuranReaderScreen: React.FC = () => {
       targetVerse = surahVerses[0];
     }
     if (targetVerse) {
-      playAyahAudio(targetVerse);
+      startNew(targetVerse);
     }
   };
 
@@ -1467,7 +1548,7 @@ export const QuranReaderScreen: React.FC = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
-      <StatusBar hidden={isImmersive} animated />
+      <StatusBar hidden={isImmersive && !listenOnly} style={listenOnly ? 'light' : 'auto'} animated />
 
       {/* Full screen keeps a small back button, so the way out is always visible */}
       <Animated.View
@@ -1510,15 +1591,15 @@ export const QuranReaderScreen: React.FC = () => {
               onPress={() => { triggerHaptic('light'); openJump('surah'); }}
               style={{ flex: 1, minHeight: 44, justifyContent: 'center' }}
             >
-              <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <TextUI size={12.5} color={p.muted} numberOfLines={1}>
-                  {en
-                    ? `Page ${toArabicNumber(activePage)} · Juz ${toArabicNumber(pageItem.juzNumbers[0] || 1)}`
-                    : `صفحة ${toArabicNumber(activePage)} · الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)}`}
-                </TextUI>
-                <Feather name="chevron-down" size={14} color={p.muted} />
+                <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1} style={{ flexShrink: 1 }}>{en ? currentSurah.nameEn : currentSurah.nameAr}</TextUI>
+                <Feather name="chevron-down" size={16} color={p.primary} />
               </View>
+              <TextUI size={12.5} color={p.muted} numberOfLines={1}>
+                {en
+                  ? `Juz ${toArabicNumber(pageItem.juzNumbers[0] || 1)} · Hizb ${toArabicNumber(pageHizb)} · p. ${toArabicNumber(activePage)}`
+                  : `الجزء ${toArabicNumber(pageItem.juzNumbers[0] || 1)} · الحزب ${toArabicNumber(pageHizb)} · ص ${toArabicNumber(activePage)}`}
+              </TextUI>
             </TouchableOpacity>
             {isSearching ? (
               <TouchableOpacity
@@ -1968,7 +2049,7 @@ export const QuranReaderScreen: React.FC = () => {
           isPlaying={isAudioPlaying}
           isLoading={isAudioLoading}
           autoScroll={autoScroll}
-          onListen={() => { setAutoScroll(false); toggleAudioPlayback(); }}
+          onListen={() => { setAutoScroll(false); toggleAudioPlayback(requestListen); }}
           onAutoScroll={() => setAutoScroll(!autoScroll)}
           onView={() => setReadingMenuVisible(true)}
           onSearch={() => setIsSearching(true)}
@@ -2013,7 +2094,8 @@ export const QuranReaderScreen: React.FC = () => {
           elapsedLabel={formatAudioTime(surahElapsedSeconds)}
           remainingLabel={formatAudioTime(surahRemainingSeconds)}
           onSeek={handleSurahProgressPress}
-          onTogglePlay={toggleAudioPlayback}
+          onTogglePlay={() => toggleAudioPlayback()}
+          onListenOnly={() => { triggerHaptic('light'); setListenOnly(true); }}
           onSkip={skipAyah}
           onCycleSpeed={cyclePlaybackSpeed}
           onOpenRepeat={() => setPlaybackSettingsVisible(true)}
@@ -2050,14 +2132,76 @@ export const QuranReaderScreen: React.FC = () => {
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
 
       {/* Ayah Action Sheet Modal */}
-      <AyahActionSheet actionModalVisible={actionModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} setActionModalVisible={setActionModalVisible} openAyahTafsir={openAyahTafsir} playAyahAudio={playAyahAudio} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} />
+      <AyahActionSheet actionModalVisible={actionModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} setActionModalVisible={setActionModalVisible} openAyahTafsir={openAyahTafsir} playAyahAudio={requestListen} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} />
 
       <AyahTafsirSheet tafsirModalVisible={tafsirModalVisible} setTafsirModalVisible={setTafsirModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} activePage={activePage} handleChangeTafsirFontSize={handleChangeTafsirFontSize} renderAyahMarker={renderAyahMarker} playingAyahNum={playingAyahNum} playingSurahId={playingSurahId} stopAudio={stopAudio} playAyahAudio={playAyahAudio} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} setActionModalVisible={setActionModalVisible} tafsirEditions={tafsirEditions} selectedTafsirId={selectedTafsirId} handleSelectTafsir={handleSelectTafsir} tafsirLoading={tafsirLoading} tafsirError={tafsirError} loadAyahTafsir={loadAyahTafsir} activeTafsirText={activeTafsirText} tafsirFontSize={tafsirFontSize} handleNavigateAyahTafsir={handleNavigateAyahTafsir} parsedSurah={parsedSurah} />
 
       <AyahNoteSheet ayahNoteModalVisible={ayahNoteModalVisible} setAyahNoteModalVisible={setAyahNoteModalVisible} activeAyah={activeAyah} ayahNoteText={ayahNoteText} setAyahNoteText={setAyahNoteText} saveAyahNote={saveAyahNote} />
 
       {/* Reading settings menu (header "Tt" button) */}
-      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setReadingMode={setReadingMode} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} />
+      <ReadingMenuSheet readingMenuVisible={readingMenuVisible} setReadingMenuVisible={setReadingMenuVisible} readingMode={readingMode} setReadingMode={setReadingMode} setFontSizeModalVisible={setFontSizeModalVisible} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} listenMode={listenMode} setListenMode={setListenMode} />
+
+      {/* "Listen": with the mushaf or listen only */}
+      <ListenChoiceSheet
+        visible={listenChoiceVerse != null}
+        subtitle={listenChoiceVerse ? (() => {
+          const surah = QURAN_DATA.find((item) => item.id === listenChoiceVerse.surahId) || currentSurah;
+          const reciter = en ? currentReciterObj.nameEn : currentReciterObj.nameAr;
+          return t(
+            `${reciter} · من الآية ${toArabicNumber(listenChoiceVerse.ayahNumber)} من سورة ${surah.nameAr}`,
+            `${reciter} · from verse ${listenChoiceVerse.ayahNumber} of ${surah.nameEn}`
+          );
+        })() : ''}
+        onClose={() => setListenChoiceVerse(null)}
+        onStart={(mode, remember) => {
+          const verse = listenChoiceVerse;
+          setListenChoiceVerse(null);
+          if (remember) setListenMode(mode);
+          if (verse) beginListen(verse, mode);
+        }}
+      />
+
+      {listenOnly ? (() => {
+        const verses = parsedSurah.verses;
+        const shownNum = playingSurahId === currentSurah.id && playingAyahNum != null
+          ? playingAyahNum
+          : (recitedVerse && recitedVerse.surahId === currentSurah.id ? recitedVerse.ayahNumber : currentAyahNum);
+        const shown = verses.find((v) => v.ayahNumber === shownNum);
+        const next = verses.find((v) => v.ayahNumber === shownNum + 1);
+        const portionDoneCount = portion
+          ? Math.max(0, ((shown?.pageNum) || portion.fromPage) - portion.fromPage)
+          : 0;
+        const portionTotal = portion ? portion.untilPage - portion.fromPage + 1 : 0;
+        return (
+          <ListenOnlyView
+            surahName={currentSurah.nameAr}
+            reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
+            ayahNumber={shownNum}
+            totalAyahs={totalSurahVerses}
+            ayahText={shown ? forHafsFont(shown.text) : undefined}
+            nextAyah={next ? { number: next.ayahNumber, text: forHafsFont(next.text) } : undefined}
+            progressRatio={portion ? portionDoneCount / Math.max(1, portionTotal) : surahProgressRatio}
+            progressLabel={portion
+              ? t(`ورد اليوم · ص ${toArabicNumber(shown?.pageNum || portion.fromPage)} من ${toArabicNumber(portion.untilPage)}`, `Today's portion · p. ${shown?.pageNum || portion.fromPage} of ${portion.untilPage}`)
+              : t(`سورة ${currentSurah.nameAr}`, `Surah ${currentSurah.nameEn}`)}
+            remainingLabel={portion
+              ? t(`${toArabicNumber(portionTotal - portionDoneCount)} ص`, `${portionTotal - portionDoneCount} p.`)
+              : formatAudioTime(surahRemainingSeconds)}
+            isPlaying={isAudioPlaying}
+            isLoading={isAudioLoading}
+            speed={playbackSettings.speed || 1}
+            ayahRepeats={playbackSettings.ayahRepeats}
+            sleepMinutes={sleepMinutes}
+            onTogglePlay={() => toggleListenOnlyPlay(shown)}
+            onSkip={skipAyah}
+            onCycleSpeed={cyclePlaybackSpeed}
+            onOpenRepeat={() => setPlaybackSettingsVisible(true)}
+            onCycleSleep={cycleSleepTimer}
+            onOpenReciter={() => setReciterModalVisible(true)}
+            onClose={closeListenOnly}
+          />
+        );
+      })() : null}
 
       {/* Reciter Selection Modal */}
       <ReciterSheet reciterModalVisible={reciterModalVisible} setReciterModalVisible={setReciterModalVisible} stopAudio={stopAudio} setSelectedReciter={setSelectedReciter} selectedReciter={selectedReciter} />

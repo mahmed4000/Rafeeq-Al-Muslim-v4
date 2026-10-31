@@ -8,6 +8,7 @@ import { toArabicNumber } from '../../../services/prayerCalculation';
 import { QURAN_RECITERS } from '../../../services/quranParser';
 import { AVAILABLE_TAFSIR_EDITIONS, saveSelectedTafsirId } from '../../../services/tafsirService';
 import { type ReadingMode } from './readerShared';
+import { type ListenMode } from './ListenChoiceSheet';
 import { useApp } from '../../../context/AppContext';
 import { usePalette } from '../../../theme/palette';
 
@@ -19,7 +20,15 @@ export interface ReadingMenuSheetProps {
   setFontSizeModalVisible: (v: boolean) => void;
   currentReciterObj: (typeof QURAN_RECITERS)[number];
   setReciterModalVisible: (v: boolean) => void;
+  listenMode: ListenMode;
+  setListenMode: (m: ListenMode) => void;
 }
+
+const LISTEN_MODES: { id: ListenMode; label: string; labelEn: string }[] = [
+  { id: 'ask', label: 'اسألني', labelEn: 'Ask me' },
+  { id: 'mushaf', label: 'مع المصحف', labelEn: 'With mushaf' },
+  { id: 'audio', label: 'استماع فقط', labelEn: 'Listen only' }
+];
 
 const VIEW_MODES: { id: ReadingMode; label: string; labelEn: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
   { id: 'page', label: 'مصحف', labelEn: 'Mushaf', icon: 'book-open' },
@@ -28,7 +37,7 @@ const VIEW_MODES: { id: ReadingMode; label: string; labelEn: string; icon: React
 ];
 
 /** The reader's "View" sheet (bottom toolbar): the view mode as a switch, then font size and reciter. */
-export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setReadingMode, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible }) => {
+export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuVisible, setReadingMenuVisible, readingMode, setReadingMode, setFontSizeModalVisible, currentReciterObj, setReciterModalVisible, listenMode, setListenMode }) => {
   const p = usePalette();
   const { quranFontSize, triggerHaptic, t, isRTL, lang } = useApp();
   return (
@@ -85,6 +94,30 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
               <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
             </TouchableOpacity>
           ))}
+
+          {/* What "Listen" does: ask each time, or the remembered choice */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderColor: p.border, gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Feather name="headphones" size={18} color={p.primary} />
+              <TextUI size={15} color={p.ink}>{t('طريقة الاستماع المفضّلة', 'Preferred way to listen')}</TextUI>
+            </View>
+            <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14, backgroundColor: p.bgAlt }}>
+              {LISTEN_MODES.map((mode) => {
+                const selected = listenMode === mode.id;
+                return (
+                  <TouchableOpacity
+                    key={mode.id}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    onPress={() => { triggerHaptic('light'); setListenMode(mode.id); }}
+                    style={{ flex: 1, minHeight: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? p.surface : 'transparent', borderWidth: selected ? 1 : 0, borderColor: p.border }}
+                  >
+                    <TextUI size={13} weight={selected ? 'bold' : 'medium'} color={selected ? p.ink : p.muted}>{t(mode.label, mode.labelEn)}</TextUI>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </View>
       </View>
     </Modal>
