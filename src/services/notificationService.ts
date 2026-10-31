@@ -144,6 +144,26 @@ export const NotificationService = {
     }
   },
 
+  /**
+   * What the reader needs to trust the adhan: whether alerts may be shown, and until when prayer
+   * alerts are scheduled (the window rolls forward each time the app opens). Null on web.
+   */
+  async getAlertStatus(): Promise<{ permission: boolean; scheduledUntil: Date | null; count: number } | null> {
+    if (Platform.OS === 'web') return null;
+    try {
+      const permission = await this.hasPermission();
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const ours = scheduled.filter((item: any) => typeof item?.identifier === 'string' && item.identifier.startsWith(PRAYER_ID_PREFIX));
+      const last = ours.reduce((max: number, item: any) => {
+        const at = Date.parse(item?.content?.data?.date || '');
+        return Number.isFinite(at) && at > max ? at : max;
+      }, 0);
+      return { permission, scheduledUntil: last ? new Date(last) : null, count: ours.length };
+    } catch {
+      return null;
+    }
+  },
+
   /** One-time cleanup of alerts scheduled by older versions (they had random ids). */
   async clearLegacyScheduled(): Promise<void> {
     if (Platform.OS === 'web') return;
