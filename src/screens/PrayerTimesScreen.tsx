@@ -12,6 +12,9 @@ import { useNextPrayer } from '../hooks/useNextPrayer';
 import { SettingsList } from '../ui/SettingsList';
 import { usePalette } from '../theme/palette';
 import { tr } from '../i18n/language';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import { SunPathHeader } from '../components/prayer/SunPathHeader';
+import { skyPhase } from '../components/home/SkyArch';
 
 type RowKey = keyof PrayerTimeValues;
 
@@ -23,6 +26,10 @@ const ROWS: { key: RowKey; nameAr: string; nameEn: string }[] = [
   { key: 'maghrib', nameAr: 'المغرب', nameEn: 'Maghrib' },
   { key: 'isha', nameAr: 'العشاء', nameEn: 'Isha' }
 ];
+
+const ROW_ICONS: Record<RowKey, React.ComponentProps<typeof Feather>['name']> = {
+  fajr: 'sunrise', sunrise: 'sunrise', dhuhr: 'sun', asr: 'sun', maghrib: 'sunset', isha: 'moon'
+};
 
 /** "بعد ٣١ دقيقة" / "بعد ٢ س ١٠ د" ("in 31 min" / "in 2 h 10 min" in English) */
 function inAr(secs: number): string {
@@ -131,27 +138,55 @@ export const PrayerTimesScreen: React.FC = () => {
     setDayOffset((d) => d + delta);
   };
 
+  // Header: the sun's path through today, the prayers as points, the next one ringed.
+  const fajrMin = prayerTimes.fajr.hours * 60 + prayerTimes.fajr.minutes;
+  const ishaMin = prayerTimes.isha.hours * 60 + prayerTimes.isha.minutes;
+  const span = Math.max(1, ishaMin - fajrMin);
+  const todayMins = (k: RowKey) => prayerTimes[k].hours * 60 + prayerTimes[k].minutes;
+  const arcPoints = ROWS.map((row) => ({
+    at: (todayMins(row.key) - fajrMin) / span,
+    passed: nowMins >= todayMins(row.key),
+    next: !next.isTomorrow && row.key === next.id
+  }));
+  const sunAt = nowMins >= fajrMin && nowMins <= ishaMin ? (nowMins - fajrMin) / span : null;
+  const hms = (secs: number) => [Math.floor(secs / 3600), Math.floor((secs % 3600) / 60), secs % 60]
+    .map((v) => toArabicNumber(String(v).padStart(2, '0'))).join(':');
+  const nextName = t(next.nameAr, next.nameEn);
+  const headerTop = Platform.OS === 'ios' ? 54 : Platform.OS === 'web' ? 18 : 14;
+  const sceneButton = { width: 44, height: 44, borderRadius: 22, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: 'rgba(30,20,14,0.45)', borderWidth: 1, borderColor: 'rgba(255,246,234,0.35)' };
+  const textShadow = { textShadowColor: 'rgba(20,12,8,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 };
+
   return (
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 104, gap: 14 }}
+        contentContainerStyle={{ paddingBottom: 104 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title and Qibla */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TextUI size={26} weight="bold" color={p.ink}>{t('الصلاة', 'Prayer')}</TextUI>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            onPress={() => navigate('qibla')}
-            style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
-          >
-            <Feather name="compass" size={16} color={p.primary} />
-            <TextUI size={14} weight="medium" color={p.ink}>{t('القبلة', 'Qibla')}</TextUI>
-          </TouchableOpacity>
-        </View>
+        <SunPathHeader phase={skyPhase(prayerTimes, today)} points={arcPoints} sunAt={sunAt} rtl={isRTL}>
+          <View style={{ paddingTop: headerTop, paddingHorizontal: 16, gap: 18 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View>
+                <TextUI font="amiri" size={28} weight="bold" color="#FFFFFF" style={textShadow}>{t('الصلاة', 'Prayer')}</TextUI>
+                <TextUI size={13.5} color="#FFFFFF" numberOfLines={1} style={textShadow}>{lang === 'en' ? currentCity.nameEn : currentCity.nameAr}</TextUI>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('القبلة', 'Qibla')} onPress={() => navigate('qibla')} style={sceneButton}>
+                  <Feather name="compass" size={18} color="#FFF6EA" />
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('مواقيت الشهر', 'Monthly timetable')} onPress={() => navigate('prayer_month')} style={sceneButton}>
+                  <Feather name="calendar" size={18} color="#FFF6EA" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View accessible accessibilityLabel={`${t(`${nextName} بعد`, `${nextName} in`)} ${hms(next.diffSeconds)}`} style={{ alignItems: 'center' }}>
+              <TextUI size={15} weight="bold" color="#FFFFFF" style={textShadow}>{next.isTomorrow ? t(`${nextName} (غدًا) بعد`, `${nextName} (tomorrow) in`) : t(`${nextName} بعد`, `${nextName} in`)}</TextUI>
+              <TextUI size={36} weight="bold" color="#FFFFFF" style={[textShadow, { lineHeight: 44, letterSpacing: 1 }]}>{hms(next.diffSeconds)}</TextUI>
+            </View>
+          </View>
+        </SunPathHeader>
 
+        <View style={{ marginTop: -20, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: p.bg, paddingHorizontal: 16, paddingTop: 16, gap: 14 }}>
         {/* Day picker */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, padding: 4, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('اليوم السابق', 'Previous day')} onPress={() => shiftDay(-1)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -172,9 +207,9 @@ export const PrayerTimesScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* The day's six times */}
-        <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-          {ROWS.map((row, i) => {
+        {/* The day's six times: arch-topped icons, the next prayer in the hero colour */}
+        <View style={{ gap: 8 }}>
+          {ROWS.map((row) => {
             const isNext = row.key === nextKey;
             const isCurrent = row.key === currentKey;
             const note = noteFor(row.key);
@@ -183,14 +218,16 @@ export const PrayerTimesScreen: React.FC = () => {
             return (
               <View
                 key={row.key}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, minHeight: 56, backgroundColor: isNext ? p.soft : 'transparent', borderTopWidth: i ? 1 : 0, borderColor: p.border }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingHorizontal: 10, borderRadius: 18, backgroundColor: isNext ? p.hero : p.surface, borderWidth: 1, borderColor: isNext ? p.hero : isCurrent ? p.success : p.border }}
               >
-                <View style={{ width: 6, height: 28, borderRadius: 3, backgroundColor: isNext ? p.accent : isCurrent ? p.success : 'transparent' }} />
-                <View style={{ flex: 1 }}>
-                  <TextUI size={17} weight={isNext ? 'bold' : 'medium'} color={row.key === 'sunrise' ? p.muted : p.ink}>{t(row.nameAr, row.nameEn)}</TextUI>
-                  {note ? <TextUI size={12.5} color={p.muted}>{note}</TextUI> : null}
+                <View style={{ width: 40, height: 44, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: isNext ? 'rgba(255,246,234,0.14)' : p.soft }}>
+                  <Feather name={ROW_ICONS[row.key]} size={19} color={isNext ? '#F4D9A8' : p.primary} />
                 </View>
-                <TextUI size={18} weight="bold" color={p.ink}>{times[row.key].timeStr}</TextUI>
+                <View style={{ flex: 1 }}>
+                  <TextUI size={16.5} weight="bold" color={isNext ? p.onHero : row.key === 'sunrise' ? p.muted : p.ink}>{t(row.nameAr, row.nameEn)}</TextUI>
+                  {note ? <TextUI size={12.5} color={isNext ? p.onHeroMuted : isCurrent ? p.successInk : p.muted}>{note}</TextUI> : null}
+                </View>
+                <TextUI size={18} weight="bold" color={isNext ? '#FFFFFF' : p.ink}>{times[row.key].timeStr}</TextUI>
                 {bellKey ? (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -200,7 +237,7 @@ export const PrayerTimesScreen: React.FC = () => {
                     onPress={() => togglePrayerBell(bellKey)}
                     style={{ width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <Feather name={bellOn ? 'bell' : 'bell-off'} size={18} color={bellOn ? p.primary : p.muted} />
+                    <Feather name={bellOn ? 'bell' : 'bell-off'} size={18} color={isNext ? '#F4D9A8' : bellOn ? p.primary : p.muted} />
                   </TouchableOpacity>
                 ) : (
                   <View style={{ width: 44 }} />
@@ -215,6 +252,50 @@ export const PrayerTimesScreen: React.FC = () => {
             <TextUI size={12.5} color={p.muted}>{t('بعض الأوقات معدّلة يدويًا', 'Some times are adjusted manually')}</TextUI>
           </TouchableOpacity>
         ) : null}
+
+        {/* Match your mosque: opens the per-prayer minute adjustments */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          accessibilityRole="button"
+          onPress={() => openSheet('offsets')}
+          style={{ borderRadius: 22, overflow: 'hidden', flexDirection: 'row', backgroundColor: '#E2B276' }}
+        >
+          <View style={{ flex: 1, padding: 16, gap: 4 }}>
+            <TextUI size={16.5} weight="bold" color="#2D1E16">{t('هل تطابق مسجدك؟', 'Does it match your mosque?')}</TextUI>
+            <TextUI size={13.5} color="#4A3020" style={{ lineHeight: 22 }}>
+              {adjustedCount
+                ? t(`عدّلت ${toArabicNumber(adjustedCount)} من الأوقات ليطابق مسجدك.`, `You adjusted ${adjustedCount} times to match your mosque.`)
+                : t('إن اختلف أذان مسجدك عدّل الدقائق مرة واحدة.', 'If your mosque differs, adjust the minutes once.')}
+            </TextUI>
+            <View style={{ alignSelf: 'flex-start', marginTop: 6, minHeight: 40, paddingHorizontal: 16, borderRadius: 12, justifyContent: 'center', backgroundColor: '#2D1E16' }}>
+              <TextUI size={14.5} weight="bold" color="#F4D9A8">{t('مطابقة مسجدي', 'Match my mosque')}</TextUI>
+            </View>
+          </View>
+          <Svg width={104} height={128} viewBox="0 0 110 130">
+            <Path d="M18 130 V68 A37 37 0 0 1 92 68 V130Z" fill="#7A4E2F" />
+            <Path d="M28 130 V72 A27 27 0 0 1 82 72 V130Z" fill="#F4E3C5" />
+            <Path d="M38 130 V96 A17 17 0 0 1 72 96 V130Z" fill="#5D3A22" />
+            <Rect x={53} y={20} width={4} height={16} fill="#7A4E2F" />
+            <Circle cx={55} cy={18} r={4} fill="#7A4E2F" />
+          </Svg>
+        </TouchableOpacity>
+
+        {/* Whether the adhan will sound */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          onPress={() => navigate('adhan_status')}
+          style={{ minHeight: 64, borderRadius: 18, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: p.soft }}>
+            <Feather name="bell" size={19} color={p.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <TextUI size={15} weight="bold" color={p.ink}>{t('حالة الأذان', 'Adhan status')}</TextUI>
+            <TextUI size={13} color={p.muted}>{t('تأكد أن الأذان يصلك في وقته', 'Make sure the adhan reaches you on time')}</TextUI>
+          </View>
+          <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={18} color={p.muted} />
+        </TouchableOpacity>
 
         {/* Night times (Maghrib → next Fajr) */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -231,6 +312,7 @@ export const PrayerTimesScreen: React.FC = () => {
 
         {/* Calculation and alert settings */}
         <SettingsList rows={settingsRows} />
+        </View>
       </ScrollView>
 
       <PrayerSettingsSheets open={sheet} onClose={() => setSheet(null)} />

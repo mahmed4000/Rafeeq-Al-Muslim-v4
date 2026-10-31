@@ -34,6 +34,11 @@ const SCENES: Record<SkyPhase, Scene> = {
   dusk: { sky: ['#6B4A6E', '#C9785A', '#F0B77F'], disk: '#FFD9A0', diskTop: 112, hill: '#8A4E3E', build: '#5D3A22', window: '#F2C98D', ground: '#4A2E1C', palm: '#3A2416', cloud: '#F2B9A0', clouds: 0.6, stars: 0.4 }
 };
 
+/** The scene's colours for a part of the day, for other headers that share the sky. */
+export function sceneColors(phase: SkyPhase): Scene {
+  return SCENES[phase];
+}
+
 // [x, y, size] in the 390 frame.
 const STARS = [
   [22, 34, 3], [64, 18, 2], [98, 52, 2.5], [130, 24, 3.5], [214, 44, 2], [246, 16, 3], [282, 58, 2.5],
