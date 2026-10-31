@@ -1,5 +1,9 @@
+import { Platform } from 'react-native';
+import { Asset } from 'expo-asset';
+import { File } from 'expo-file-system';
 import { StorageService } from './storage';
 import { tr } from '../i18n/language';
+import { TAFSIR_ASSETS } from '../data/tafsirAssets';
 
 export interface TafsirEdition {
   id: number;
@@ -108,6 +112,39 @@ const SELECTED_TAFSIR_KEY = 'quran.selected-tafsir-id.v2';
 // In-memory memory cache
 const memoryTafsirCache = new Map<string, string>();
 
+// The built-in books: one file per surah, {"<ayah>": "<tafsir html>"}, loaded once per surah.
+const surahFileCache = new Map<string, Promise<Record<string, string>>>();
+const loadSurahFile = (bookKey: string, surahId: number) => {
+  const cacheKey = `${bookKey}:${surahId}`;
+  let pending = surahFileCache.get(cacheKey);
+  if (!pending) {
+    pending = (async () => {
+      const module = TAFSIR_ASSETS[bookKey]?.[surahId - 1];
+      if (!module) throw new Error(`no tafsir asset ${cacheKey}`);
+      const asset = await Asset.fromModule(module).downloadAsync();
+      const text = Platform.OS === 'web' || !asset.localUri
+        ? await (await fetch(asset.localUri || asset.uri)).text()
+        : await new File(asset.localUri).text();
+      return JSON.parse(text) as Record<string, string>;
+    })();
+    pending.catch(() => surahFileCache.delete(cacheKey));
+    surahFileCache.set(cacheKey, pending);
+  }
+  return pending;
+};
+
+/** Tafsir from the books built into the app, or '' when the book or ayah is missing. */
+async function readBuiltInTafsir(editionId: number, surahId: number, ayahNumber: number): Promise<string> {
+  const bookKey = AVAILABLE_TAFSIR_EDITIONS.find((edition) => edition.id === editionId)?.key;
+  if (!bookKey) return '';
+  const verses = await loadSurahFile(bookKey, surahId);
+  // Some books explain several ayat together: the other ayat of the group hold "=<ayah>", the ayah
+  // that carries the group's text (as the source groups them).
+  let raw = verses[String(ayahNumber)] || '';
+  if (raw.startsWith('=')) raw = verses[raw.slice(1)] || '';
+  return raw ? cleanTafsirHtml(raw) : '';
+}
+
 /**
  * Clean and normalize HTML text from Tafsir APIs
  */
@@ -164,7 +201,18 @@ export async function fetchAyahTafsir(
     if (cached) return cached;
   }
 
-  // 2. Check persistent storage cache
+  // 2. The book built into the app (works offline)
+  try {
+    const builtIn = await readBuiltInTafsir(editionId, surahId, ayahNumber);
+    if (builtIn) {
+      memoryTafsirCache.set(cacheKey, builtIn);
+      return builtIn;
+    }
+  } catch {
+    // Fall back to the saved copy or the network below
+  }
+
+  // 3. Check persistent storage cache
   try {
     const stored = await StorageService.getItem(cacheKey);
     if (stored) {
@@ -175,7 +223,7 @@ export async function fetchAyahTafsir(
     // Ignore storage errors
   }
 
-  // 3. Primary fetch from Quran.com API v4
+  // 4. Online: Quran.com API v4
   let fetchedText = '';
   try {
     const controller = new AbortController();
@@ -202,7 +250,7 @@ export async function fetchAyahTafsir(
     // Fallback if primary fails
   }
 
-  // 4. Secondary fallback: AlQuran Cloud (for Muyassar)
+  // 5. Secondary fallback: AlQuran Cloud (for Muyassar)
   if (!fetchedText && editionId === 16) {
     try {
       const fbRes = await fetch(`https://api.alquran.cloud/v1/ayah/${surahId}:${ayahNumber}/ar.muyassar`);
@@ -218,7 +266,7 @@ export async function fetchAyahTafsir(
     }
   }
 
-  // 5. Tertiary fallback: QuranEnc (for Saadi)
+  // 6. Tertiary fallback: QuranEnc (for Saadi)
   if (!fetchedText && editionId === 91) {
     try {
       const fbRes = await fetch(`https://quranenc.com/api/v1/tafsir/aya/arabic_saadi/${surahId}/${ayahNumber}`);

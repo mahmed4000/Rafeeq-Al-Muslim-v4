@@ -69,7 +69,8 @@
       ],
       "expo-audio",
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "expo-asset"
     ],
     "owner": "mahmed4000",
     "extra": {
