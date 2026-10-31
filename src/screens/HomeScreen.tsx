@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { cityNow, differsFromDevice } from '../services/cityTime';
 import { AudioService, LessonResumeRecord } from '../services/audioService';
 import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
+import { HaramainBanner } from '../components/library/HaramainBanner';
 import { getUiLanguage, tr } from '../i18n/language';
 
 // Minutes after a prayer's adhan during which the "now" card suggests post-prayer adhkar.
@@ -871,6 +872,16 @@ export const HomeScreen: React.FC = () => {
           <ServiceTile key={item.screen} p={p} icon={item.icon} label={t(item.title, item.titleEn)} tone={tone} onPress={() => { triggerHaptic('light'); navigate(item.screen); }} />
         ))}
       </View>
+
+      {/* Haramain lessons banner (an unfinished lesson already has its own continue card above) */}
+      <HaramainBanner
+        eyebrow={t(`دروس الحرمين · ${toArabicNumber(HARAMAIN_COURSES.length)} مقررًا`, `Haramain lessons · ${HARAMAIN_COURSES.length} courses`)}
+        title={t('كراسي العلماء في الحرمين', 'Scholars’ lessons in the Haramain')}
+        subtitle={t('المسجد الحرام والمسجد النبوي', 'Makkah and Madinah')}
+        cta={t('تصفّح', 'Browse')}
+        height={140}
+        onPress={() => { triggerHaptic('light'); navigate('haramain_lessons'); }}
+      />
 
       {/* Ayah of the day, in a framed cartouche like a mushaf heading */}
       {dailyVerse ? (

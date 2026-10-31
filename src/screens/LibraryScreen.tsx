@@ -5,6 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Rect, Circle, G } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
 import { TextUI } from '../components/common/TextUI';
+import { HaramainBanner } from '../components/library/HaramainBanner';
 import { usePalette, Palette } from '../theme/palette';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { AudioService, LessonResumeRecord } from '../services/audioService';
@@ -116,37 +117,13 @@ export const LibraryScreen: React.FC = () => {
       <TextUI font="amiri" size={30} weight="bold" color={p.primaryInk}>{t('المكتبة', 'Library')}</TextUI>
 
       {/* Featured: Haramain lessons (continue, or explore) */}
-      <TouchableOpacity activeOpacity={0.88} accessibilityRole="button" onPress={openFeatured} style={{ borderRadius: 24, overflow: 'hidden', minHeight: 170, backgroundColor: '#5D3A22' }}>
-        <Svg width="100%" height="100%" viewBox="0 0 358 170" preserveAspectRatio="xMinYMax slice" style={{ position: 'absolute', top: 0, left: 0 }}>
-          <Path d="M0 0 H358 V170 H0Z" fill="#7A4E2F" />
-          <Path d="M200 0 H358 V170 H160Z" fill="#A86A3E" opacity={0.55} />
-          <G fill="#2D1E16" opacity={0.55}>
-            <Rect x={20} y={70} width={14} height={100} />
-            <Path d="M20 70 Q27 56 34 70Z" />
-            <Rect x={40} y={110} width={110} height={60} />
-            <Path d="M60 110 Q95 66 130 110Z" />
-            <Rect x={156} y={82} width={12} height={88} />
-            <Path d="M156 82 Q162 70 168 82Z" />
-          </G>
-          <G fill="#F2C98D" opacity={0.8}>
-            <Path d="M58 128 h10 v18 h-10z M58 128 a5 5 0 0 1 10 0z" />
-            <Path d="M82 128 h10 v18 h-10z M82 128 a5 5 0 0 1 10 0z" />
-            <Path d="M106 128 h10 v18 h-10z M106 128 a5 5 0 0 1 10 0z" />
-          </G>
-        </Svg>
-        <View style={{ width: '52%', alignSelf: 'flex-start', padding: 18, gap: 4, justifyContent: 'center', minHeight: 170 }}>
-          <TextUI size={12.5} weight="bold" color="#F4D9A8">{t('دروس الحرمين', 'Haramain lessons')}</TextUI>
-          <TextUI size={18} weight="bold" color="#FFFDF9" numberOfLines={2}>
-            {course && lesson ? t(`تابع: ${lesson.titleAr}`, `Continue: ${lesson.titleAr}`) : t('كراسي العلماء في الحرمين', 'Scholars’ lessons in the Haramain')}
-          </TextUI>
-          <TextUI size={12.5} color="#F1DCC0" numberOfLines={1}>
-            {course && lesson ? `${course.scholarAr} · ${t(`الدرس ${toArabicNumber(lesson.number)}`, `Lesson ${lesson.number}`)}` : t('المسجد الحرام والمسجد النبوي', 'Makkah and Madinah')}
-          </TextUI>
-          <View style={{ alignSelf: 'flex-start', marginTop: 6, minHeight: 38, paddingHorizontal: 16, borderRadius: 12, justifyContent: 'center', backgroundColor: '#F4D9A8' }}>
-            <TextUI size={14} weight="bold" color="#2D1E16">{course && lesson ? t('استمع', 'Listen') : t('تصفّح', 'Browse')}</TextUI>
-          </View>
-        </View>
-      </TouchableOpacity>
+      <HaramainBanner
+        eyebrow={t('دروس الحرمين', 'Haramain lessons')}
+        title={course && lesson ? t(`تابع: ${lesson.titleAr}`, `Continue: ${lesson.titleAr}`) : t('كراسي العلماء في الحرمين', 'Scholars’ lessons in the Haramain')}
+        subtitle={course && lesson ? `${course.scholarAr} · ${t(`الدرس ${toArabicNumber(lesson.number)}`, `Lesson ${lesson.number}`)}` : t('المسجد الحرام والمسجد النبوي', 'Makkah and Madinah')}
+        cta={course && lesson ? t('استمع', 'Listen') : t('تصفّح', 'Browse')}
+        onPress={openFeatured}
+      />
 
       {/* Sections */}
       {rows.map((row, i) => (
