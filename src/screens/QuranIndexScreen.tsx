@@ -11,6 +11,11 @@ import { QURAN_RECITERS } from '../services/quranParser';
 import { toArabicNumber } from '../services/prayerCalculation';
 import { searchQuranUniversal, splitTextForHighlight, VerseSearchResult } from '../services/quranSearch';
 import { getUiLanguage } from '../i18n/language';
+import { useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { ProgressRing } from '../components/ui/ProgressRing';
+import { Khatma, KhatmaService, getKhatmaProgress } from '../services/khatmaService';
 
 const QURAN_DATA: any[] = require('../../assets/quran_complete_114.json');
 const RECITER_STORAGE_KEY = 'quran.selected-reciter';
@@ -86,6 +91,17 @@ export const QuranIndexScreen: React.FC = () => {
   }, []);
 
   const selectedReciterData = QURAN_RECITERS.find((item) => item.id === selectedReciter) || QURAN_RECITERS[0];
+
+  // The running khatma, refreshed whenever the tab comes back (the reader advances it).
+  const [khatma, setKhatma] = useState<Khatma | null>(null);
+  useFocusEffect(
+    React.useCallback(() => {
+      let alive = true;
+      KhatmaService.getActive().then((k) => { if (alive) setKhatma(k); });
+      return () => { alive = false; };
+    }, [])
+  );
+  const khatmaProgress = khatma && !khatma.completedAt ? getKhatmaProgress(khatma) : null;
 
   // Universal search results
   const searchResults = useMemo(() => {
@@ -305,17 +321,28 @@ export const QuranIndexScreen: React.FC = () => {
       autoPlay
     });
   };
+  // Illustrated panel: dusk sky, an arch, the crescent, and the open mushaf on its stand.
   const resumeCard = (
-    <View style={{ gap: 14, padding: 16, borderRadius: 20, backgroundColor: p.hero }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 44, height: 52, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 1.5, borderColor: p.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Feather name={readingBookmark ? 'bookmark' : 'book-open'} size={19} color={p.accent} />
+    <View style={{ borderRadius: 24, overflow: 'hidden' }}>
+      <LinearGradient colors={['#2E2A4A', '#5B3E63', '#9A5A4A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+    <View style={{ gap: 12, padding: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+        <View style={{ flex: 1, gap: 3, paddingBottom: 6 }}>
+          <TextUI size={13} weight="bold" color="#E8C79A">{readingBookmark ? t('تابع من حيث توقفت', 'Pick up where you left off') : t('ابدأ القراءة', 'Start reading')}</TextUI>
+          <TextUI size={20} weight="bold" color="#FFFDF9">{en ? `${surahLabel(resume.surahId, resume.surahName)} · Verse ${toArabicNumber(resume.ayah)}` : `${resume.surahName} · الآية ${toArabicNumber(resume.ayah)}`}</TextUI>
+          <TextUI size={13} color="#E8D3B4">{t(`صفحة ${toArabicNumber(resume.page)} · الجزء ${toArabicNumber(resume.juz)}`, `Page ${toArabicNumber(resume.page)} · Juz ${toArabicNumber(resume.juz)}`)}</TextUI>
         </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <TextUI size={13} color={p.onHeroMuted}>{readingBookmark ? t('تابع من حيث توقفت', 'Pick up where you left off') : t('ابدأ القراءة', 'Start reading')}</TextUI>
-          <TextUI size={18} weight="bold" color={p.onHero}>{en ? `${surahLabel(resume.surahId, resume.surahName)} · Verse ${toArabicNumber(resume.ayah)}` : `${resume.surahName} · الآية ${toArabicNumber(resume.ayah)}`}</TextUI>
-          <TextUI size={13} color={p.onHeroMuted}>{t(`صفحة ${toArabicNumber(resume.page)} · الجزء ${toArabicNumber(resume.juz)}`, `Page ${toArabicNumber(resume.page)} · Juz ${toArabicNumber(resume.juz)}`)}</TextUI>
-        </View>
+        <Svg width={112} height={118} viewBox="0 0 128 136">
+          <Circle cx={110} cy={14} r={1.3} fill="#FFF3DC" />
+          <Circle cx={8} cy={30} r={1.1} fill="#FFF3DC" />
+          <Path d="M8 136 V64 A56 56 0 0 1 120 64 V136" fill="rgba(20,14,30,0.35)" stroke="#E8C79A" strokeWidth={1.6} />
+          <Path d="M17 136 V66 A47 47 0 0 1 111 66 V136" fill="none" stroke="#E8C79A" strokeWidth={0.8} opacity={0.5} />
+          <Path d="M82 46 a14 14 0 1 1 -10 -25 a11 11 0 1 0 10 25z" fill="#F4D9A8" />
+          <Path d="M28 116 L64 98 L100 116" fill="none" stroke="#C69255" strokeWidth={5} strokeLinecap="round" />
+          <Path d="M32 118 L50 134 M96 118 L78 134" stroke="#C69255" strokeWidth={4} strokeLinecap="round" />
+          <Path d="M30 107 Q47 94 64 101 Q81 94 98 107 L98 113 Q81 102 64 109 Q47 102 30 113Z" fill="#FBF3E4" />
+          <Path d="M64 101 V109" stroke="#C69255" strokeWidth={1} />
+        </Svg>
       </View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <TouchableOpacity
@@ -352,27 +379,55 @@ export const QuranIndexScreen: React.FC = () => {
         <Feather name="chevron-down" size={13} color={p.onHeroMuted} />
       </TouchableOpacity>
     </View>
+    </View>
   );
+
+  // Khatma: a ring for the whole plan and today's portion, when one is running.
+  const khatmaCard = khatmaProgress && !khatmaProgress.isComplete ? (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      onPress={() => { triggerHaptic('light'); navigate('khatma'); }}
+      style={{ borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+    >
+      <ProgressRing size={72} stroke={7} progress={khatmaProgress.percent / 100} color={p.accent} track={p.track}>
+        <TextUI size={15} weight="bold" color={p.ink}>{t(`${toArabicNumber(khatmaProgress.percent)}٪`, `${khatmaProgress.percent}%`)}</TextUI>
+      </ProgressRing>
+      <View style={{ flex: 1, gap: 3 }}>
+        <TextUI size={16} weight="bold" color={p.ink} numberOfLines={1}>{khatma!.name}</TextUI>
+        <TextUI size={13.5} color={p.muted}>
+          {khatmaProgress.readToday >= khatmaProgress.todayTarget
+            ? t('أتممت وِرد اليوم، بارك الله فيك', "Today's portion is done, may Allah bless you")
+            : t(`وِرد اليوم: بقي ${toArabicNumber(khatmaProgress.todayTarget - khatmaProgress.readToday)} من ${toArabicNumber(khatmaProgress.todayTarget)} صفحات`, `Today: ${khatmaProgress.todayTarget - khatmaProgress.readToday} of ${khatmaProgress.todayTarget} pages left`)}
+        </TextUI>
+        <TextUI size={14} weight="bold" color={p.primary}>{t(`تابع من صفحة ${toArabicNumber(khatmaProgress.nextPage)}`, `Continue from page ${khatmaProgress.nextPage}`)}</TextUI>
+      </View>
+    </TouchableOpacity>
+  ) : null;
 
   const listHeader = (
     <View style={{ gap: 12, marginBottom: 12 }}>
       {resumeCard}
 
-      {/* Khatma & memorization shortcuts */}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      {khatmaCard}
+
+      {/* Khatma & memorization as arch tiles */}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
         {[
-          { key: 'khatma', label: t('ختمتي', 'My Khatma'), icon: 'award' as const },
-          { key: 'tahfeez', label: t('جلسة حفظ', 'Memorize'), icon: 'repeat' as const }
+          { key: 'khatma', label: t('ختمتي', 'My Khatma'), note: khatmaProgress && !khatmaProgress.isComplete ? t('تفاصيل الخطة', 'Plan details') : t('ابدأ ختمة', 'Start a khatma'), icon: 'award' as const },
+          { key: 'tahfeez', label: t('الحفظ', 'Memorize'), note: t('جلسة تكرار', 'Repetition session'), icon: 'repeat' as const }
         ].map((item) => (
           <TouchableOpacity
             key={item.key}
             activeOpacity={0.85}
             accessibilityRole="button"
-            onPress={() => navigate(item.key)}
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
+            accessibilityLabel={`${item.label}، ${item.note}`}
+            onPress={() => { triggerHaptic('light'); navigate(item.key); }}
+            style={{ flex: 1, minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 12, borderTopLeftRadius: 40, borderTopRightRadius: 40, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}
           >
-            <Feather name={item.icon} size={16} color={p.primary} />
+            <Feather name={item.icon} size={21} color={p.primary} />
             <TextUI size={15} weight="bold" color={p.ink}>{item.label}</TextUI>
+            <TextUI size={12.5} color={p.muted}>{item.note}</TextUI>
           </TouchableOpacity>
         ))}
       </View>
@@ -411,7 +466,7 @@ export const QuranIndexScreen: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       {/* Title, reciter and search stay fixed so the search field keeps focus while results change */}
       <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 24 : 16, paddingBottom: 12, gap: 14 }}>
-        <TextUI size={26} weight="bold" color={p.ink}>{t('القرآن الكريم', 'The Holy Quran')}</TextUI>
+        <TextUI font="amiri" size={30} weight="bold" color={p.primaryInk}>{t('المصحف', 'The Quran')}</TextUI>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
           <Feather name="search" size={18} color={p.muted} />
