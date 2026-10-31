@@ -100,6 +100,17 @@ export const QuranReaderScreen: React.FC = () => {
   const screenParams = useScreenParams();
   const lessonPlayer = useLessonPlayer();
 
+  // The ayah the reader was opened at is highlighted for a few seconds so it is easy to find, then
+  // fades; only real bookmarks keep their highlight and the bookmark sign.
+  const openedKey = `${screenParams?.startSurahId ?? ''}:${screenParams?.startAyah ?? ''}`;
+  const [fadedOpenedKey, setFadedOpenedKey] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setFadedOpenedKey(openedKey), 4000);
+    return () => clearTimeout(timer);
+  }, [openedKey]);
+  const isOpenedAyah = (verse: QuranVerse) => fadedOpenedKey !== openedKey &&
+    Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber;
+
   const p = usePalette();
   const en = lang === 'en';
   const tafsirCardBgColor = p.soft;
@@ -1244,8 +1255,8 @@ export const QuranReaderScreen: React.FC = () => {
 
   const renderVerse = (verse: QuranVerse) => {
     const isPlaying = playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
-    const isMarked = isBookmarked(verse) ||
-      (Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber);
+    const isSaved = isBookmarked(verse);
+    const isMarked = isSaved || isOpenedAyah(verse);
     return (
       <React.Fragment key={`v-${verse.surahId}-${verse.ayahNumber}`}>
         <Text
@@ -1262,7 +1273,7 @@ export const QuranReaderScreen: React.FC = () => {
               : undefined
           }}
         >
-          {isMarked ? ' 🔖 ' : ''}
+          {isSaved ? ' 🔖 ' : ''}
           {tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`]
             ? renderTajweedText(tajweedTexts[`${verse.surahId}-${verse.ayahNumber}`], `v-${verse.surahId}-${verse.ayahNumber}`)
             : forHafsFont(verse.text)}
@@ -1324,7 +1335,7 @@ export const QuranReaderScreen: React.FC = () => {
   const pageVersion = [
     quranFontSize, p.ink, p.surface, lang, playingSurahId, playingAyahNum, searchQuery,
     bookmarks.map((b) => `${b.surahId}:${b.ayah}`).join(','),
-    screenParams?.startSurahId, screenParams?.startAyah, mushafWidth, isDarkTheme
+    screenParams?.startSurahId, screenParams?.startAyah, fadedOpenedKey, mushafWidth, isDarkTheme
   ].join('|');
 
   // Surah banner: a geometric-star frame (assets/surah-banner-*.png, 1330×133) with the name in
@@ -1416,8 +1427,7 @@ export const QuranReaderScreen: React.FC = () => {
               {words.map((word, index) => {
                 const verse = verseByKey.get(word.verseKey);
                 const isPlaying = !!verse && playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
-                const isMarked = !!verse && (isBookmarked(verse) ||
-                  (Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber));
+                const isMarked = !!verse && (isBookmarked(verse) || isOpenedAyah(verse));
                 // Each word sits in a cell that takes its share of the line's spare width, so a
                 // highlighted ayah is one continuous band with no gaps between its words. The edge
                 // words take half a share and hug the margins, which spaces the words exactly as
