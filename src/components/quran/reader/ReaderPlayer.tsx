@@ -19,10 +19,6 @@ export interface ReaderPlayerProps {
   progressRatio: number;
   elapsedLabel: string;
   remainingLabel: string;
-  autoScroll: boolean;
-  scrollSpeedIndex: number;
-  onScrollSpeed: (index: number) => void;
-  onStopAutoScroll: () => void;
   onSeek: (locationX: number, width: number) => void;
   onTogglePlay: () => void;
   onSkip: (direction: 1 | -1) => void;
@@ -77,13 +73,48 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({ isPlaying, isLoadi
   );
 };
 
+/** Auto-scroll speeds and Stop, shown (with the bars) while the page scrolls by itself. */
+export const ReaderScrollBar: React.FC<{ speedIndex: number; onSpeed: (index: number) => void; onStop: () => void }> = ({ speedIndex, onSpeed, onStop }) => {
+  const p = usePalette();
+  const { triggerHaptic, t } = useApp();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 6, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, ...makeShadow('0 6px 18px rgba(45,30,22,0.14)', '#2D1E16', 0.14, 6) }}>
+      <Feather name="chevrons-down" size={16} color={p.primary} style={{ marginHorizontal: 4 }} />
+      <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+        {SCROLL_SPEED_OPTIONS.map((opt, idx) => {
+          const selected = speedIndex === idx;
+          return (
+            <TouchableOpacity
+              key={`scroll-spd-${idx}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              onPress={() => { triggerHaptic('light'); onSpeed(idx); }}
+              style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 8, borderRadius: 10, backgroundColor: selected ? p.primary : 'transparent' }}
+            >
+              <TextUI size={12.5} weight={selected ? 'bold' : 'medium'} color={selected ? p.onPrimary : p.muted}>{t(opt.label, opt.labelEn)}</TextUI>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t('إيقاف التمرير التلقائي', 'Stop auto-scroll')}
+        onPress={() => { triggerHaptic('light'); onStop(); }}
+        style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, backgroundColor: p.dangerBg }}
+      >
+        <TextUI size={12.5} weight="bold" color={p.danger}>{t('إيقاف', 'Stop')}</TextUI>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 /**
  * Floating recitation player. Compact by default (play/pause, reciter and ayah, close); the
  * chevron opens the full controls: seek, previous/next ayah, speed, repeat and tafsir.
  */
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
-  elapsedLabel, remainingLabel, autoScroll, scrollSpeedIndex, onScrollSpeed, onStopAutoScroll,
+  elapsedLabel, remainingLabel,
   onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion
 }) => {
   const p = usePalette();
@@ -117,37 +148,6 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
 
   return (
     <View style={{ position: 'absolute', left: 12, right: 12, bottom, gap: 8 }}>
-      {/* Auto-scroll speed (only while auto-scroll is on) */}
-      {autoScroll && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 6, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
-          <Feather name="chevrons-down" size={16} color={p.primary} style={{ marginStart: 4 }} />
-          <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-            {SCROLL_SPEED_OPTIONS.map((opt, idx) => {
-              const selected = scrollSpeedIndex === idx;
-              return (
-                <TouchableOpacity
-                  key={`scroll-spd-${idx}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                  onPress={() => { triggerHaptic('light'); onScrollSpeed(idx); }}
-                  style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 8, borderRadius: 10, backgroundColor: selected ? p.primary : 'transparent' }}
-                >
-                  <TextUI size={12.5} weight={selected ? 'bold' : 'medium'} color={selected ? p.onPrimary : p.muted}>{t(opt.label, opt.labelEn)}</TextUI>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={t('إيقاف التمرير التلقائي', 'Stop auto-scroll')}
-            onPress={() => { triggerHaptic('light'); onStopAutoScroll(); }}
-            style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, backgroundColor: p.dangerBg }}
-          >
-            <TextUI size={12.5} weight="bold" color={p.danger}>{t('إيقاف', 'Stop')}</TextUI>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View
         accessibilityLabel={t('مشغّل التلاوة', 'Recitation player')}
         style={{

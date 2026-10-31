@@ -42,7 +42,7 @@ import { KhatmaService } from '../services/khatmaService';
 import { usePalette, PALETTE } from '../theme/palette';
 import { MushafPageLayout, prepareMushafPage, supportsMushafPages } from '../services/mushafPages';
 import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIONS } from '../components/quran/reader/readerShared';
-import { ReaderPlayer, ReaderToolbar, READER_TOOLBAR_HEIGHT } from '../components/quran/reader/ReaderPlayer';
+import { ReaderPlayer, ReaderToolbar, ReaderScrollBar, READER_TOOLBAR_HEIGHT } from '../components/quran/reader/ReaderPlayer';
 import { useLessonPlayer } from '../context/LessonPlayerContext';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
@@ -1940,14 +1940,28 @@ export const QuranReaderScreen: React.FC = () => {
           isLoading={isAudioLoading}
           autoScroll={autoScroll}
           onListen={() => { setAutoScroll(false); toggleAudioPlayback(); }}
-          onAutoScroll={() => { const next = !autoScroll; setAutoScroll(next); if (next) setIsImmersive(true); }}
+          onAutoScroll={() => setAutoScroll(!autoScroll)}
           onView={() => setReadingMenuVisible(true)}
           onSearch={() => setIsSearching(true)}
         />
       </Animated.View>
 
-      {/* While reciting (or auto-scrolling) the compact player stays, in full screen too */}
-      {(isAudioPlaying || isAudioLoading || playingAyahNum != null || autoScroll) ? (
+      {/* Auto-scroll without recitation: only the speeds, shown and hidden with the bars */}
+      {autoScroll && !(isAudioPlaying || isAudioLoading || playingAyahNum != null) ? (
+        <Animated.View
+          pointerEvents={isImmersive ? 'none' : 'box-none'}
+          style={{
+            position: 'absolute', left: 12, right: 12, bottom: READER_TOOLBAR_HEIGHT + 8, zIndex: 21, elevation: 7,
+            opacity: chromeAnim,
+            transform: [{ translateY: chromeAnim.interpolate({ inputRange: [0, 1], outputRange: [READER_TOOLBAR_HEIGHT, 0] }) }]
+          }}
+        >
+          <ReaderScrollBar speedIndex={scrollSpeedIndex} onSpeed={setScrollSpeedIndex} onStop={() => setAutoScroll(false)} />
+        </Animated.View>
+      ) : null}
+
+      {/* While reciting the compact player stays, in full screen too */}
+      {(isAudioPlaying || isAudioLoading || playingAyahNum != null) ? (
         <ReaderPlayer
           bottom={isImmersive ? (Platform.OS === 'ios' ? 28 : 12) : READER_TOOLBAR_HEIGHT + 8}
           reciterName={en ? currentReciterObj.nameEn : currentReciterObj.nameAr}
@@ -1960,10 +1974,6 @@ export const QuranReaderScreen: React.FC = () => {
           progressRatio={surahProgressRatio}
           elapsedLabel={formatAudioTime(surahElapsedSeconds)}
           remainingLabel={formatAudioTime(surahRemainingSeconds)}
-          autoScroll={autoScroll}
-          scrollSpeedIndex={scrollSpeedIndex}
-          onScrollSpeed={setScrollSpeedIndex}
-          onStopAutoScroll={() => setAutoScroll(false)}
           onSeek={handleSurahProgressPress}
           onTogglePlay={toggleAudioPlayback}
           onSkip={skipAyah}
