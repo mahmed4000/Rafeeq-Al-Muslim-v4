@@ -45,6 +45,7 @@ import { QURAN_DATA, JumpType, PlaybackSettings, ReadingMode, SCROLL_SPEED_OPTIO
 import { ReaderPlayer, ReaderToolbar, ReaderScrollBar, READER_TOOLBAR_HEIGHT } from '../components/quran/reader/ReaderPlayer';
 import { useLessonPlayer } from '../context/LessonPlayerContext';
 import { JumpSheet } from '../components/quran/reader/JumpSheet';
+import { PageNumberStar } from '../components/quran/reader/PageNumberStar';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
 import { AyahTafsirSheet } from '../components/quran/reader/AyahTafsirSheet';
@@ -1270,12 +1271,8 @@ export const QuranReaderScreen: React.FC = () => {
   const isDarkTheme = p.bg === PALETTE.dark.bg;
 
   const renderPageEnd = (pageNumber: number) => (
-    <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 12, marginBottom: 7, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
-      <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7 }}>❧</TextUI>
-      <View style={{ minWidth: 78, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2, borderWidth: 1, borderColor: p.border, borderRadius: 22, backgroundColor: p.bgAlt }}><TextUI quran size={22} weight="bold" color={p.ink}>{toArabicIndicDigits(pageNumber)}</TextUI></View>
-      <TextUI quran size={24} color={p.muted} style={{ paddingHorizontal: 7, transform: [{ scaleX: -1 }] }}>❧</TextUI>
-      <View style={{ flex: 1, height: 1, backgroundColor: p.border }} />
+    <View accessibilityLabel={t(`نهاية الصفحة ${toArabicNumber(pageNumber)}`, `End of page ${toArabicNumber(pageNumber)}`)} style={{ marginTop: 10, marginBottom: 5, paddingVertical: 6 }}>
+      <PageNumberStar label={toArabicIndicDigits(pageNumber)} />
     </View>
   );
 
@@ -1323,17 +1320,18 @@ export const QuranReaderScreen: React.FC = () => {
     screenParams?.startSurahId, screenParams?.startAyah, mushafWidth, isDarkTheme
   ].join('|');
 
-  // Surah banner: our own drawn frame (assets/surah-banner-*.png) with the name in the Hafs font.
-  // Explicit size: with only aspectRatio, iOS sized the banner to its text and left it short on the right.
+  // Surah banner: a geometric-star frame (assets/surah-banner-*.png, 1330×133) with the name in
+  // the Hafs font. Explicit size: with only aspectRatio, iOS sized the banner to its text and left
+  // it short on the right.
   const bannerWidth = Math.max(240, (mushafWidth || 360) - 4);
   const renderSurahNameFrame = (surahName: string, topOffset: number) => (
-    <View style={{ alignSelf: 'center', width: bannerWidth, height: Math.round(bannerWidth * 150 / 1080), marginTop: topOffset, marginBottom: 6, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ alignSelf: 'center', width: bannerWidth, height: Math.round(bannerWidth * 133 / 1330), marginTop: topOffset, marginBottom: 6, alignItems: 'center', justifyContent: 'center' }}>
       <Image
         source={isDarkTheme ? SURAH_BANNER_DARK : SURAH_BANNER_LIGHT}
         resizeMode="stretch"
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
       />
-      <Text numberOfLines={1} style={{ fontFamily: MUSHAF_FONT, fontSize: 19, color: p.ink, textAlign: 'center', writingDirection: 'rtl' }}>
+      <Text numberOfLines={1} style={{ fontFamily: MUSHAF_FONT, fontSize: Math.max(18, Math.min(36, Math.round(bannerWidth * 133 / 1330 * 0.46))), color: p.ink, textAlign: 'center', writingDirection: 'rtl' }}>
         سُورَةُ {surahName}
       </Text>
     </View>
