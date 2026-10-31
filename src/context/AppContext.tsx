@@ -200,7 +200,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerHaptic('light');
     const pathnameFor = SCREEN_PATHS[nextScreen] || '/';
     if (TAB_SCREENS.has(nextScreen)) {
-      router.navigate(pathnameFor as any);
+      router.navigate({ pathname: pathnameFor as any, params: serializeParams(params) });
     } else {
       router.push({ pathname: pathnameFor as any, params: serializeParams(params) });
     }

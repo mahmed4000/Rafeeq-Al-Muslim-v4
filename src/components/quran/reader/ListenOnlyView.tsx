@@ -178,6 +178,9 @@ export const ListenOnlyView: React.FC<ListenOnlyViewProps> = ({
           )}
           {tile(t('القارئ', 'Reciter'), t('تغيير', 'Change'), t(`القارئ: ${reciterName}. اضغط للتغيير`, `Reciter: ${reciterName}. Tap to change`), onOpenReciter)}
         </View>
+
+        {/* Background audio is set in app.json (UIBackgroundModes) and the root audio mode */}
+        <TextUI size={12} color={p.muted} style={{ marginTop: 12, textAlign: 'center' }}>{t('يستمر الصوت عند قفل الشاشة', 'Audio keeps playing when the screen locks')}</TextUI>
       </View>
     </View>
   );

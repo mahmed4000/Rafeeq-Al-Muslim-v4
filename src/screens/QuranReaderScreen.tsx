@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { createAudioPlayer } from 'expo-audio';
+import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, ScrollView as GestureScrollView } from 'react-native-gesture-handler';
@@ -49,7 +50,7 @@ import { PageNumberStar } from '../components/quran/reader/PageNumberStar';
 import { PlaybackSettingsSheet } from '../components/quran/reader/PlaybackSettingsSheet';
 import { AyahActionSheet, AyahNoteSheet } from '../components/quran/reader/AyahSheets';
 import { AyahTafsirSheet } from '../components/quran/reader/AyahTafsirSheet';
-import { ReadingMenuSheet, ReciterSheet, FontSizeSheet, TafsirPickerSheet } from '../components/quran/reader/ReaderOptionSheets';
+import { ReadingMenuSheet, ReaderMoreSheet, ReciterSheet, FontSizeSheet, TafsirPickerSheet } from '../components/quran/reader/ReaderOptionSheets';
 import { ListenChoiceSheet, LISTEN_MODE_KEY, type ListenMode } from '../components/quran/reader/ListenChoiceSheet';
 import { ListenOnlyView } from '../components/quran/reader/ListenOnlyView';
 
@@ -85,6 +86,7 @@ const MushafPageBlock = React.memo(MushafPage, (prev, next) => prev.pageNumber =
 export const QuranReaderScreen: React.FC = () => {
   const {
     goBack,
+    navigate,
     t,
     isRTL,
     lang,
@@ -128,6 +130,7 @@ export const QuranReaderScreen: React.FC = () => {
     screenParams?.readingMode === 'tafsir' ? 'tafsir' : (screenParams?.readingMode === 'surah' ? 'surah' : 'page')
   );
   const [readingMenuVisible, setReadingMenuVisible] = useState(false);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
   const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
   const [tafsirPickerVisible, setTafsirPickerVisible] = useState(false);
   const [streamTafsirs, setStreamTafsirs] = useState<Record<string, string>>({});
@@ -917,6 +920,27 @@ export const QuranReaderScreen: React.FC = () => {
     setActionModalVisible(false);
   };
 
+  // Copies the verse with its reference (no app signature), then confirms briefly.
+  const [copiedNote, setCopiedNote] = useState(false);
+  useEffect(() => {
+    if (!copiedNote) return;
+    const timer = setTimeout(() => setCopiedNote(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copiedNote]);
+  const handleCopyAyah = (verse: QuranVerse) => {
+    const verseSurah = QURAN_DATA.find((item) => item.id === verse.surahId) || currentSurah;
+    const text = t(
+      `﴿ ${verse.text} ﴾ [سورة ${verseSurah.nameAr}: الآية ${verse.ayahNumber}]`,
+      `﴿ ${verse.text} ﴾ [Surah ${verseSurah.nameEn}: verse ${verse.ayahNumber}]`
+    );
+    setActionModalVisible(false);
+    Clipboard.setStringAsync(text).then((ok) => {
+      if (ok === false) return;
+      triggerHaptic('success');
+      setCopiedNote(true);
+    }).catch(() => {});
+  };
+
   const handleNextSurah = () => {
     stopAudio();
     triggerHaptic('light');
@@ -1619,6 +1643,14 @@ export const QuranReaderScreen: React.FC = () => {
             >
               <Feather name="bookmark" size={20} color={pageBookmarked ? p.accentInk : p.muted} />
             </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('المزيد', 'More')}
+              onPress={() => { triggerHaptic('light'); setMoreMenuVisible(true); }}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Feather name="more-horizontal" size={22} color={p.muted} />
+            </TouchableOpacity>
           </View>
 
       {/* Tafsir view: which tafsir, and page steps */}
@@ -2132,7 +2164,22 @@ export const QuranReaderScreen: React.FC = () => {
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
 
       {/* Ayah Action Sheet Modal */}
-      <AyahActionSheet actionModalVisible={actionModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} setActionModalVisible={setActionModalVisible} openAyahTafsir={openAyahTafsir} playAyahAudio={requestListen} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} />
+      <AyahActionSheet actionModalVisible={actionModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} setActionModalVisible={setActionModalVisible} openAyahTafsir={openAyahTafsir} playAyahAudio={requestListen} currentReciterObj={currentReciterObj} setReciterModalVisible={setReciterModalVisible} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} handleCopyAyah={handleCopyAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} />
+
+      {copiedNote ? (
+        <View pointerEvents="none" accessibilityLiveRegion="polite" style={{ position: 'absolute', top: headerHeight + 12, alignSelf: 'center', zIndex: 30, elevation: 9, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: p.hero }}>
+          <Feather name="check" size={16} color={p.onHero} />
+          <TextUI size={13.5} weight="bold" color={p.onHero}>{t('نُسخت الآية', 'Verse copied')}</TextUI>
+        </View>
+      ) : null}
+
+      <ReaderMoreSheet
+        visible={moreMenuVisible}
+        onClose={() => setMoreMenuVisible(false)}
+        onBookmarks={() => navigate('quran_index', { tab: 'bookmarks', at: Date.now() })}
+        onPlaybackSettings={() => setPlaybackSettingsVisible(true)}
+        onKhatma={() => navigate('khatma')}
+      />
 
       <AyahTafsirSheet tafsirModalVisible={tafsirModalVisible} setTafsirModalVisible={setTafsirModalVisible} activeAyah={activeAyah} currentSurah={currentSurah} activePage={activePage} handleChangeTafsirFontSize={handleChangeTafsirFontSize} renderAyahMarker={renderAyahMarker} playingAyahNum={playingAyahNum} playingSurahId={playingSurahId} stopAudio={stopAudio} playAyahAudio={playAyahAudio} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} handleShareAyah={handleShareAyah} setAyahNoteText={setAyahNoteText} ayahNotes={ayahNotes} ayahNoteKey={ayahNoteKey} setAyahNoteModalVisible={setAyahNoteModalVisible} setActionModalVisible={setActionModalVisible} tafsirEditions={tafsirEditions} selectedTafsirId={selectedTafsirId} handleSelectTafsir={handleSelectTafsir} tafsirLoading={tafsirLoading} tafsirError={tafsirError} loadAyahTafsir={loadAyahTafsir} activeTafsirText={activeTafsirText} tafsirFontSize={tafsirFontSize} handleNavigateAyahTafsir={handleNavigateAyahTafsir} parsedSurah={parsedSurah} />
 

@@ -124,6 +124,59 @@ export const ReadingMenuSheet: React.FC<ReadingMenuSheetProps> = ({ readingMenuV
   );
 };
 
+export interface ReaderMoreSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  onBookmarks: () => void;
+  onPlaybackSettings: () => void;
+  onKhatma: () => void;
+}
+
+/** The top bar's "⋯": bookmarks, recitation settings, and the khatma. */
+export const ReaderMoreSheet: React.FC<ReaderMoreSheetProps> = ({ visible, onClose, onBookmarks, onPlaybackSettings, onKhatma }) => {
+  const p = usePalette();
+  const { triggerHaptic, t, isRTL } = useApp();
+  const rows: { key: string; icon: React.ComponentProps<typeof Feather>['name']; label: string; note: string; open: () => void }[] = [
+    { key: 'bookmarks', icon: 'bookmark', label: t('العلامات', 'Bookmarks'), note: t('الآيات التي وضعت عليها علامة', 'The verses you bookmarked'), open: onBookmarks },
+    { key: 'playback', icon: 'repeat', label: t('إعدادات التلاوة والتكرار', 'Recitation and repeat settings'), note: t('نطاق التلاوة والتكرار والسرعة', 'Range, repeats and speed'), open: onPlaybackSettings },
+    { key: 'khatma', icon: 'target', label: t('ختمتي', 'My khatma'), note: t('ورد اليوم والتقدّم', "Today's portion and progress"), open: onKhatma }
+  ];
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity accessibilityLabel={t('إغلاق', 'Close')} activeOpacity={1} onPress={onClose} style={{ flex: 1 }} />
+        <View style={{ backgroundColor: p.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 14 }}>
+          <View style={{ width: 44, height: 4.5, borderRadius: 3, backgroundColor: p.border, alignSelf: 'center', marginBottom: 6 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }}>
+            <TextUI size={18} weight="bold" color={p.ink}>{t('المزيد', 'More')}</TextUI>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('إغلاق', 'Close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name="x" size={20} color={p.ink} />
+            </TouchableOpacity>
+          </View>
+          {rows.map((row) => (
+            <TouchableOpacity
+              key={row.key}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`${row.label}. ${row.note}`}
+              // Act once the sheet has closed: leaving the reader at once froze it with the sheet still showing.
+              onPress={() => { triggerHaptic('light'); onClose(); setTimeout(row.open, 300); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 20, borderTopWidth: 1, borderColor: p.border }}
+            >
+              <Feather name={row.icon} size={18} color={p.primary} />
+              <View style={{ flex: 1 }}>
+                <TextUI size={15} color={p.ink}>{row.label}</TextUI>
+                <TextUI size={12.5} color={p.muted}>{row.note}</TextUI>
+              </View>
+              <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={p.muted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export interface ReciterSheetProps {
   reciterModalVisible: boolean;
   setReciterModalVisible: (v: boolean) => void;

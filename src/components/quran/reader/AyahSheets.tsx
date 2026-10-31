@@ -21,13 +21,14 @@ export interface AyahActionSheetProps {
   toggleBookmark: (verse: QuranVerse) => void;
   isBookmarked: (verse: QuranVerse) => boolean;
   handleShareAyah: (verse: QuranVerse, withTafsir?: boolean) => void;
+  handleCopyAyah: (verse: QuranVerse) => void;
   setAyahNoteText: (text: string) => void;
   ayahNotes: Record<string, string>;
   ayahNoteKey: (verse: QuranVerse | null) => string;
   setAyahNoteModalVisible: (v: boolean) => void;
 }
 
-export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVisible, activeAyah, currentSurah, setActionModalVisible, openAyahTafsir, playAyahAudio, currentReciterObj, setReciterModalVisible, toggleBookmark, isBookmarked, handleShareAyah, setAyahNoteText, ayahNotes, ayahNoteKey, setAyahNoteModalVisible }) => {
+export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVisible, activeAyah, currentSurah, setActionModalVisible, openAyahTafsir, playAyahAudio, currentReciterObj, setReciterModalVisible, toggleBookmark, isBookmarked, handleShareAyah, handleCopyAyah, setAyahNoteText, ayahNotes, ayahNoteKey, setAyahNoteModalVisible }) => {
   const p = usePalette();
   const { t, isRTL, lang } = useApp();
   const en = lang === 'en';
@@ -128,6 +129,8 @@ export const AyahActionSheet: React.FC<AyahActionSheetProps> = ({ actionModalVis
                 setAyahNoteModalVisible(true);
               }
             )}
+
+            {row('copy', t('نسخ الآية', 'Copy the verse'), () => { if (activeAyah) handleCopyAyah(activeAyah); })}
 
             {row('share-2', t('مشاركة الآية الكريمة', 'Share the verse'), () => { if (activeAyah) handleShareAyah(activeAyah); })}
 

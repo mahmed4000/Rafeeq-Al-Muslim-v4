@@ -12,6 +12,7 @@ import { toArabicNumber } from '../services/prayerCalculation';
 import { searchQuranUniversal, splitTextForHighlight, VerseSearchResult } from '../services/quranSearch';
 import { getUiLanguage } from '../i18n/language';
 import { useFocusEffect } from 'expo-router';
+import { useScreenParams } from '../navigation/routes';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ProgressRing } from '../components/ui/ProgressRing';
@@ -79,6 +80,14 @@ export const QuranIndexScreen: React.FC = () => {
   };
   const surahType = (type: string) => (en ? (type === 'مدنية' ? 'Medinan' : type === 'مكية' ? 'Meccan' : type) : type);
   const [activeTab, setActiveTab] = useState<IndexTab>('surah');
+  // Opened from the reader's "⋯" menu with tab=bookmarks (`at` changes on every request).
+  const screenParams = useScreenParams();
+  const tabRequest = screenParams?.tab === 'bookmarks' ? `${screenParams.at ?? ''}` : '';
+  const [handledTabRequest, setHandledTabRequest] = useState('');
+  if (tabRequest && tabRequest !== handledTabRequest) {
+    setHandledTabRequest(tabRequest);
+    setActiveTab('bookmarks');
+  }
   const [search, setSearch] = useState('');
   const [selectedReciter, setSelectedReciter] = useState(QURAN_RECITERS[0].id);
   const [reciterModalVisible, setReciterModalVisible] = useState(false);
