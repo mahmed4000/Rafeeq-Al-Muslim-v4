@@ -24,6 +24,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="prayer-times" />
       <Tabs.Screen name="quran" />
       <Tabs.Screen name="azkar" />
+      <Tabs.Screen name="library" />
+      {/* Opened from the library; it has no button of its own (the library one stays lit) */}
       <Tabs.Screen name="haramain" />
     </Tabs>
   );

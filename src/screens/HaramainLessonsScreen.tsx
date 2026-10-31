@@ -126,7 +126,13 @@ export const HaramainLessonsScreen: React.FC = () => {
       >
         {/* Title and downloads */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TextUI size={26} weight="bold" color={p.ink}>{t('دروس الحرمين', 'Haramain Lessons')}</TextUI>
+          {/* Opened from the library tab: the arrow goes back to it */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('رجوع إلى المكتبة', 'Back to the library')} onPress={() => navigate('library')} style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={p.primary} />
+            </TouchableOpacity>
+            <TextUI size={26} weight="bold" color={p.ink} numberOfLines={1}>{t('دروس الحرمين', 'Haramain Lessons')}</TextUI>
+          </View>
           <TouchableOpacity
             activeOpacity={0.8}
             accessibilityRole="button"

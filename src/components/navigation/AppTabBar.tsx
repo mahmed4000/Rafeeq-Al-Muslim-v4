@@ -6,19 +6,23 @@ import { TextUI } from '../common/TextUI';
 import { makeShadow } from '../../constants/tokens';
 import { usePalette } from '../../theme/palette';
 
-// Route names in src/app/(tabs), in display order.
+// Route names in src/app/(tabs), in display order. «الحرمين» lives inside the library.
 const TAB_ITEMS: Record<string, { labelAr: string; labelEn: string; icon: React.ComponentProps<typeof Feather>['name'] }> = {
   index: { labelAr: 'اليوم', labelEn: 'Today', icon: 'sun' },
   'prayer-times': { labelAr: 'الصلاة', labelEn: 'Prayer', icon: 'clock' },
-  quran: { labelAr: 'القرآن', labelEn: 'Quran', icon: 'book-open' },
+  quran: { labelAr: 'المصحف', labelEn: 'Quran', icon: 'book-open' },
   azkar: { labelAr: 'الأذكار', labelEn: 'Azkar', icon: 'heart' },
-  haramain: { labelAr: 'الحرمين', labelEn: 'Haramain', icon: 'headphones' }
+  library: { labelAr: 'المكتبة', labelEn: 'Library', icon: 'book' }
 };
+// Tab routes without a button, and the button that stays lit while they are open.
+const TAB_PARENT: Record<string, string> = { haramain: 'library' };
 
-/** Bottom tab bar from the approved design (TabBar artboard). */
+/** Bottom tab bar from the approved design (V3TabBar artboard). */
 export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
   const { triggerHaptic, t } = useApp();
   const p = usePalette();
+  const currentName = state.routes[state.index]?.name;
+  const litName = TAB_PARENT[currentName] || currentName;
 
   return (
     <View
@@ -39,7 +43,7 @@ export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
       {state.routes.map((route: any, index: number) => {
         const item = TAB_ITEMS[route.name];
         if (!item) return null;
-        const isActive = state.index === index;
+        const isActive = route.name === litName;
         const label = t(item.labelAr, item.labelEn);
 
         return (
@@ -52,7 +56,7 @@ export const AppTabBar: React.FC<any> = ({ state, navigation }) => {
             onPress={() => {
               triggerHaptic('light');
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!isActive && !event.defaultPrevented) navigation.navigate(route.name);
+              if (route.name !== currentName && !event.defaultPrevented) navigation.navigate(route.name);
             }}
             style={{
               minWidth: 64,
