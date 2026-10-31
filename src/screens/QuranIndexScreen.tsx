@@ -401,6 +401,23 @@ export const QuranIndexScreen: React.FC = () => {
             : t(`وِرد اليوم: بقي ${toArabicNumber(khatmaProgress.todayTarget - khatmaProgress.readToday)} من ${toArabicNumber(khatmaProgress.todayTarget)} صفحات`, `Today: ${khatmaProgress.todayTarget - khatmaProgress.readToday} of ${khatmaProgress.todayTarget} pages left`)}
         </TextUI>
         <TextUI size={14} weight="bold" color={p.primary}>{t(`تابع من صفحة ${toArabicNumber(khatmaProgress.nextPage)}`, `Continue from page ${khatmaProgress.nextPage}`)}</TextUI>
+        {khatmaProgress.readToday < khatmaProgress.todayTarget ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => {
+              triggerHaptic('light');
+              const page = khatmaProgress.nextPage;
+              const until = Math.min(604, page + khatmaProgress.todayTarget - khatmaProgress.readToday - 1);
+              const surah = QURAN_DATA.find((s) => s.pageMetadata?.some((m: any) => Number(m.pageNum) === page)) || QURAN_DATA[0];
+              setSelectedSurah(surah);
+              navigate('quran_reader', { readingMode: 'page', startPage: page, startSurahId: surah.id, reciterId: selectedReciter, autoPlay: true, untilPage: Math.max(page, until) });
+            }}
+            style={{ alignSelf: 'flex-start', minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
+            <Feather name="headphones" size={14} color={p.primary} />
+            <TextUI size={13.5} weight="bold" color={p.primary}>{t('استمع حتى نهاية الورد', "Listen to the end of today's portion")}</TextUI>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </TouchableOpacity>
   ) : null;

@@ -33,6 +33,8 @@ export interface ReaderPlayerProps {
   onStop: () => void;
   /** Distance from the screen bottom; raised above the toolbar while the bars show. */
   bottom: number;
+  /** Reciting today's khatma portion: its label and the pages done of the total. */
+  portion?: { label: string; done: number; total: number };
 }
 
 /** Height of the reader's bottom toolbar, including the iPhone home-indicator space. */
@@ -82,7 +84,7 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({ isPlaying, isLoadi
 export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
   reciterName, ayahNumber, totalAyahs, ayahRepeats, speed, isPlaying, isLoading, progressRatio,
   elapsedLabel, remainingLabel, autoScroll, scrollSpeedIndex, onScrollSpeed, onStopAutoScroll,
-  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom
+  onSeek, onTogglePlay, onSkip, onCycleSpeed, onOpenRepeat, onOpenTafsir, onOpenReciter, onStop, bottom, portion
 }) => {
   const p = usePalette();
   const { triggerHaptic, t, isRTL } = useApp();
@@ -165,15 +167,24 @@ export const ReaderPlayer: React.FC<ReaderPlayerProps> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {playButton(44)}
               <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('عرض كل أدوات التلاوة', 'Show all recitation controls')} onPress={toggleExpanded} style={{ flex: 1, minHeight: 44, justifyContent: 'center' }}>
-                <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{reciterName}</TextUI>
-                <TextUI size={12.5} color={p.muted} numberOfLines={1}>{ayahLine}</TextUI>
+                <TextUI size={14} weight="bold" color={p.ink} numberOfLines={1}>{portion ? `${reciterName} · ${ayahLine}` : reciterName}</TextUI>
+                <TextUI size={12.5} color={p.muted} numberOfLines={1}>{portion ? portion.label : ayahLine}</TextUI>
               </TouchableOpacity>
               {iconButton('chevron-up', t('عرض كل أدوات التلاوة', 'Show all recitation controls'), toggleExpanded, p.muted)}
               {iconButton('x', t('إيقاف التلاوة وإخفاء المشغّل', 'Stop recitation and hide player'), onStop, p.muted)}
             </View>
-            <View style={{ height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border, marginBottom: 2 }}>
-              <View style={{ height: 3, backgroundColor: p.accent, width: progressPercent }} />
-            </View>
+            {portion && portion.total <= 20 ? (
+              // One segment per page of today's portion
+              <View style={{ flexDirection: 'row', gap: 3, paddingHorizontal: 4, marginBottom: 2 }}>
+                {Array.from({ length: portion.total }, (_, i) => (
+                  <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i < portion.done ? p.accent : i === portion.done ? p.primary : p.border }} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: p.border, marginBottom: 2 }}>
+                <View style={{ height: 3, backgroundColor: p.accent, width: portion ? `${Math.min(100, (portion.done / Math.max(1, portion.total)) * 100)}%` : progressPercent }} />
+              </View>
+            )}
           </>
         ) : (
         <>

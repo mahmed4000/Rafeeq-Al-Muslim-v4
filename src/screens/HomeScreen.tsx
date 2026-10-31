@@ -469,10 +469,11 @@ export const HomeScreen: React.FC = () => {
     );
   };
 
-  const listenAt = (surahId: number, page?: number, ayah?: number) => {
+  // `untilPage`: recite today's khatma portion and stop at its last page.
+  const listenAt = (surahId: number, page?: number, ayah?: number, untilPage?: number) => {
     const surah = surahById(surahId);
     setSelectedSurah(surah);
-    navigate('quran_reader', { readingMode: 'page', startPage: page || surah.mushafPageStart || 1, startSurahId: surah.id, startAyah: ayah, autoPlay: true });
+    navigate('quran_reader', { readingMode: 'page', startPage: page || surah.mushafPageStart || 1, startSurahId: surah.id, startAyah: ayah, autoPlay: true, untilPage });
   };
 
   const renderContinue = () => {
@@ -492,7 +493,7 @@ export const HomeScreen: React.FC = () => {
           percent={progress.todayTarget > 0 ? (done / progress.todayTarget) * 100 : progress.percent}
           note={t(`${toArabicNumber(done)} من ${toArabicNumber(progress.todayTarget)}`, `${done} of ${progress.todayTarget}`)}
           onRead={() => openReaderAtPage(progress.nextPage)}
-          onListen={() => listenAt(surah.id, progress.nextPage)}
+          onListen={() => listenAt(surah.id, progress.nextPage, undefined, Math.max(progress.nextPage, end))}
           onMore={() => navigate('khatma')}
           moreLabel={t(`الختمة ${toArabicNumber(progress.percent)}٪ · التفاصيل`, `Khatma ${progress.percent}% · details`)}
         />

@@ -146,6 +146,9 @@ export const QuranReaderScreen: React.FC = () => {
   const [reciterModalVisible, setReciterModalVisible] = useState(false);
   const [playbackSettingsVisible, setPlaybackSettingsVisible] = useState(false);
   const [playbackSettings, setPlaybackSettings] = useState<PlaybackSettings>(DEFAULT_PLAYBACK_SETTINGS);
+  // Reciting today's khatma portion (pages fromPage..untilPage); `portionDone` shows the end note.
+  const [portion, setPortion] = useState<{ fromPage: number; untilPage: number } | null>(null);
+  const [portionDone, setPortionDone] = useState(false);
   const [playbackSettingsLoaded, setPlaybackSettingsLoaded] = useState(false);
   const [playingAyahNum, setPlayingAyahNum] = useState<number | null>(null);
   const [playingSurahId, setPlayingSurahId] = useState<number | null>(null);
@@ -175,7 +178,7 @@ export const QuranReaderScreen: React.FC = () => {
   const [measuredAyahDurations, setMeasuredAyahDurations] = useState<Record<string, number>>({});
   const audioPlayerRef = useRef<any>(null);
   const webAudioRef = useRef<any>(null);
-  const playbackSequenceRef = useRef<{ verses: QuranVerse[]; startIndex: number; cursor: number; repeatsLeft: number; ayahRepeatsLeft: number; settings: PlaybackSettings } | null>(null);
+  const playbackSequenceRef = useRef<{ verses: QuranVerse[]; startIndex: number; cursor: number; repeatsLeft: number; ayahRepeatsLeft: number; settings: PlaybackSettings; untilPage?: number } | null>(null);
   const sequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoPlayHandledRef = useRef(false);
   const lastAutoPlaySurahRef = useRef<number | null>(null);
@@ -484,6 +487,7 @@ export const QuranReaderScreen: React.FC = () => {
   const stopAudio = () => {
     try {
       playbackSequenceRef.current = null;
+      setPortion(null);
       if (sequenceTimerRef.current) {
         clearTimeout(sequenceTimerRef.current);
         sequenceTimerRef.current = null;
@@ -537,6 +541,11 @@ export const QuranReaderScreen: React.FC = () => {
         return;
       }
     } else {
+      // A khatma portion that reached its last page says so.
+      if (sequence.untilPage) {
+        setPortion(null);
+        setPortionDone(true);
+      }
       playbackSequenceRef.current = null;
       setPlayingAyahNum(null);
       setPlayingSurahId(null);
@@ -630,7 +639,9 @@ export const QuranReaderScreen: React.FC = () => {
     }
   };
 
-  const playAyahAudio = async (verse: QuranVerse) => {
+  // `untilPage`: recite today's khatma portion, from this ayah through the end of that page,
+  // across surahs, then stop (the playback range and repeats don't apply).
+  const playAyahAudio = async (verse: QuranVerse, untilPage?: number) => {
     triggerHaptic('light');
     stopAudio();
     if (verse.surahId !== currentSurah.id) {
@@ -639,19 +650,24 @@ export const QuranReaderScreen: React.FC = () => {
     }
     const allVerses = getAllQuranVerses();
     let scopedVerses = allVerses;
-    if (playbackSettings.range === 'surah') scopedVerses = allVerses.filter((item) => item.surahId === verse.surahId);
-    if (playbackSettings.range === 'page') scopedVerses = allVerses.filter((item) => item.pageNum === verse.pageNum);
-    if (playbackSettings.range === 'juz') scopedVerses = allVerses.filter((item) => item.juzNum === verse.juzNum);
+    if (untilPage) scopedVerses = allVerses.filter((item) => (item.pageNum || 0) >= (verse.pageNum || 0) && (item.pageNum || 0) <= untilPage);
+    else if (playbackSettings.range === 'surah') scopedVerses = allVerses.filter((item) => item.surahId === verse.surahId);
+    else if (playbackSettings.range === 'page') scopedVerses = allVerses.filter((item) => item.pageNum === verse.pageNum);
+    else if (playbackSettings.range === 'juz') scopedVerses = allVerses.filter((item) => item.juzNum === verse.juzNum);
     const startIndex = scopedVerses.findIndex((item) => item.surahId === verse.surahId && item.ayahNumber === verse.ayahNumber);
     if (startIndex < 0) return;
+    const settings = untilPage ? { ...playbackSettings, rangeRepeats: 1, stopAtRangeEnd: true } : playbackSettings;
     playbackSequenceRef.current = {
       verses: scopedVerses,
       startIndex,
       cursor: startIndex,
-      repeatsLeft: playbackSettings.rangeRepeats - 1,
-      ayahRepeatsLeft: playbackSettings.ayahRepeats - 1,
-      settings: playbackSettings
+      repeatsLeft: settings.rangeRepeats - 1,
+      ayahRepeatsLeft: settings.ayahRepeats - 1,
+      settings,
+      untilPage
     };
+    setPortionDone(false);
+    setPortion(untilPage && verse.pageNum ? { fromPage: verse.pageNum, untilPage } : null);
     startSequenceVerse(verse);
   };
 
@@ -664,14 +680,21 @@ export const QuranReaderScreen: React.FC = () => {
     setActiveAyah((prev) => (prev && prev.surahId !== currentSurah.id ? null : prev));
   }, [currentSurah.id, playingSurahId]);
 
+  // Opened with autoPlay: start at the given ayah, else at the first ayah of the given page,
+  // else at the surah's start (it used to always start at the surah's first ayah).
   useEffect(() => {
     if (!screenParams?.autoPlay) return;
     if (lastAutoPlaySurahRef.current === currentSurah.id) return;
     lastAutoPlaySurahRef.current = currentSurah.id;
-    const firstVerse = parseSurahVerses(currentSurah).verses[0];
-    if (firstVerse) {
+    const verses = parseSurahVerses(currentSurah).verses;
+    const wantedAyah = Number(screenParams?.startAyah) || 0;
+    const wantedPage = Number(screenParams?.startPage) || 0;
+    const startVerse = (wantedAyah && verses.find((v) => v.ayahNumber === wantedAyah))
+      || (wantedPage && getAllQuranVerses().find((v) => v.pageNum === wantedPage))
+      || verses[0];
+    if (startVerse) {
       autoPlayHandledRef.current = true;
-      playAyahAudio(firstVerse);
+      playAyahAudio(startVerse, Number(screenParams?.untilPage) || undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenParams?.autoPlay, currentSurah.id]);
@@ -1949,7 +1972,30 @@ export const QuranReaderScreen: React.FC = () => {
           onOpenTafsir={() => openAyahTafsir(parsedSurah.verses.find((v) => v.ayahNumber === currentAyahNum) || activeAyah)}
           onOpenReciter={() => setReciterModalVisible(true)}
           onStop={() => { stopAudio(); setAutoScroll(false); }}
+          portion={portion ? (() => {
+            const playingPage = (playingAyahNum != null && parsedSurah.verses.find((v) => v.ayahNumber === playingAyahNum)?.pageNum) || portion.fromPage;
+            return {
+              label: t(`حتى نهاية ورد اليوم · ص ${toArabicNumber(portion.untilPage)}`, `To the end of today's portion · p. ${portion.untilPage}`),
+              total: portion.untilPage - portion.fromPage + 1,
+              done: Math.max(0, playingPage - portion.fromPage)
+            };
+          })() : undefined}
         />
+      ) : null}
+
+      {/* End of today's portion */}
+      {portionDone ? (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={t('أتممت ورد اليوم. إغلاق', "Today's portion is done. Close")}
+          onPress={() => setPortionDone(false)}
+          style={{ position: 'absolute', left: 16, right: 16, bottom: Platform.OS === 'ios' ? 34 : 18, minHeight: 56, borderRadius: 18, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: p.hero, zIndex: 30, elevation: 8 }}
+        >
+          <Feather name="check-circle" size={20} color="#E2B276" />
+          <TextUI size={15} weight="bold" color={p.onHero} style={{ flex: 1 }}>{t('أتممت ورد اليوم، بارك الله فيك', "Today's portion is done, may Allah bless you")}</TextUI>
+          <Feather name="x" size={18} color={p.onHeroMuted} />
+        </TouchableOpacity>
       ) : null}
 
       <PlaybackSettingsSheet playbackSettingsVisible={playbackSettingsVisible} setPlaybackSettingsVisible={setPlaybackSettingsVisible} playbackSettings={playbackSettings} updatePlaybackSettings={updatePlaybackSettings} audioPlayerRef={audioPlayerRef} webAudioRef={webAudioRef} />
