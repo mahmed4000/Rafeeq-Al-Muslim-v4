@@ -1406,33 +1406,45 @@ export const QuranReaderScreen: React.FC = () => {
             );
           }
           const words = wordsByLine.get(lineNumber) || [];
+          const centered = pageNumber <= 2;
           return (
             <View
               key={`l-${lineNumber}`}
               onLayout={(event) => { lineOffsetsRef.current[`${pageNumber}:${lineNumber}`] = event.nativeEvent.layout.y; }}
-              style={{ direction: 'rtl', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', height: lineHeight, justifyContent: pageNumber <= 2 ? 'center' : 'space-between' }}
+              style={{ direction: 'rtl', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch', height: lineHeight, justifyContent: centered ? 'center' : 'flex-start' }}
             >
               {words.map((word, index) => {
                 const verse = verseByKey.get(word.verseKey);
                 const isPlaying = !!verse && playingAyahNum === verse.ayahNumber && playingSurahId === verse.surahId;
                 const isMarked = !!verse && (isBookmarked(verse) ||
                   (Number(screenParams?.startSurahId) === verse.surahId && Number(screenParams?.startAyah) === verse.ayahNumber));
+                // Each word sits in a cell that takes its share of the line's spare width, so a
+                // highlighted ayah is one continuous band with no gaps between its words. The edge
+                // words take half a share and hug the margins, which spaces the words exactly as
+                // space-between did.
+                const isEdge = index === 0 || index === words.length - 1;
+                const align = centered ? 'center'
+                  : index === 0 ? 'flex-start'
+                  : index === words.length - 1 ? 'flex-end' : 'center';
                 return (
-                  <Text
+                  <View
                     key={`w-${lineNumber}-${index}`}
-                    onPress={handleReaderTap}
-                    onLongPress={verse ? () => { triggerHaptic('medium'); handleOpenAyahAction(verse); } : undefined}
                     style={{
-                      fontFamily: family,
-                      fontSize,
-                      lineHeight,
-                      color: p.ink,
-                      paddingHorizontal: pageNumber <= 2 ? 2 : 0,
+                      flexGrow: centered ? 0 : words.length === 1 ? 1 : isEdge ? 0.5 : 1,
+                      flexShrink: 0,
+                      alignItems: align,
+                      justifyContent: 'center',
                       backgroundColor: isPlaying ? 'rgba(198, 146, 85, 0.35)' : isMarked ? 'rgba(212, 163, 115, 0.25)' : undefined,
                     }}
                   >
-                    {word.code}
-                  </Text>
+                    <Text
+                      onPress={handleReaderTap}
+                      onLongPress={verse ? () => { triggerHaptic('medium'); handleOpenAyahAction(verse); } : undefined}
+                      style={{ fontFamily: family, fontSize, lineHeight, color: p.ink, paddingHorizontal: centered ? 2 : 0 }}
+                    >
+                      {word.code}
+                    </Text>
+                  </View>
                 );
               })}
             </View>
