@@ -11,7 +11,7 @@ import { skyPhase } from '../components/home/SkyArch';
 import { SceneBackdrop, SCENE_HEIGHT } from '../components/home/SceneHeader';
 import { MushafCover } from '../components/home/MushafCover';
 import { usePalette, Palette, PALETTE } from '../theme/palette';
-import { getFullDateInfo, weekdayName, hijriDayShift } from '../services/hijriDate';
+import { getFullDateInfo, weekdayName, hijriDayShift, getHijriParts } from '../services/hijriDate';
 import { toArabicNumber, PrayerTimeValues, calculateAccuratePrayerTimes, computeNightTimes } from '../services/prayerCalculation';
 import { DailyWirdCard, WirdRow } from '../components/home/DailyWirdCard';
 import { DailyWirdService, WirdAuto, WirdItem } from '../services/dailyWird';
@@ -24,6 +24,8 @@ import { PRAYER_KEYS, PRAYER_NAMES_AR, PrayerKey, PRE_ADHAN_DEFAULT_MINUTES, Not
 import { surahById, surahForPage } from '../services/quranPages';
 import { forHafsFont, parseSurahVerses } from '../services/quranParser';
 import { DAILY_AYAT } from '../data/dailyAyat';
+import { findRamadan, ramadanDay } from '../services/ramadan';
+import { LinearGradient } from 'expo-linear-gradient';
 import { cityNow, differsFromDevice } from '../services/cityTime';
 import { AudioService, LessonResumeRecord } from '../services/audioService';
 import { MAKKAH_MOSQUE_COURSES, PROPHET_MOSQUE_COURSES } from '../data/haramainData';
@@ -330,7 +332,16 @@ export const HomeScreen: React.FC = () => {
   const headerKey = headerMode === 'since' ? sincePrayer!.key : upcoming.key;
   const headerName = headerTimeName(headerKey);
   const tomorrow = headerMode === 'countdown' && !secondsFromNow.some(({ diff }) => diff > 0);
-  const headerLabel = headerMode === 'since'
+  // Ramadan: today's fasting day (0 outside it), and the coming Ramadan for the "days left" card.
+  const todayKeyForRamadan = now.toDateString();
+  const rDay = useMemo(() => ramadanDay(now, hijriAdjust), [todayKeyForRamadan, hijriAdjust]); // eslint-disable-line react-hooks/exhaustive-deps
+  const comingRamadan = useMemo(() => (rDay ? null : findRamadan(now, hijriAdjust)), [todayKeyForRamadan, hijriAdjust, rDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  const daysToRamadan = comingRamadan?.days[0]
+    ? Math.round((comingRamadan.days[0].getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12).getTime()) / 86400000)
+    : 0;
+  const headerLabel = rDay && headerMode === 'countdown' && headerKey === 'maghrib'
+    ? t('الإفطار بعد', 'Iftar in')
+    : headerMode === 'since'
     ? (headerKey === 'sunrise' ? t(`${headerName} منذ`, `${headerName} was`) : t(`أذان ${headerName} منذ`, `${headerName} adhan was`))
     // In the last 5 minutes (when the pre-adhan alert fires): "Maghrib shortly", still counting down.
     : upcoming.diff <= PRE_ADHAN_DEFAULT_MINUTES * 60 ? t(`${headerName} بعد قليل`, `${headerName} shortly`)
@@ -418,6 +429,45 @@ export const HomeScreen: React.FC = () => {
     const name = weekdayName(d.getDay());
     return { key, count, name, isToday: key === today, isFuture: key > today };
   });
+
+  // Ramadan day card: countdown to iftar by day, to imsak (10 min before Fajr) by night.
+  const renderRamadanCard = () => {
+    const fajrSec = toMin(prayerTimes.fajr) * 60;
+    const maghribSec = toMin(prayerTimes.maghrib) * 60;
+    const imsakSec = fajrSec - 10 * 60;
+    const fasting = nowSec >= imsakSec && nowSec < maghribSec;
+    const toIftar = maghribSec - nowSec;
+    const toImsak = nowSec < imsakSec ? imsakSec - nowSec : imsakSec + 86400 - nowSec;
+    return (
+      <View style={{ borderRadius: 22, overflow: 'hidden' }}>
+        <LinearGradient colors={['#0F1428', '#1E2747', '#3A3355']} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+        <View style={{ padding: 16, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Svg width={40} height={40} viewBox="0 0 40 40">
+              <Path d="M28 31 a14 14 0 1 1 -10 -25 a11 11 0 1 0 10 25z" fill="#F4E6C4" />
+              <Path d="M8 2 V9 M6 9 h4 l-1 6 h-2z" stroke="#C69255" strokeWidth={1.2} fill="#E8B86A" />
+            </Svg>
+            <View style={{ flex: 1 }}>
+              <TextUI size={13} color="#C9C2D8">{t(`رمضان ${toArabicNumber(getHijriParts(now, hijriAdjust).year)}`, 'Ramadan')}</TextUI>
+              <TextUI size={18} weight="bold" color="#F4E6C4">{t(`اليوم ${toArabicNumber(rDay)} من رمضان`, `Day ${rDay} of Ramadan`)}</TextUI>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <TextUI size={12.5} color="#C9C2D8">{fasting ? t('الإفطار بعد', 'Iftar in') : t('الإمساك بعد', 'Imsak in')}</TextUI>
+              <TextUI size={20} weight="bold" color="#FFFFFF">{hms(fasting ? toIftar : toImsak)}</TextUI>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => { triggerHaptic('light'); navigate('imsakiah'); }} style={{ flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E2B276' }}>
+              <TextUI size={14.5} weight="bold" color="#1E2747">{t('الإمساكية', 'Imsakiah')}</TextUI>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" onPress={() => { triggerHaptic('light'); navigate('khatma'); }} style={{ flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(244,230,196,0.6)' }}>
+              <TextUI size={14.5} weight="bold" color="#F4E6C4">{progress && !progress.isComplete ? t('ختمتي', 'My khatma') : t('ختمة رمضان', 'Ramadan khatma')}</TextUI>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderNowCard = () => {
     let icon: keyof typeof Feather.glyphMap = 'book-open';
@@ -658,6 +708,20 @@ export const HomeScreen: React.FC = () => {
 
       {/* Sheet over the scene */}
       <View style={{ marginTop: -26, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: p.bg, paddingHorizontal: 16, paddingTop: 18, gap: 16 }}>
+
+      {rDay ? renderRamadanCard() : daysToRamadan > 0 && daysToRamadan <= 30 ? (
+        <TouchableOpacity activeOpacity={0.88} accessibilityRole="button" onPress={() => { triggerHaptic('light'); navigate('imsakiah'); }} style={{ borderRadius: 20, overflow: 'hidden' }}>
+          <LinearGradient colors={['#1E2747', '#3A3355']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+            <Svg width={34} height={34} viewBox="0 0 34 34"><Path d="M24 26 a12 12 0 1 1 -9 -21 a9 9 0 1 0 9 21z" fill="#F4E6C4" /></Svg>
+            <View style={{ flex: 1 }}>
+              <TextUI size={16} weight="bold" color="#F4E6C4">{t(`رمضان بعد ${toArabicNumber(daysToRamadan)} ${daysToRamadan >= 3 && daysToRamadan <= 10 ? 'أيام' : 'يومًا'}`, `Ramadan in ${daysToRamadan} days`)}</TextUI>
+              <TextUI size={13} color="#C9C2D8">{t('تقديرًا بتقويم أم القرى · افتح الإمساكية', 'Estimated by Umm al-Qura · open the imsakiah')}</TextUI>
+            </View>
+            <Feather name={forwardIcon} size={18} color="#C9C2D8" />
+          </View>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Times card: date with day arrows, the six times, and the night times */}
       <View style={{ borderRadius: 20, padding: 10, gap: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }}>
